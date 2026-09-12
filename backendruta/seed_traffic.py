@@ -2,17 +2,13 @@
 minuto a minuto para Monterrey entre las 14:00 y las 16:00, incluyendo el incidente
 crítico a las 14:35 para la demostración del agente.
 """
-import random
-from datetime import datetime, date, time
-import logging
-from typing import List, Dict, Any
 
-from backendruta.database import (
-    init_db,
-    save_traffic_batch,
-    save_incident,
-    is_connected
-)
+import logging
+import random
+from datetime import date, datetime, time
+from typing import Any
+
+from backendruta.database import init_db, save_traffic_batch
 
 logger = logging.getLogger("seed_traffic")
 logging.basicConfig(level=logging.INFO)
@@ -51,7 +47,7 @@ def get_calles_principales() -> List[str]:
 def generar_datos_simulacion():
     """Genera 120 minutos de tráfico (14:00 - 16:00) con fluctuaciones aleatorias leves."""
     hoy = date.today()
-    registros: List[Dict[str, Any]] = []
+    registros: list[dict[str, Any]] = []
     
     avenidas_reales = get_calles_principales()
 
@@ -70,7 +66,7 @@ def generar_datos_simulacion():
             # Ruido aleatorio (baja sensibilidad)
             ruido = random.uniform(0.0, 0.4)
             factor_retraso = round(base_retraso + ruido, 2)
-            
+
             # Velocidad y delay en base al factor
             velocidad = int(50 / factor_retraso)
             delay = int((factor_retraso - 1.0) * 120)  # Delay base
@@ -90,12 +86,14 @@ def generar_datos_simulacion():
                 "coords": []  # Ya no usamos coords estáticas, el frontend colorea por nombre
             })
 
-    # Guardar en lotes de 1000 registros
+    # Guardar en lotes de 5000 registros
     logger.info(f"Guardando {len(registros)} registros de tráfico base (random)...")
     for i in range(0, len(registros), 5000):
         save_traffic_batch(registros[i:i + 5000])
 
-    logger.info("Población de datos base completada exitosamente. (Incidentes se inyectarán vía API).")
+    logger.info(
+        "Población de datos base completada exitosamente. (Incidentes se inyectarán vía API)."
+    )
 
 
 def seed_all():

@@ -2,10 +2,11 @@ import asyncio
 import json
 import pickle
 import sys
+from collections.abc import Callable
 from dataclasses import asdict
 from datetime import datetime
 from pathlib import Path
-from typing import List, Optional
+from typing import Any
 
 from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
@@ -16,11 +17,9 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(BASE_DIR))
 
 import contrato  # noqa: E402
+from backendruta import database, seed_traffic  # noqa: E402
 from data.export_geojson import route_to_geojson  # noqa: E402
 from mundo import ZONAS  # noqa: E402
-
-from backendruta import database  # noqa: E402
-from backendruta import seed_traffic  # noqa: E402
 
 app = FastAPI(
     title="Nuez Copiloto API",
@@ -37,7 +36,7 @@ class IncidenteInput(BaseModel):
     factor_penalizacion: float = 99999.0
     motivo: str = ""
     alerta_voz: str = ""
-    coords: List[List[float]] = []
+    coords: list[list[float]] = []
 
 
 app.add_middleware(
@@ -122,7 +121,7 @@ def create_incident(inc: IncidenteInput):
         h_ini, m_ini = map(int, inc.inicio_hora.split(":"))
         h_fin, m_fin = map(int, inc.fin_hora.split(":"))
     except ValueError:
-        raise HTTPException(status_code=400, detail="Formato de hora inválido. Usa HH:MM")
+        raise HTTPException(status_code=400, detail="Formato de hora inválido. Usa HH:MM") from None
 
     inc_dict = {
         "id": inc.id,
@@ -140,7 +139,7 @@ def create_incident(inc: IncidenteInput):
 
 
 @app.get("/api/route")
-def get_route(origen: str, destino: str, hora: Optional[str] = None):
+def get_route(origen: str, destino: str, hora: str | None = None):
     if not G:
         raise HTTPException(status_code=500, detail="Grafo no cargado en el backend")
 
@@ -153,7 +152,7 @@ def get_route(origen: str, destino: str, hora: Optional[str] = None):
 
     active_incidents = database.get_active_incidents(hora) if hora else []
 
-    weight_param = "travel_time"
+    weight_param: str | Callable[[Any, Any, Any], float] = "travel_time"
     if active_incidents:
         penalizaciones = {}
         for inc in active_incidents:

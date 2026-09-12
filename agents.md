@@ -738,5 +738,15 @@ son cuatro inputs, no una app.
   y en `frontend/`: `npm run check`.
 - **Ningún archivo de código pasa de 500 líneas** (`python scripts/max_lines.py .`). Un archivo
   largo hace demasiado: se parte por responsabilidad, no por la mitad.
+- **`contrato.py` no cambia en silencio.** Es la costura entre los cuatro carriles. Si lo tocas:
+  `python scripts/contract_codegen.py --write` regenera `tests/contract_snapshot.json` y
+  `frontend/src/contract.ts` (los tipos que usa el front). El diff en el PR es el aviso al equipo.
+  El job "Contract Check" falla si no se regeneraron.
+- **El motor solo mejora.** `tests/test_engine_golden.py` fija el seed 1 del greedy y compara
+  contra `tests/engine_baseline.json` (greedy exacto, delta de Nuez nunca baja). Si un cambio
+  al mundo o al simulador es a propósito: `python scripts/engine_baseline.py --write` y
+  regrabar `python data/export_turno.py 1`.
+- **Versiones fijas.** Python en `.python-version`, Node en `frontend/.nvmrc`,
+  `requirements*.txt` con `==`. CI lee esos archivos; las laptops deberían también.
 - **Toda función pura nueva trae su test.** Python en `tests/`, front en `src/**/*.test.ts`.
   El simulador es determinista por seed: si un test necesita un turno, usa un seed fijo.
