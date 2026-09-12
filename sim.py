@@ -55,6 +55,8 @@ class Resultado:
     decisiones: list[Decision] = field(default_factory=list)
     ofertas: list[Oferta] = field(default_factory=list)
     trayecto: list[tuple[int, int, str]] = field(default_factory=list)  # (minuto, punto, tipo)
+    # Tramos recorridos, para que el front anime la moto: (t_salida, t_llegada, desde, hasta)
+    tramos: list[tuple[int, float, int, int]] = field(default_factory=list)
 
 
 # --- A3: generador de ofertas ------------------------------------------------
@@ -125,6 +127,7 @@ Politica = Callable[[Oferta, EstadoRepartidor, list[Parada], ConfigTurno],
 
 
 def simular(cfg: ConfigTurno, politica: Politica) -> Resultado:
+    """Corre un turno completo. Determinista: mismo cfg.seed = mismo resultado."""
     ofertas = generar_ofertas(cfg)
     por_minuto: dict[int, list[Oferta]] = {}
     for o in ofertas:
@@ -161,6 +164,7 @@ def simular(cfg: ConfigTurno, politica: Politica) -> Resultado:
                 nueva_ruta = [ruta[0]] + [p for p in nueva_ruta if p != ruta[0]]
             if not ruta and nueva_ruta:
                 t_llegada = t + rutas.minutos(pos, nueva_ruta[0].punto, hora)
+                res.tramos.append((t, t_llegada, pos, nueva_ruta[0].punto))
             ruta = nueva_ruta
             aceptadas[o.id] = o
             listo_en[o.id] = o.t_aparece + o.t_prep
@@ -182,6 +186,7 @@ def simular(cfg: ConfigTurno, politica: Politica) -> Resultado:
 
             if ruta:
                 t_llegada = t + rutas.minutos(pos, ruta[0].punto, hora)
+                res.tramos.append((t, t_llegada, pos, ruta[0].punto))
 
         # Regresar al ancla es obligacion de cualquier politica: si ya no queda
         # tiempo mas que para volver, el simulador encamina de regreso.
@@ -189,6 +194,7 @@ def simular(cfg: ConfigTurno, politica: Politica) -> Resultado:
             if t + rutas.minutos(pos, ancla, hora) >= cfg.duracion_min - cfg.margen_min:
                 ruta = [Parada("ancla", ancla)]
                 t_llegada = t + rutas.minutos(pos, ancla, hora)
+                res.tramos.append((t, t_llegada, pos, ancla))
 
         if ruta:
             res.minutos_ocupado += 1
