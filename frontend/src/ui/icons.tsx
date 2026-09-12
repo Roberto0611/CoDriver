@@ -67,4 +67,39 @@ export const Icon = {
       <path d="M15 6v12" />
     </svg>
   ),
+  moto: (
+    <svg viewBox="0 0 24 24" {...stroke}>
+      <circle cx="5" cy="17" r="3" />
+      <circle cx="19" cy="17" r="3" />
+      <path d="M5 14l3-7h4l3 7" />
+      <path d="M8 7h8l3 10" />
+    </svg>
+  ),
+  dollar: (
+    <svg viewBox="0 0 24 24" {...stroke}>
+      <path d="M12 2v20" />
+      <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
+    </svg>
+  ),
+  shield: (
+    <svg viewBox="0 0 24 24" {...stroke}>
+      <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+    </svg>
+  ),
+  skip: (
+    <svg viewBox="0 0 24 24" {...stroke}>
+      <path d="M18 6L6 18" />
+      <path d="M6 6l12 12" />
+    </svg>
+  ),
+  accept: (
+    <svg viewBox="0 0 24 24" {...stroke}>
+      <path d="M20 6L9 17l-5-5" />
+    </svg>
+  ),
+  speed: (
+    <svg viewBox="0 0 24 24" {...stroke}>
+      <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
+    </svg>
+  ),
 }

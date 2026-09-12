@@ -17,7 +17,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(BASE_DIR))
 
 import contrato  # noqa: E402
-from backendruta import courier_api, database, seed_traffic, voice  # noqa: E402
+from backendruta import database, seed_traffic, voice  # noqa: E402
 from data.export_geojson import route_to_geojson  # noqa: E402
 from mundo import ZONAS  # noqa: E402
 
@@ -26,7 +26,6 @@ app = FastAPI(
     description="API para el simulador y motor del repartidor Nuez",
 )
 app.include_router(voice.router)
-app.include_router(courier_api.router)
 
 
 class IncidenteInput(BaseModel):
@@ -211,7 +210,10 @@ def get_route(origen: str, destino: str, hora: str | None = None):
         feat_oracle["properties"]["to"] = destino
         feat_oracle["properties"]["hora"] = hora
 
-        return {"type": "FeatureCollection", "features": [feat_classic, feat_ai, feat_oracle]}
+        return {
+            "type": "FeatureCollection",
+            "features": [feat_classic, feat_ai, feat_oracle]
+        }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e)) from e
 

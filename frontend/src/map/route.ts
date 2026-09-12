@@ -50,9 +50,9 @@ export async function fetchRoute(
 }
 
 export function routeInfoOf(data: RouteGeoJSON): VSInfo {
-  const classicFeature = data.features.find((f) => f.properties.agent === 'classic')
-  const aiFeature = data.features.find((f) => f.properties.agent === 'ai')
-  const oracleFeature = data.features.find((f) => f.properties.agent === 'oracle')
+  const classicFeature = data.features.find(f => f.properties.agent === 'classic')
+  const aiFeature = data.features.find(f => f.properties.agent === 'ai')
+  const oracleFeature = data.features.find(f => f.properties.agent === 'oracle')
 
   const toInfo = (f: RouteFeature | undefined): RouteInfo | null => {
     if (!f) return null
@@ -62,14 +62,14 @@ export function routeInfoOf(data: RouteGeoJSON): VSInfo {
       to: f.properties.to,
       lengthKm: f.properties.length_km,
       timeMin: f.properties.time_min,
-      nodes: f.properties.nodes,
+      nodes: f.properties.nodes
     }
   }
 
   return {
     classic: toInfo(classicFeature),
     ai: toInfo(aiFeature),
-    oracle: toInfo(oracleFeature),
+    oracle: toInfo(oracleFeature)
   }
 }
 
@@ -100,13 +100,7 @@ export function drawRoute(
   map: maplibregl.Map,
   data: RouteGeoJSON,
   info: VSInfo,
-  markers: {
-    origin: maplibregl.Marker | null
-    destination: maplibregl.Marker | null
-    classicCar: maplibregl.Marker | null
-    aiCar: maplibregl.Marker | null
-    oracleCar?: maplibregl.Marker | null
-  }
+  markers: { origin: maplibregl.Marker | null; destination: maplibregl.Marker | null; classicCar: maplibregl.Marker | null; aiCar: maplibregl.Marker | null; oracleCar?: maplibregl.Marker | null }
 ) {
   const source = map.getSource('route') as maplibregl.GeoJSONSource | undefined
   source?.setData(data as unknown as GeoJSON)
@@ -119,16 +113,14 @@ export function drawRoute(
 
   const bounds = new maplibregl.LngLatBounds()
 
-  const classicFeature = data.features.find((f) => f.properties.agent === 'classic')
-  const aiFeature = data.features.find((f) => f.properties.agent === 'ai')
-  const oracleFeature = data.features.find((f) => f.properties.agent === 'oracle')
+  const classicFeature = data.features.find(f => f.properties.agent === 'classic')
+  const aiFeature = data.features.find(f => f.properties.agent === 'ai')
+  const oracleFeature = data.features.find(f => f.properties.agent === 'oracle')
 
   if (classicFeature && info.classic) {
     const coords = classicFeature.geometry.coordinates
     markers.origin = marker('origin', info.classic.from).setLngLat(coords[0]).addTo(map)
-    markers.destination = marker('destination', info.classic.to)
-      .setLngLat(coords[coords.length - 1])
-      .addTo(map)
+    markers.destination = marker('destination', info.classic.to).setLngLat(coords[coords.length - 1]).addTo(map)
     // Place classic car
     markers.classicCar = marker('classic', 'Agente Clásico').setLngLat(coords[0]).addTo(map)
     coords.forEach((c) => bounds.extend(c))

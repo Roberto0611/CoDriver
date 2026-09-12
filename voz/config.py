@@ -26,9 +26,9 @@ RAIZ = Path(__file__).resolve().parent.parent
 load_dotenv(RAIZ / ".env")
 
 
-@dataclass(frozen=True)
+@dataclass
 class Config:
-    api_key: str | None = field(default_factory=lambda: os.getenv("ELEVENLABS_API_KEY"))
+    _api_key: str | None = None
     voice_id: str = field(
         default_factory=lambda: os.getenv("NUEZ_VOICE_ID", "cgSgspJ2msm6clMCkdW9")
     )
@@ -45,9 +45,17 @@ class Config:
     similarity_boost: float = 0.75
     style: float = 0.3
     speed: float = 1.05
-    language: str = "en"
+    language: str | None = None
     cache_dir: Path = RAIZ / "cache" / "voz"
     timeout_s: float = 30.0
+
+    @property
+    def api_key(self) -> str | None:
+        key = self._api_key or os.getenv("ELEVENLABS_API_KEY")
+        if not key:
+            load_dotenv(RAIZ / ".env", override=True)
+            key = os.getenv("ELEVENLABS_API_KEY")
+        return key
 
     @property
     def voice_settings(self) -> dict[str, float | bool]:

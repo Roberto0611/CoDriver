@@ -36,10 +36,11 @@ def transcribir(
     url = f"{cfg.base_url}/v1/speech-to-text"
     datos = {
         "model_id": cfg.stt_model,
-        "language_code": cfg.language,
         "tag_audio_events": "false",
         "diarize": "false",
     }
+    if cfg.language:
+        datos["language_code"] = cfg.language
     archivos = {"file": (nombre, audio)}
 
     propio = client is None

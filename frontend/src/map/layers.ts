@@ -125,10 +125,10 @@ export function addRouteLayers(map: MLMap) {
     type: 'line',
     source: 'route',
     filter: ['==', ['get', 'agent'], 'oracle'],
-    paint: {
-      'line-color': '#fef08a',
+    paint: { 
+      'line-color': '#fef08a', 
       'line-width': zoomWidth(9, 2, 14, 4),
-      'line-dasharray': [2, 2],
+      'line-dasharray': [2, 2]
     },
     layout: ROUND,
   })

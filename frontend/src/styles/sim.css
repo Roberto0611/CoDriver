@@ -1,0 +1,370 @@
+/* Estilos del reproductor de turnos (/sim).
+   Tokens en tokens.css. Sin colores hex sueltos. */
+
+/* ─── Seed Selector ─── */
+.seed-selector {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.seed-selector-title {
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 14px;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--ink-2);
+}
+
+.seed-list {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.seed-btn {
+  height: 36px;
+  padding: 0 14px;
+  border-radius: var(--r-pill);
+  border: 1px solid var(--hairline);
+  background: var(--card);
+  color: var(--ink-2);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 150ms var(--ease);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.seed-btn:hover {
+  border-color: var(--hairline-strong);
+  color: var(--ink);
+}
+
+.seed-btn:active {
+  transform: scale(0.96);
+}
+
+.seed-btn.is-active {
+  background: var(--plum-tint);
+  border-color: var(--plum);
+  color: var(--plum);
+}
+
+.seed-delta {
+  font-size: 11px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum' 1;
+}
+
+.seed-delta.is-positive {
+  color: var(--emerald-ink);
+}
+
+.seed-delta.is-negative {
+  color: var(--rose-ink);
+}
+
+/* ─── Contadores ─── */
+.counters {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.counters-title {
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 14px;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--ink-2);
+  margin-bottom: 4px;
+}
+
+.counter-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1px;
+}
+
+.counter-agent {
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.counter-agent:first-child {
+  border-right: 1px solid var(--surface-high);
+}
+
+.counter-agent-label {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.counter-agent-label.is-greedy {
+  color: var(--amber-ink);
+}
+
+.counter-agent-label.is-nuez {
+  color: var(--indigo-ink);
+}
+
+.counter-value {
+  font-size: 22px;
+  font-weight: 600;
+  line-height: 28px;
+  letter-spacing: -0.02em;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum' 1;
+}
+
+.counter-value small {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--ink-3);
+  margin-left: 3px;
+  letter-spacing: 0;
+}
+
+.counter-sub {
+  font-size: 12px;
+  color: var(--ink-3);
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum' 1;
+}
+
+.counter-diff {
+  text-align: center;
+  padding: 6px 0;
+  font-size: 14px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum' 1;
+  border-top: 1px solid var(--surface-high);
+}
+
+.counter-diff.is-positive {
+  color: var(--emerald-ink);
+}
+
+.counter-diff.is-negative {
+  color: var(--rose-ink);
+}
+
+.counter-diff.is-neutral {
+  color: var(--ink-3);
+}
+
+/* ─── Decisiones ─── */
+.decisions {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-height: 280px;
+  overflow-y: auto;
+}
+
+.decisions-title {
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 14px;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--ink-2);
+  position: sticky;
+  top: 0;
+  background: var(--card);
+  padding: 4px 0;
+  z-index: 1;
+}
+
+.decision-item {
+  padding: 8px 0;
+  border-bottom: 1px solid var(--surface-high);
+  cursor: pointer;
+  transition: background 150ms var(--ease);
+}
+
+.decision-item:hover {
+  background: var(--surface-low);
+}
+
+.decision-item:active {
+  transform: scale(0.99);
+}
+
+.decision-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.decision-icon {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+}
+
+.decision-icon.is-accept {
+  color: var(--emerald-ink);
+}
+
+.decision-icon.is-skip {
+  color: var(--ink-3);
+}
+
+.decision-text {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--ink);
+  flex: 1;
+  min-width: 0;
+}
+
+.decision-time {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--ink-3);
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum' 1;
+  flex-shrink: 0;
+}
+
+.decision-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 20px;
+  padding: 0 8px;
+  border-radius: var(--r-sm);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  margin-top: 4px;
+  margin-left: 26px;
+}
+
+.decision-chip svg {
+  width: 12px;
+  height: 12px;
+}
+
+.decision-chip.is-safety {
+  background: var(--rose-tint);
+  color: var(--rose-ink);
+}
+
+.decision-chip.is-money {
+  background: var(--amber-tint);
+  color: var(--amber-ink);
+}
+
+.decision-detail {
+  font-size: 12px;
+  color: var(--ink-3);
+  margin-top: 4px;
+  margin-left: 26px;
+  line-height: 1.5;
+}
+
+/* ─── Speed selector ─── */
+.speed-selector {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.speed-btn {
+  height: 28px;
+  padding: 0 10px;
+  border-radius: var(--r-pill);
+  border: 1px solid var(--hairline);
+  background: var(--card);
+  color: var(--ink-3);
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 150ms var(--ease);
+}
+
+.speed-btn:hover {
+  border-color: var(--hairline-strong);
+  color: var(--ink);
+}
+
+.speed-btn:active {
+  transform: scale(0.96);
+}
+
+.speed-btn.is-active {
+  background: var(--plum-tint);
+  border-color: var(--plum);
+  color: var(--plum);
+}
+
+/* ─── Marcadores de moto ─── */
+.marker-moto {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid var(--card);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+.marker-moto svg {
+  width: 16px;
+  height: 16px;
+}
+
+.marker-moto.is-greedy {
+  background: var(--amber);
+  color: var(--card);
+}
+
+.marker-moto.is-nuez {
+  background: var(--indigo);
+  color: var(--card);
+}
+
+/* ─── Summary (fin del turno) ─── */
+.turno-summary {
+  padding: 10px 0 0;
+  border-top: 1px solid var(--surface-high);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.turno-summary-label {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--ink-2);
+}
+
+.turno-summary-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 13px;
+  color: var(--ink-2);
+}
+
+.turno-summary-row strong {
+  color: var(--ink);
+  font-weight: 600;
+}
