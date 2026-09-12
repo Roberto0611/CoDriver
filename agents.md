@@ -86,6 +86,7 @@ Esta sección es para quien retome el proyecto sin haber estado en la conversaci
 | `rutas.py` | La única puerta a preguntas de viaje. `minutos(i,j,hora)` y `km(i,j)`. Lee `data/matriz.pkl` (210 puntos) |
 | `seguridad.py` | **Las cinco restricciones del spec.** El archivo que el juez va a pedir abrir |
 | `seeds.py` | Los dos conjuntos de seeds, disjuntos y con nombre |
+| `seguridad.py` | Las cinco restricciones **y** `TOLERANCIA_MIN`, la holgura mínima del plan |
 | `shocks.py` | Las cuatro disrupciones. La **física**: cuánto se estira un tramo, cuánto sube el pago, cuánto se atrasa un pedido |
 | `backendruta/zonas.py` | La traducción entre zonas-entero (protocolo) y zonas-nombre (motor) |
 | `contrato.py` | El formato de todo lo que viaja entre piezas. No cambia en silencio (§13) |
@@ -298,41 +299,60 @@ El replay sale de los eventos `shock` del JSONL.
 de ofertas depende solo de `cfg.seed` y se escribe completo antes de que el agente decida nada, así
 que queda byte por byte idéntico: el número sin shocks no se mueve. Hay un test que lo fija.
 
+### Dos métricas, no una
+
+Aceptar algo que tu propia cuenta decía que no alcanzabas **es** romper la restricción de fin de
+turno. Llegar tarde porque empezó a llover **después** de aceptar es otra cosa. El protocolo pide
+que lo primero sea cero, y lo es.
+
+| | Qué mide | Sin shocks | Con shocks |
+|---|---|---|---|
+| `violaciones` | aceptó algo infactible según sus propios números | **0** | **0** |
+| `rebasaron el margen` | no volvió antes de `duración − margen` | 0 / 200 | 4 y 14 / 200 |
+
+`comparar.py` imprime los dos renglones por separado a propósito: un juez que ve una sola columna
+llamada "tarde" lee "violó la regla", y no es lo que pasó.
+
 ### Lo que salió de medir con disrupciones
 
 ```
-python comparar.py 200            greedy $200   NUEZ $259   +29.1%   0 tarde
-python comparar.py 200 --shocks   greedy $189   NUEZ $247   +30.6%   4 y 6 tarde
+python comparar.py 200            greedy $198   NUEZ $264   +33.5%   0 violaciones, 0 rebasados
+python comparar.py 200 --shocks   greedy $189   NUEZ $251   +32.9%   0 violaciones, 14 rebasados
 ```
 
 Los dos bajan, que es lo esperado: el mundo se puso más difícil. La diferencia entre columnas
 aguanta.
 
-**Pero hay violaciones, y hay que decirlo.** 6 de 200 turnos no vuelven a tiempo con disrupciones.
-En 5 de esos 6 el motor **sí detectó** que ya no alcanzaba y no pudo hacer nada: traía todo
-recogido. Un repartidor puede cancelar lo que no ha recogido; no puede tirar comida que ya carga.
-
-Lo que sí se implementó: **cancelar lo que todavía no se recoge**. Cada minuto se reproyecta la
-ruta con las condiciones de ahora, y si ya no cabe en el turno se sueltan los pedidos pendientes
-de recoger, del último al primero, hasta que vuelva a caber (`Resultado.cancelados`).
+Cuando una disrupción vuelve infactible un plan que sí lo era al aceptarlo, el motor **cancela lo
+que todavía no ha recogido**, del último al primero, hasta que vuelva a caber
+(`Resultado.cancelados`). Lo que ya trae en la mochila lo entrega: tirar comida no es una opción.
+Por eso quedan rebasados con shocks y no se pueden bajar a cero.
 
 **Lo que se probó y NO sirvió:** escalar el colchón de fin de turno con la severidad de la
-disrupción activa. Medido, 6 tarde → 7, y cuesta ~$2 por turno. El problema no es el margen al
-aceptar: es que el shock llega **después** de comprometerse. Revertido.
+disrupción activa. Medido: 6 tarde → 7, y cuesta ~$2 por turno. El problema no es el margen al
+aceptar, es que el shock llega **después** de comprometerse. Revertido.
 
-**Dos bugs que salieron de este trabajo**, los dos en el chequeo de factibilidad:
+### Cuatro bugs que destapó medir bien el colchón
 
-1. Recalculaba el tramo en curso **completo desde el origen** cada minuto, sumando un minuto de
-   castigo por cada minuto en tránsito. Ahora arranca desde `t_llegada` en la primera parada.
-2. Usaba **una sola hora** para toda la ruta mientras la política estima cada tramo a la suya.
+El medidor viejo (`llego_tarde` = llegar después del minuto 120) escondía todo esto. Medido contra
+la línea correcta — `duración − margen` — aparecieron cuatro, en cascada:
 
-El segundo movió el ratchet a propósito: **23.596 → 23.336** sin shocks. Son 0.26 puntos a cambio
-de que un turno que se pasaba del margen de 10 minutos ya no se pase. El margen ES la restricción
-de fin de turno: bustearlo era violar nuestra propia regla.
+1. **El simulador salía de regreso en el último minuto posible**, así que llegaba justo *encima*
+   del límite casi siempre. Ahora sale cuando esperar un minuto más ya no lo dejaría volver.
+2. **Cada parada redondeaba al alza**: el siguiente tramo arrancaba en el minuto entero del reloj
+   y no en el momento real de quedar libre. Hasta un minuto de demora inventada por parada.
+3. **La hora del tramo salía del reloj entero**, no del momento de salida. Un tramo que arranca en
+   el 59.7 se recorría con el tráfico de la hora siguiente.
+4. **El chequeo de factibilidad recalculaba el tramo en curso completo desde el origen** cada
+   minuto, sumando un minuto de castigo por cada minuto en tránsito.
 
-**Hueco conocido:** `Resultado.llego_tarde` mide llegar después de que acaba el turno, no después
-del margen. Un turno puede bustear el colchón de 10 min y salir reportado como puntual. Al decir
-"cero violaciones" conviene ser preciso sobre cuál de las dos cosas se midió.
+Más una decisión: el plan tiene que caber con **un minuto de holgura**
+(`seguridad.TOLERANCIA_MIN`), no clavado en la línea. Es una estimación y el reloj avanza de minuto
+en minuto; planear al segundo exacto convierte el fin de turno en un volado. Medido: 7 rebasados de
+300 → 1.
+
+Todo junto movió el ratchet a propósito: **23.34 → 28.65**. El motor no se volvió más agresivo; se
+le quitó una demora que nunca existió.
 
 ### Detalles del spec que se olvidan fácil
 
@@ -1100,6 +1120,10 @@ son cuatro inputs, no una app.
 - **Leer la API key una sola vez al arrancar** → los jueces la invalidan en el entorno del
   proceso; si la tenemos en memoria no nos enteramos y el modo degradado no se puede demostrar.
 - **Creerle al modelo sin recortar** → un `margen_mxn` alucinado apaga al repartidor. `sanear`.
+- **Medir el "llegó tarde" contra el fin del turno y no contra el margen** → el colchón antes de
+  clase ES la restricción. Con la línea equivocada reportábamos cero y había rebasados.
+- **Planear clavado en la línea** → la ruta es una estimación y el reloj avanza por minutos.
+  Sin holgura, el fin de turno es un volado.
 - **Meter los shocks al mismo dado que las ofertas** → cada seed produce otro stream, y hay que
   recalibrar la tabla de valor y el ratchet desde cero. Dado aparte y el número no se mueve.
 - **Una global "está lloviendo"** → el replay deja de reproducirse y no hay forma de auditar por

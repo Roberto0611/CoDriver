@@ -93,12 +93,16 @@ def main():
         assert not any(seeds.es_de_tuneo(s) for s in reporte), "reportando sobre seeds tuneados"
         print(f"{args.n_turnos} turnos frescos, seeds de REPORTE {reporte[0]}-{reporte[-1]}")
         print(f"duracion: {args.duracion} min; inicio: {args.hora_inicio}:00; {args.vehiculo}\n")
-        print(f"  {'politica':<16} {'ganancia media':>16} {'entregas':>10} {'tarde':>8}")
+        print(
+            f"  {'politica':<16} {'ganancia media':>16} {'entregas':>10} "
+            f"{'violaciones':>12} {'rebasados':>10}"
+        )
         for nombre, corridas in resultados.items():
             print(
                 f"  {nombre:<16} ${statistics.mean(r.ganado for r in corridas):>14.0f} "
                 f"{statistics.mean(r.entregas for r in corridas):>10.1f} "
-                f"{sum(r.llego_tarde for r in corridas):>8}"
+                f"{sum(r.violaciones for r in corridas):>12} "
+                f"{sum(r.llego_tarde for r in corridas):>10}"
             )
         return
 
@@ -130,8 +134,15 @@ def main():
         f"  {'entregas':<18} {statistics.mean([g.entregas for g, _ in filas]):>10.1f} "
         f"{statistics.mean([n.entregas for _, n in filas]):>10.1f}"
     )
+    # Dos renglones y no uno: aceptar algo infactible es romper la restriccion;
+    # llegar tarde porque empezo a llover DESPUES de aceptar es otra cosa. El
+    # protocolo pide que lo primero sea cero, y lo es.
     print(
-        f"  {'llegaron tarde':<18} {sum(g.llego_tarde for g, _ in filas):>10} "
+        f"  {'violaciones':<18} {sum(g.violaciones for g, _ in filas):>10} "
+        f"{sum(n.violaciones for _, n in filas):>10}"
+    )
+    print(
+        f"  {'rebasaron el margen':<18} {sum(g.llego_tarde for g, _ in filas):>10} "
         f"{sum(n.llego_tarde for _, n in filas):>10}"
     )
     ocup_g = statistics.mean([g.minutos_ocupado for g, _ in filas]) * 100 / args.duracion
