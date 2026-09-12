@@ -13,11 +13,11 @@ def test_decision_round_trip():
         accion="saltar",
         terminos={"pago_neto": 67.2, "minutos": 34, "precio_tiempo": 91.0},
         razon="No alcanzas a volver al campus antes de las 4.",
-        restriccion="regreso_infactible",
+        restriccion="shift_end_infeasible",
     )
     back = json.loads(json.dumps(asdict(d)))
     assert back["terminos"]["precio_tiempo"] == 91.0
-    assert back["restriccion"] == "regreso_infactible"
+    assert back["restriccion"] == "shift_end_infeasible"
     assert back["accion"] == "saltar"
 
 

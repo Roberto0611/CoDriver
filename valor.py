@@ -27,15 +27,18 @@ def construir(
     no jugando como el baseline, y el umbral se vuelve mas exigente donde debe.
     """
     import rutas
+    import seeds
     from contrato import ConfigTurno, Punto
     from sim import politica_greedy, simular
+
+    assert n <= len(seeds.TUNEO), "la tabla NO se construye con seeds de reporte"
 
     politica = politica or politica_greedy
 
     tec = rutas.COORD_DE[rutas.puntos_de("Tec")[0]]
     muestras: dict[int, list[float]] = {}
 
-    for seed in range(n):
+    for seed in seeds.TUNEO[:n]:
         cfg = ConfigTurno(
             duracion_min=duracion, ancla=Punto("Tec", *tec), seed=seed, hora_inicio=hora_inicio
         )

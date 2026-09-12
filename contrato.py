@@ -14,8 +14,20 @@ from dataclasses import asdict, dataclass, field
 from typing import Literal
 
 Accion = Literal["aceptar", "saltar"]
-Vehiculo = Literal["moto", "bici", "scooter", "pie"]
-Restriccion = Literal["regreso_infactible", "zona_insegura", "mochila_llena"]
+Vehiculo = Literal["moto", "car", "bike"]  # los tres que exige el protocolo
+
+# `binding_constraint` del protocolo, con sus nombres exactos: es lo que deja al
+# juez distinguir un rechazo por seguridad de uno por dinero sin leer la frase.
+# Los limites de cada una viven en seguridad.py. `reservation_wage` no es una
+# restriccion dura: es el costo de oportunidad, la unica que SI se compra con dinero.
+Restriccion = Literal[
+    "flagged_zone_night",
+    "mandatory_break",
+    "heat_rule",
+    "shift_end_infeasible",
+    "vehicle_capacity",
+    "reservation_wage",
+]
 
 
 @dataclass(frozen=True)
@@ -49,6 +61,8 @@ class Oferta:
     t_prep: int  # minutos que falta para que esté listo en el restaurante
     pickup: Punto
     dropoff: Punto
+    peso_kg: float = 1.0  # una bici no carga lo mismo que un carro
+    volumen_l: float = 5.0
 
 
 @dataclass
@@ -61,6 +75,7 @@ class EstadoRepartidor:
     mochila: list[str] = field(default_factory=list)  # ids de ofertas aceptadas
     ganado: float = 0.0
     fatiga: float = 0.0  # 0..1, sube con horas y con calor
+    minutos_manejando: int = 0  # seguidos, sin descanso: manda el descanso y el calor
 
 
 @dataclass(frozen=True)
@@ -101,11 +116,11 @@ def demo():
         accion="saltar",
         terminos={"pago_neto": 67.2, "minutos": 34, "precio_tiempo": 91.0},
         razon="No alcanzas a volver al campus antes de las 4.",
-        restriccion="regreso_infactible",
+        restriccion="shift_end_infeasible",
     )
     crudo = json.dumps(asdict(d))
     assert json.loads(crudo)["terminos"]["precio_tiempo"] == 91.0
-    assert json.loads(crudo)["restriccion"] == "regreso_infactible"
+    assert json.loads(crudo)["restriccion"] == "shift_end_infeasible"
 
     o = Oferta(
         "o_042",

@@ -176,7 +176,12 @@ RIESGO_BASE = {
     "Apodaca": 0.45,
 }
 
-UMBRAL_RIESGO = 0.6  # arriba de esto, restricción dura: no se acepta, ni por dinero
+UMBRAL_RIESGO = 0.6  # arriba de esto la zona queda marcada: de noche no se entrega ahí
+HORA_NOCHE = 22  # la línea del protocolo: "no dropoff in flagged zones after 22:00"
+
+# Zona marcada = la que de noche pasa el umbral. Se deriva del riesgo en vez de
+# escribirse a mano para que mover un número de RIESGO_BASE mueva las dos cosas.
+ZONAS_MARCADAS = frozenset(z for z, r in RIESGO_BASE.items() if r * 1.8 >= UMBRAL_RIESGO)
 
 
 def corredor(origen: str, destino: str) -> str:
@@ -213,7 +218,13 @@ def riesgo(zona: str, hora: int) -> float:
 
 
 def es_segura(zona: str, hora: int) -> bool:
-    return riesgo(zona, hora) < UMBRAL_RIESGO
+    """Restricción 1 de 5: nada de entregas en zona marcada después de las 22:00.
+
+    La línea es de reloj, no de promedio: a las 21:59 se puede y a las 22:00 no.
+    `riesgo()` sigue existiendo para pintar el mapa, pero la que decide es ésta.
+    """
+    de_noche = hora % 24 >= HORA_NOCHE or hora % 24 < 5
+    return not (de_noche and zona in ZONAS_MARCADAS)
 
 
 def demo():

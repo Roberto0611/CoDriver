@@ -18,12 +18,15 @@ RAIZ = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(RAIZ))
 
 import rutas  # noqa: E402
+import seeds  # noqa: E402
 from contrato import ConfigTurno, Punto  # noqa: E402
 from nuez import politica_nuez  # noqa: E402
 from sim import politica_greedy, simular  # noqa: E402
 
 ARCHIVO = RAIZ / "tests" / "engine_baseline.json"
-SEED_BASE, N = 1000, 50  # fuera del rango con el que se construyo V.json
+N = 50
+SEEDS = seeds.de_reporte(N)  # de REPORTE: el ratchet mide donde se reporta
+SEED_BASE = SEEDS[0]
 
 
 def config(seed: int) -> ConfigTurno:
@@ -39,8 +42,8 @@ def config(seed: int) -> ConfigTurno:
 
 
 def medir() -> dict:
-    greedy = [simular(config(s), politica_greedy) for s in range(SEED_BASE, SEED_BASE + N)]
-    nuez = [simular(config(s), politica_nuez) for s in range(SEED_BASE, SEED_BASE + N)]
+    greedy = [simular(config(s), politica_greedy) for s in SEEDS]
+    nuez = [simular(config(s), politica_nuez) for s in SEEDS]
     g = statistics.mean(r.ganado for r in greedy)
     n = statistics.mean(r.ganado for r in nuez)
     return {

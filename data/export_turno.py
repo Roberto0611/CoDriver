@@ -120,7 +120,7 @@ def grabar(seed: int, nombre: str, politica, cache: dict) -> dict:
     cfg = config(seed)
     res = simular(cfg, politica)
 
-    salida = {
+    salida: dict[str, Any] = {
         "meta": {
             "politica": nombre,
             "seed": seed,
@@ -166,7 +166,9 @@ def main():
         metas = {n: grabar(seed, n, pol, cache) for n, pol in POLITICAS.items()}
         delta = (metas["nuez"]["ganado"] / metas["greedy"]["ganado"] - 1) * 100
         print(f"  {'delta':<24} {delta:>+6.1f}%")
-        indice.append({"seed": seed, "delta_pct": round(delta, 1), **{k: v for k, v in metas.items()}})
+        indice.append(
+            {"seed": seed, "delta_pct": round(delta, 1), **{k: v for k, v in metas.items()}}
+        )
 
     # Indice para el selector de seeds del juez: que turnos hay grabados.
     (PUBLIC / "turnos.json").write_text(json.dumps({"turnos": indice}), encoding="utf-8")

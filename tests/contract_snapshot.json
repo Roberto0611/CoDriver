@@ -1,8 +1,8 @@
 {
   "aliases": {
     "Accion": "\"aceptar\" | \"saltar\"",
-    "Vehiculo": "\"moto\" | \"bici\" | \"scooter\" | \"pie\"",
-    "Restriccion": "\"regreso_infactible\" | \"zona_insegura\" | \"mochila_llena\""
+    "Vehiculo": "\"moto\" | \"car\" | \"bike\"",
+    "Restriccion": "\"flagged_zone_night\" | \"mandatory_break\" | \"heat_rule\" | \"shift_end_infeasible\" | \"vehicle_capacity\" | \"reservation_wage\""
   },
   "classes": {
     "Punto": {
@@ -102,6 +102,16 @@
           "name": "dropoff",
           "type": "Punto",
           "required": true
+        },
+        {
+          "name": "peso_kg",
+          "type": "number",
+          "required": false
+        },
+        {
+          "name": "volumen_l",
+          "type": "number",
+          "required": false
         }
       ]
     },
@@ -135,6 +145,11 @@
         },
         {
           "name": "fatiga",
+          "type": "number",
+          "required": false
+        },
+        {
+          "name": "minutos_manejando",
           "type": "number",
           "required": false
         }

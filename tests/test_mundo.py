@@ -40,7 +40,16 @@ def test_restriccion_dura_por_zona_y_hora():
     assert es_segura("Escobedo", 14), "pero de dia si se puede"
 
 
-def test_es_segura_coincide_con_el_umbral():
+def test_la_linea_de_las_22_es_de_reloj_no_de_promedio():
+    """El protocolo dice "after 22:00", asi que a las 21:59 se puede y a las 22:00 no."""
+    marcada = "Escobedo"
+    assert es_segura(marcada, 21), "a las 21 todavia se entrega"
+    assert not es_segura(marcada, 22), "a las 22 en punto ya no"
+    assert not es_segura(marcada, 4), "la madrugada tambien cuenta como noche"
+    assert es_segura(marcada, 5), "a las 5 AM se reabre"
+
+
+def test_zona_marcada_sale_del_riesgo():
     for zona in ZONAS:
-        for hora in (3, 14, 20, 23):
-            assert es_segura(zona, hora) == (riesgo(zona, hora) < UMBRAL_RIESGO)
+        marcada = riesgo(zona, 23) >= UMBRAL_RIESGO
+        assert es_segura(zona, 23) != marcada

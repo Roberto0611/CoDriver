@@ -16,8 +16,8 @@ from functools import cache
 from typing import Literal
 
 import rutas
+import seguridad
 from contrato import ConfigTurno, Decision, EstadoRepartidor, Oferta, Punto
-from mundo import es_segura
 
 # --- A3: parametros del generador -------------------------------------------
 # ponytail: numeros a ojo, calibrados para que un turno de 2h de ~$250-400.
@@ -27,7 +27,14 @@ PAGO_BASE = 22.0  # lo que paga cualquier entrega, por corta que sea
 PAGO_POR_KM = 7.0
 RUIDO_PAGO = 0.35  # +-35%: SIN esto todos los pedidos rinden igual y no hay que decidir
 PREP_MIN, PREP_MAX = 4, 15  # minutos que tarda el restaurante
-CAPACIDAD = 3  # pedidos simultaneos en la mochila
+
+# Que tan grande viene el pedido. Casi todo es comida y no pesa nada; la cola son
+# los paquetes, que es donde el vehiculo empieza a importar (en bici no caben).
+PESO_KG = (0.3, 6.0)
+VOLUMEN_L = (2.0, 25.0)
+PROB_PAQUETE = 0.10
+PESO_PAQUETE = (5.0, 28.0)
+VOLUMEN_PAQUETE = (20.0, 90.0)
 
 # Un estudiante con 2 horas trabaja SU zona. Los pings normales salen cerca;
 # la fraccion de trampas son los lejanos bien pagados que el motor debe rechazar.
@@ -35,8 +42,6 @@ RADIO_PICKUP = 9.0  # minutos a flujo libre desde el ancla
 RADIO_ENTREGA = 11.0  # minutos a flujo libre desde el pickup
 PROB_TRAMPA = 0.14  # 1 de cada 7 pings es un viaje largo y tentador
 BONO_TRAMPA = 1.25  # y encima paga por arriba de tarifa: por eso tienta
-VELOCIDAD = {"moto": 1.0, "scooter": 1.25, "bici": 1.8, "pie": 5.0}
-COSTO_KM = {"moto": 1.8, "scooter": 0.9, "bici": 0.0, "pie": 0.0}  # pesos de gasolina
 
 
 @dataclass(frozen=True)
@@ -45,6 +50,11 @@ class Parada:
     punto: int
     oferta_id: str | None = None
     listo_en: int = 0  # minuto en que el restaurante termina; 0 = sin espera
+    # El pedido ocupa el vehiculo hasta que se entrega, asi que la carga se suma
+    # sobre los dropoff pendientes. Va aqui y no en el estado para que no se quede
+    # viejo cuando entran dos ofertas en el mismo minuto.
+    peso_kg: float = 0.0
+    volumen_l: float = 0.0
 
 
 @dataclass
@@ -95,6 +105,10 @@ def generar_ofertas(cfg: ConfigTurno) -> list[Oferta]:
         if dropoff == pickup:
             continue
 
+        paquete = rng.random() < PROB_PAQUETE
+        peso = rng.uniform(*(PESO_PAQUETE if paquete else PESO_KG))
+        volumen = rng.uniform(*(VOLUMEN_PAQUETE if paquete else VOLUMEN_L))
+
         pago = PAGO_BASE + PAGO_POR_KM * rutas.km(pickup, dropoff)
         pago *= rng.uniform(1 - RUIDO_PAGO, 1 + RUIDO_PAGO)
         if trampa:
@@ -110,6 +124,8 @@ def generar_ofertas(cfg: ConfigTurno) -> list[Oferta]:
                 t_prep=rng.randint(PREP_MIN, PREP_MAX),
                 pickup=_punto(pickup),
                 dropoff=_punto(dropoff),
+                peso_kg=round(peso, 1),
+                volumen_l=round(volumen, 1),
             )
         )
     return ofertas
@@ -146,6 +162,8 @@ def simular(cfg: ConfigTurno, politica: Politica) -> Resultado:
 
     pos = ancla
     ruta: list[Parada] = []
+    manejando = 0  # minutos seguidos con trabajo encima
+    descansando = 0  # minutos seguidos parado; DESCANSO_MIN de estos resetean
     t_llegada = 0.0  # minuto en que se llega a la primera parada de la ruta
     listo_en: dict[str, int] = {}  # cuando esta listo cada pedido en el restaurante
     aceptadas: dict[str, Oferta] = {}
@@ -159,6 +177,7 @@ def simular(cfg: ConfigTurno, politica: Politica) -> Resultado:
             mochila=[p.oferta_id for p in ruta if p.tipo == "pickup" and p.oferta_id],
             ganado=res.ganado,
             fatiga=min(1.0, res.minutos_ocupado / 240 * (1.3 if 12 <= hora <= 17 else 1.0)),
+            minutos_manejando=manejando,
         )
 
         # 1. Decidir sobre los pings de este minuto.
@@ -191,7 +210,7 @@ def simular(cfg: ConfigTurno, politica: Politica) -> Resultado:
             if parada.tipo == "dropoff" and parada.oferta_id:
                 o = aceptadas[parada.oferta_id]
                 dist = rutas.km(indice_de(o.pickup), indice_de(o.dropoff))
-                cobro = o.pago * o.surge - dist * COSTO_KM[cfg.vehiculo]
+                cobro = o.pago * o.surge - dist * seguridad.VEHICULOS[cfg.vehiculo].costo_km
                 res.cobros.append((t, round(cobro, 2)))
                 res.ganado += cobro
                 res.entregas += 1
@@ -208,8 +227,17 @@ def simular(cfg: ConfigTurno, politica: Politica) -> Resultado:
                 t_llegada = t + rutas.minutos(pos, ancla, hora)
                 res.tramos.append((t, t_llegada, pos, ancla))
 
+        # Restricciones 2 y 3: el contador de minutos continuos. Parar 20 minutos
+        # lo resetea, y como la politica rechaza todo mientras el limite este
+        # alcanzado, el descanso se toma solo: no hace falta una maquina de estados.
         if ruta:
             res.minutos_ocupado += 1
+            manejando += 1
+            descansando = 0
+        else:
+            descansando += 1
+            if descansando >= seguridad.DESCANSO_MIN:
+                manejando = 0
 
     res.ganado = round(res.ganado, 2)
     res.llego_tarde = pos != ancla or bool(ruta)
@@ -233,13 +261,23 @@ def politica_greedy(
     ancla = rutas.indice_mas_cercano(cfg.ancla.lat, cfg.ancla.lon)
 
     # Lo que ya trae encolado cuenta: el pedido nuevo empieza cuando termine la ruta.
+    # Cada tramo se estima a SU hora: la cola de hoy se recorre en el futuro.
+    def leg(a: int, b: int, desde_min: float) -> float:
+        """El tramo se recorre en `desde_min` minutos mas, y para entonces puede
+        ser otra hora con otro trafico. La hora sale del minuto ABSOLUTO del turno."""
+        return rutas.minutos(a, b, cfg.hora_inicio + int(est.t + desde_min) // 60)
+
     cola, desde = 0.0, pos
     for p in ruta:
-        cola += rutas.minutos(desde, p.punto, hora)
+        cola += leg(desde, p.punto, cola)
+        if p.tipo == "pickup":
+            cola = max(cola, p.listo_en - est.t)  # esperando al restaurante
         desde = p.punto
 
-    minutos = cola + rutas.minutos(desde, i_pick, hora) + rutas.minutos(i_pick, i_drop, hora)
-    neto = o.pago * o.surge - rutas.km(i_pick, i_drop) * COSTO_KM[cfg.vehiculo]
+    minutos = cola + leg(desde, i_pick, cola)
+    minutos = max(minutos, o.t_aparece + o.t_prep - est.t)
+    minutos += leg(i_pick, i_drop, minutos)
+    neto = o.pago * o.surge - rutas.km(i_pick, i_drop) * seguridad.VEHICULOS[cfg.vehiculo].costo_km
     propios = minutos - cola  # lo que cuesta ESTE pedido, sin la cola de adelante
     terminos = {
         "pago_neto": round(neto, 1),
@@ -250,15 +288,28 @@ def politica_greedy(
     def no(razon: str, restriccion=None):
         return None, Decision(est.t, o.id, "saltar", terminos, razon, restriccion)
 
-    if len(est.mochila) >= CAPACIDAD:
-        return no("Ya traigo la mochila llena.", "mochila_llena")
-    if not es_segura(rutas.ZONA_DE[i_drop], hora):
-        return no(f"No te mando a {rutas.ZONA_DE[i_drop]} a esta hora.", "zona_insegura")
-    # Se regresa cuando ya no da el tiempo, pero sin pensar en el costo de oportunidad.
-    if minutos + rutas.minutos(i_drop, ancla, hora) > est.t_restante - cfg.margen_min:
-        return no("Ya no alcanzo a volver.", "regreso_infactible")
-    if terminos["por_minuto"] < 3.0:
-        return no("Paga muy poco por el tiempo.")
+    # El baseline es tonto con el dinero, NO con la seguridad: entra por la misma
+    # puerta que Nuez. Un baseline que atropella restricciones no seria comparable.
+    bloqueo = seguridad.revisar(
+        vehiculo=cfg.vehiculo,
+        hora=hora,
+        zona_dropoff=rutas.ZONA_DE[i_drop],
+        minutos_manejando=est.minutos_manejando,
+        carga_kg=sum(p.peso_kg for p in ruta if p.tipo == "dropoff") + o.peso_kg,
+        carga_l=sum(p.volumen_l for p in ruta if p.tipo == "dropoff") + o.volumen_l,
+        pedidos_en_vuelo=len({p.oferta_id for p in ruta if p.oferta_id}) + 1,
+        minutos_para_terminar=minutos + leg(i_drop, ancla, minutos),
+        minutos_de_turno=est.t_restante - cfg.margen_min,
+    )
+    if bloqueo:
+        return no(bloqueo[1], bloqueo[0])
 
-    nueva = ruta + [Parada("pickup", i_pick, o.id), Parada("dropoff", i_drop, o.id)]
+    # Lo unico que SI se compra con dinero: el umbral fijo de $/min.
+    if terminos["por_minuto"] < 3.0:
+        return no("Paga muy poco por el tiempo.", "reservation_wage")
+
+    nueva = ruta + [
+        Parada("pickup", i_pick, o.id, o.t_aparece + o.t_prep),
+        Parada("dropoff", i_drop, o.id, peso_kg=o.peso_kg, volumen_l=o.volumen_l),
+    ]
     return nueva, Decision(est.t, o.id, "aceptar", terminos, f"Van {neto:.0f} pesos.")
