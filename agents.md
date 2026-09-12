@@ -50,7 +50,8 @@ Son resultados del mundo sintético con esa configuración, no una promesa para 
 vehículo u horario. Las pruebas cubren además ventanas de 65 y 137 min, tres vehículos y
 turnos de 8 horas desde las 8, 14 y 21 h. Verificación local: 127 tests Python pasan (1 de voz
 en vivo omitido), 11 tests de front pasan, lint/formato/tipos/contrato/límite de líneas y build
-en verde. **Siguiente pendiente: `/decide` + JSONL del protocolo.**
+en verde. El endpoint y el JSONL oficial también pasan su validador. **Siguiente pendiente:
+los cinco baselines y el Oracle.**
 
 ### Qué existe y qué falta
 
@@ -58,7 +59,7 @@ en verde. **Siguiente pendiente: `/decide` + JSONL del protocolo.**
 |---|---|---|
 | **0** | El mundo y el rival | ✅ |
 | **1** | **EL NÚMERO** — tabla de valor + política de Nuez | ✅ **+29.2% en seeds no vistos** |
-| **1b** | Conformidad con el spec oficial de Infosys | 🔴 **aquí vamos** — ver §0b |
+| **1b** | Conformidad con el spec oficial de Infosys | 🟡 duración, restricciones y `/decide` + JSONL ✅; faltan baselines/Oracle, modo degradado y shocks |
 | **2** | Hacerlo visible — replay y pantalla partida | parcial: turnos grabados ✅, panel de decisión ❌ |
 | **3** | Hacerlo hablar — Gemini + ElevenLabs | el equipo lo trae aparte |
 | **4** | Tracks baratos y ensayo | sin empezar |
@@ -90,6 +91,8 @@ Esta sección es para quien retome el proyecto sin haber estado en la conversaci
 | `valor.py` | Tabla de valor offline: `V.json` para ventanas de hasta 120 min y `V_480.json` para hasta 480 min. Admite otras calibraciones por CLI |
 | `nuez.py` | **La política del agente.** Costo de oportunidad en vez de umbral fijo |
 | `comparar.py` | El arnés de medición. **Aquí sale EL NÚMERO** |
+| `backendruta/courier_api.py` | Adaptador del protocolo: sesión, `/decide`, overrides, fechas ISO y zonas enteras |
+| `backendruta/event_log.py` | Escritura local del JSONL cronológico; no depende de red ni TigerData |
 | `courier/` | El spec oficial que mandó Infosys. Material ajeno: se lee, no se toca (excluido de ruff/mypy) |
 
 ### Comandos
@@ -171,8 +174,8 @@ el porcentaje**: un agente brillante que no cumple el esquema pierde puntos por 
 |---|---|---|
 | 1 ✅ | Separar seeds de tuneo y reporte | Sin esto, Results se topa en 3 |
 | 2 ✅ | Las cinco restricciones + capacidades por vehículo | Es la mitad de Judgment |
-| 3 ✅ | **Turnos de 8 horas y duración variable** | Tabla larga offline, CLI configurable y velocidad por vehículo conectada a decisiones, ruteo y simulador. La conversión de `shift_hours` corresponde al endpoint pendiente |
-| 4 | **Endpoint `/decide` + log de eventos en su JSONL** | `validate_format.py` es un portero objetivo: pasa o no pasa. Campos: `decision` (ACCEPT/SKIP), `reason`, `binding_constraint`, `latency_ms`, `tier`, `degraded`. `sim_time` es fecha ISO, no minutos. Las zonas son enteros, no nombres |
+| 3 ✅ | **Turnos de 8 horas y duración variable** | Tabla larga offline, CLI configurable, velocidad por vehículo y conversión de `shift_hours` en `/shift/start` |
+| 4 ✅ | **Endpoint `/decide` + log de eventos en su JSONL** | Adaptador separado, overrides aplicados, razones inglesas bajo 40 palabras y JSONL local. Validador oficial en verde para endpoint y log |
 | 5 | **Los cinco baselines + el Oracle** | `results_table_template.csv` pide `AcceptAll`, `HighestPay`, `NearestFirst`, `GreedyRate`, `OurAgent` y un `Oracle` offline que conoce el stream completo. Tenemos uno de seis |
 | 6 | `explain_decision` + modo degradado | Los jueces van a invalidar la credencial del modelo a media corrida. Hay que seguir decidiendo con la última estrategia y **señalar `degraded: true`**. Un fallback silencioso es crédito parcial; un crash es reprobado |
 | 7 | Shocks en vivo (`surge`, `closure`, `rain`, `delay`) | El brief exige al menos uno durante el demo |
@@ -878,7 +881,7 @@ Hitos que no se mueven:
 | B5 | ~~Tabla de valor → `V.json`~~ | ✅ `valor.py`, Monte Carlo tabular sobre seeds de TUNEO |
 | B6 | ~~Política de costo de oportunidad~~ | ✅ `nuez.py`. **+29.2% en 200 seeds de REPORTE** |
 | B8 | ~~**Turnos de 8 h + los tres vehículos con su velocidad**~~ | ✅ `V_480.json`, duración/hora/vehículo por CLI, velocidad aplicada en planificación y recorrido |
-| B9 | **Endpoint `/decide` + log JSONL del spec** | `validate_format.py` en verde |
+| B9 | ~~**Endpoint `/decide` + log JSONL del spec**~~ | ✅ `/shift/start`, `/decide`, `/shift/status`, `/shift/end`, `/zones`; ambos modos del validador oficial en verde |
 | B10 | **Los cinco baselines + el Oracle** | `results_table_template.csv` lleno, 6 renglones |
 | B11 | **`explain_decision` + modo degradado** | Responde por `order_id` en <10 s y marca `degraded: true` |
 | B7 | Contrafactual: qué habría pasado aceptando lo rechazado | Un número y una lista al cierre del turno |

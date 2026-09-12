@@ -35,6 +35,8 @@ def politica_nuez(
     cfg: ConfigTurno,
     *,
     tabla: dict[int, float] | None = None,
+    minutos_directos: float | None = None,
+    km_entrega: float | None = None,
 ) -> tuple[list[Parada] | None, Decision]:
     hora = (cfg.hora_inicio + est.t // 60) % 24
     i_pick, i_drop = indice_de(o.pickup), indice_de(o.dropoff)
@@ -49,7 +51,13 @@ def politica_nuez(
     ]
     nueva_ruta, propios = ruteo.costo_marginal(pos, ruta, nuevas, hora, est.t, cfg.vehiculo)
     _, cola = ruteo.mejor_ruta(pos, ruta, hora, est.t, cfg.vehiculo)
-    neto = o.pago * o.surge - rutas.km(i_pick, i_drop) * seguridad.VEHICULOS[cfg.vehiculo].costo_km
+    # En /decide Infosys puede mandar tiempos y distancias observados. Cuando el
+    # repartidor esta libre, esos datos mandan sobre nuestra matriz sintetica.
+    # Con trabajo en vuelo se conserva el ruteo exacto para calcular la insercion.
+    if not ruta and minutos_directos is not None:
+        propios = minutos_directos
+    distancia = rutas.km(i_pick, i_drop) if km_entrega is None else km_entrega
+    neto = o.pago * o.surge - distancia * seguridad.VEHICULOS[cfg.vehiculo].costo_km
 
     # El costo de oportunidad: lo que rinden esos minutos normalmente.
     if tabla is None:
