@@ -5,7 +5,14 @@ import maplibreWorkerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?url'
 import { Icon } from './ui/icons'
 import { formatNumber, ZONAS_LIST } from './lib/zones'
 import { baseStyle, MTY_CENTER, MTY_ZOOM } from './map/style'
-import { addPuntosLayer, addRoadLayers, addRouteLayers, addTrafficLayers, addZonaLayers, toggleTrafficLayer } from './map/layers'
+import {
+  addPuntosLayer,
+  addRoadLayers,
+  addRouteLayers,
+  addTrafficLayers,
+  addZonaLayers,
+  toggleTrafficLayer,
+} from './map/layers'
 import { attachHoverPopups } from './map/popups'
 import { createRoadLoader } from './map/roads'
 import { drawRoute, fetchRoute, routeInfoOf, type RouteInfo } from './map/route'
