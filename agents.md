@@ -177,7 +177,7 @@ el porcentaje**: un agente brillante que no cumple el esquema pierde puntos por 
 | 3 ✅ | **Turnos de 8 horas y duración variable** | Tabla larga offline, CLI configurable, velocidad por vehículo y conversión de `shift_hours` en `/shift/start` |
 | 4 ✅ | **Endpoint `/decide` + log de eventos en su JSONL** | Adaptador separado, overrides aplicados, razones inglesas bajo 40 palabras y JSONL local. Validador oficial en verde para endpoint y log |
 | 5 ✅ | **Los cinco baselines + el Oracle** | `oracle.py` conoce el stream completo offline, explora agendas sin apilar y escoge el mejor resultado reproducible frente a los cinco agentes online |
-| 6 | `explain_decision` + modo degradado | Los jueces van a invalidar la credencial del modelo a media corrida. Hay que seguir decidiendo con la última estrategia y **señalar `degraded: true`**. Un fallback silencioso es crédito parcial; un crash es reprobado |
+| 6 🟡 | `explain_decision` ✅ + modo degradado ❌ | `GET /explain/{order_id}` y `python -m backendruta.explain ORD --log x.jsonl` leen del JSONL, no re-deciden. Falta el degradado, que necesita primero una capa de estrategia con modelo. Los jueces van a invalidar la credencial del modelo a media corrida. Hay que seguir decidiendo con la última estrategia y **señalar `degraded: true`**. Un fallback silencioso es crédito parcial; un crash es reprobado |
 | 7 | Shocks en vivo (`surge`, `closure`, `rain`, `delay`) | El brief exige al menos uno durante el demo |
 | 8 | Panel de decisión en el front | Judgment sigue en cero del lado visual |
 
@@ -883,7 +883,7 @@ Hitos que no se mueven:
 | B8 | ~~**Turnos de 8 h + los tres vehículos con su velocidad**~~ | ✅ `V_480.json`, duración/hora/vehículo por CLI, velocidad aplicada en planificación y recorrido |
 | B9 | ~~**Endpoint `/decide` + log JSONL del spec**~~ | ✅ `/shift/start`, `/decide`, `/shift/status`, `/shift/end`, `/zones`; ambos modos del validador oficial en verde |
 | B10 | ~~**Los cinco baselines + el Oracle**~~ | ✅ `baselines.py` aporta los tres rivales y `oracle.py` el sexto renglón offline. En 200 REPORTE: Nuez $259, Oracle $275, 0 llegadas tarde; `python comparar.py 200 --rivales` los mide |
-| B11 | **`explain_decision` + modo degradado** | Responde por `order_id` en <10 s y marca `degraded: true` |
+| B11 | **`explain_decision`** ✅ + **modo degradado** ❌ | `backendruta/explain.py`: `inputs` + `alternatives_considered` en cada evento `decision`, respuesta en ms. Falta marcar `degraded: true` |
 | B7 | Contrafactual: qué habría pasado aceptando lo rechazado | Un número y una lista al cierre del turno |
 
 ### Carril C — Front y demo

@@ -88,6 +88,11 @@ def politica_nuez(
     # como estara a las 15:10. Medirlo con la hora actual es como llega tarde el
     # repartidor con la cuenta cuadrada.
     hora_fin = (cfg.hora_inicio + int(est.t + cola + propios) // 60) % 24
+    para_terminar = cola + propios + rutas.minutos(fin, ancla, hora_fin, cfg.vehiculo)
+    # Quedan en los terminos para que explain_decision muestre la cuenta del fin de turno.
+    terminos["minutos_ruta_actual"] = round(cola, 1)
+    terminos["minutos_para_terminar"] = round(para_terminar, 1)
+    terminos["minutos_de_turno"] = round(est.t_restante - cfg.margen_min, 1)
     bloqueo = seguridad.revisar(
         vehiculo=cfg.vehiculo,
         hora=hora,
@@ -96,7 +101,7 @@ def politica_nuez(
         carga_kg=sum(p.peso_kg for p in ruta if p.tipo == "dropoff") + o.peso_kg,
         carga_l=sum(p.volumen_l for p in ruta if p.tipo == "dropoff") + o.volumen_l,
         pedidos_en_vuelo=len({p.oferta_id for p in ruta if p.oferta_id}) + 1,
-        minutos_para_terminar=cola + propios + rutas.minutos(fin, ancla, hora_fin, cfg.vehiculo),
+        minutos_para_terminar=para_terminar,
         minutos_de_turno=est.t_restante - cfg.margen_min,
     )
     if bloqueo:

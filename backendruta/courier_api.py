@@ -18,12 +18,12 @@ from fastapi import APIRouter, HTTPException
 
 import rutas
 import valor
-from backendruta import courier_format
+from backendruta import courier_format, explain
 from backendruta.courier_models import DecideRequest, DecideResponse, ShiftStartRequest, ShiftState
 from backendruta.event_log import EventLog
 from contrato import ConfigTurno, EstadoRepartidor, Oferta, Punto
 from mundo import ZONAS
-from nuez import politica_nuez
+from nuez import DESCUENTO_PARADO, MARGEN, politica_nuez
 from sim import Parada, _punto
 
 # Los ids son parte de nuestro stream: el orden es estable y se publica en /zones.
@@ -55,6 +55,7 @@ class CourierService:
         self.log = EventLog(log_path)
         self.state: ShiftState | None = None
         self.degraded = False
+        self.explanations = explain.ExplainIndex()
         self._lock = RLock()
 
     def start(self, request: ShiftStartRequest) -> dict[str, Any]:
@@ -96,7 +97,18 @@ class CourierService:
                 "fuel_mxn_per_km": courier_format.fuel_cost(request.vehicle),
             }
             self.log.start(event)
+            self.explanations.clear()
             return {**event, "event_log": str(self.log.path)}
+
+    def explain(self, order_id: str) -> dict[str, Any]:
+        """Busca en memoria; si el proceso se reinicio, lee el JSONL. Nunca re-decide."""
+        with self._lock:
+            record = self.explanations.get(order_id)
+            if record is None and self.log.path.exists():
+                record = explain.ExplainIndex.from_log(self.log.path).get(order_id)
+            if record is None:
+                raise HTTPException(status_code=404, detail=f"{order_id} no tiene decision")
+            return record
 
     def decide(self, request: DecideRequest) -> DecideResponse:
         started = time.perf_counter()
@@ -130,16 +142,25 @@ class CourierService:
                 raise HTTPException(status_code=422, detail=str(exc)) from exc
 
             response = courier_format.response(request, decision, started, self.degraded)
-            self.log.append(courier_format.offer_event(request))
-            self.log.append(
-                courier_format.decision_event(
-                    request,
-                    courier,
-                    response,
-                    self._current_zone_id(),
-                    sorted(self.state.accepted),
-                )
+            explanation = explain.build(
+                request=request,
+                response=response,
+                terms=decision.terminos,
+                position_zone=self._current_zone_id(),
+                time_remaining_min=courier.t_restante,
+                continuous_riding_min=courier.minutos_manejando,
+                in_flight_orders=sorted(self.state.accepted),
+                strategy={
+                    "policy": "nuez_opportunity_cost",
+                    "value_table_horizon_min": max(table),
+                    "idle_discount": DESCUENTO_PARADO,
+                    "min_edge_mxn": MARGEN,
+                    "degraded": self.degraded,
+                },
             )
+            self.log.append(courier_format.offer_event(request))
+            self.log.append(courier_format.decision_event(request, response, explanation))
+            self.explanations.add(explanation)
             self.state.offered += 1
             if new_route is not None:
                 was_idle = not self.state.route
@@ -423,6 +444,12 @@ async def decide(request: DecideRequest) -> DecideResponse:
 @router.post("/shift/end")
 def end_shift(sim_time: datetime | None = None) -> dict[str, Any]:
     return service.end(sim_time)
+
+
+@router.get("/explain/{order_id}")
+@router.get("/explain_decision/{order_id}")
+def explain_decision(order_id: str) -> dict[str, Any]:
+    return service.explain(order_id)
 
 
 @router.get("/shift/status")

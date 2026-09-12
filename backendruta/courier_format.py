@@ -6,7 +6,7 @@ from typing import Any
 
 import seguridad
 from backendruta.courier_models import DecideRequest, DecideResponse
-from contrato import Decision, EstadoRepartidor, Vehiculo
+from contrato import Decision, Vehiculo
 
 
 def iso(value: datetime) -> str:
@@ -97,24 +97,16 @@ def offer_event(request: DecideRequest) -> dict[str, Any]:
 
 
 def decision_event(
-    request: DecideRequest,
-    courier: EstadoRepartidor,
-    result: DecideResponse,
-    position_zone: int,
-    in_flight_orders: list[str],
+    request: DecideRequest, result: DecideResponse, explanation: dict[str, Any]
 ) -> dict[str, Any]:
+    """El evento lleva la explicacion completa: explain_decision solo la vuelve a leer."""
     event = result.model_dump(mode="json")
     event.update(
         {
             "event": "decision",
             "sim_time": iso(request.sim_time),
-            "inputs": {
-                "position_zone": position_zone,
-                "time_remaining_min": courier.t_restante,
-                "continuous_riding_min": courier.minutos_manejando,
-                "in_flight_orders": in_flight_orders,
-                "vehicle": request.vehicle,
-            },
+            "inputs": explanation["inputs"],
+            "alternatives_considered": explanation["alternatives_considered"],
         }
     )
     return event
