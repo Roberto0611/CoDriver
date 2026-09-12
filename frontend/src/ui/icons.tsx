@@ -44,4 +44,28 @@ export const Icon = {
       <path d="M15 6v14" />
     </svg>
   ),
+  play: (
+    <svg viewBox="0 0 24 24" {...stroke}>
+      <polygon points="6 4 20 12 6 20 6 4" fill="currentColor" stroke="none" />
+    </svg>
+  ),
+  pause: (
+    <svg viewBox="0 0 24 24" {...stroke}>
+      <rect x="6" y="4" width="4" height="16" rx="1" fill="currentColor" stroke="none" />
+      <rect x="14" y="4" width="4" height="16" rx="1" fill="currentColor" stroke="none" />
+    </svg>
+  ),
+  stepBack: (
+    <svg viewBox="0 0 24 24" {...stroke}>
+      <path d="M15 18l-6-6 6-6" />
+      <path d="M9 6v12" />
+    </svg>
+  ),
+  stepForward: (
+    <svg viewBox="0 0 24 24" {...stroke}>
+      <path d="M9 18l6-6-6-6" />
+      <path d="M15 6v12" />
+    </svg>
+  ),
 }
+

@@ -1,6 +1,7 @@
 import type { GeoJSON } from 'geojson'
-import type { ExpressionSpecification, Map as MLMap } from 'maplibre-gl'
+import type { ExpressionSpecification, GeoJSONSource, Map as MLMap } from 'maplibre-gl'
 import { AMBER, PLUM, ROAD, ROUND, ROUTE_CASING, ROUTE_COLOR } from './style'
+import { getRoadFeatures } from './roads'
 
 const EMPTY = { type: 'FeatureCollection' as const, features: [] }
 
@@ -127,60 +128,119 @@ export function addPuntosLayer(map: MLMap, data: GeoJSON) {
 
 const TRAFFIC_API = 'http://127.0.0.1:8000'
 
-/** Agrega las capas de tráfico (ocultas por defecto). */
-export function addTrafficLayers(map: MLMap) {
-  map.addSource('traffic', { type: 'geojson', data: EMPTY })
+/** Colores de tráfico para las calles reales (verde → rojo). */
+const TRAFFIC_COLOR: ExpressionSpecification = [
+  'case',
+  ['has', 'traffic_factor'],
+  [
+    'interpolate',
+    ['linear'],
+    ['get', 'traffic_factor'],
+    1.0, '#16a34a',  // verde — fluido
+    1.3, '#eab308',  // amarillo — moderado
+    1.6, '#f97316',  // naranja — pesado
+    2.0, '#ef4444',  // rojo — muy pesado
+    100, '#7f1d1d',  // rojo oscuro — cierre/incidente
+  ] as unknown as ExpressionSpecification,
+  ['get', 'base_color'],  // fallback: color original de la calle
+]
 
-  map.addLayer({
-    id: 'traffic-glow',
-    type: 'line',
-    source: 'traffic',
-    filter: ['==', ['get', 'tipo'], 'TRAFICO'],
-    paint: {
-      'line-color': [
-        'interpolate',
-        ['linear'],
-        ['get', 'factor_retraso'],
-        1.0, '#16a34a',
-        1.3, '#eab308',
-        1.8, '#f97316',
-        3.0, '#ef4444',
-      ] as unknown as string,
-      'line-width': zoomWidth(9, 10, 14, 30),
-      'line-blur': zoomWidth(9, 6, 14, 18),
-      'line-opacity': 0.4,
-    },
-    layout: { ...ROUND, visibility: 'none' },
-  })
-
-  map.addLayer({
-    id: 'traffic-incident',
-    type: 'line',
-    source: 'traffic',
-    filter: ['==', ['get', 'tipo'], 'CIERRE_TOTAL'],
-    paint: {
-      'line-color': '#dc2626',
-      'line-width': zoomWidth(9, 6, 14, 16),
-      'line-blur': zoomWidth(9, 3, 14, 8),
-      'line-opacity': 0.75,
-    },
-    layout: { ...ROUND, visibility: 'none' },
-  })
+// Colores base por clase de vía (para restaurar al apagar tráfico)
+const BASE_COLORS: Record<string, string> = {
+  highway: ROAD.highway,
+  primary: ROAD.primary,
+  secondary: ROAD.secondary,
+  tertiary: ROAD.tertiary,
+  local: ROAD.local,
 }
 
-/** Activa o desactiva las capas de tráfico y carga datos para la hora dada. */
-export function toggleTrafficLayer(map: MLMap, visible: boolean, hora?: string) {
-  const vis = visible ? 'visible' : 'none'
-  if (map.getLayer('traffic-glow')) map.setLayoutProperty('traffic-glow', 'visibility', vis)
-  if (map.getLayer('traffic-incident')) map.setLayoutProperty('traffic-incident', 'visibility', vis)
+/**
+ * Inyecta `traffic_factor` en los features del road-network que coincidan
+ * con los keywords del tráfico, y cambia el paint de las capas a colores
+ * térmicos. Al desactivar, restaura los colores originales.
+ */
+export function toggleTrafficLayer(
+  map: MLMap,
+  visible: boolean,
+  hora?: string,
+  onDone?: () => void,
+) {
+  const source = map.getSource('road-network') as GeoJSONSource | undefined
+  if (!source) return
 
-  if (visible && hora) {
-    fetch(`${TRAFFIC_API}/api/traffic?hora=${hora}`)
-      .then((r) => r.json())
-      .then((data) => {
-        const source = map.getSource('traffic') as import('maplibre-gl').GeoJSONSource | undefined
-        source?.setData(data.geojson)
-      })
-      .catch(console.error)
+  const features = getRoadFeatures()
+
+  if (!visible) {
+    // Restaurar colores originales
+    for (const layerId of ROAD_LAYERS) {
+      const cls = layerId.replace('roads-', '')
+      const color = BASE_COLORS[cls]
+      if (color && map.getLayer(layerId)) {
+        map.setPaintProperty(layerId, 'line-color', color)
+      }
+    }
+    // Limpiar traffic_factor de los features
+    for (const f of features) {
+      if (f.properties) {
+        delete f.properties.traffic_factor
+        delete f.properties.base_color
+      }
+    }
+    source.setData({ type: 'FeatureCollection', features })
+    onDone?.()
+    return
   }
+
+  // Fetch traffic data y colorear calles reales
+  fetch(`${TRAFFIC_API}/api/traffic?hora=${hora ?? '14:00'}`)
+    .then((r) => r.json())
+    .then((data: { traffic_map: Record<string, number>; incidents: Array<{ calle: string; factor?: number }> }) => {
+      const trafficMap = data.traffic_map
+      const incidents = data.incidents || []
+      console.log('[Traffic] Keys:', Object.keys(trafficMap).length, 'Incidents:', incidents.length)
+
+      let matched = 0
+      for (const f of features) {
+        if (!f.properties) continue
+
+        // Guardar color base original en TODOS los features (incluso sin nombre)
+        f.properties.base_color = BASE_COLORS[f.properties.class as string] ?? ROAD.local
+
+        const name: string = f.properties.name ?? ''
+        if (!name) continue
+
+        // 1. Búsqueda exacta O(1) para el tráfico regular masivo
+        let factor = trafficMap[name]
+
+        // 2. Búsqueda por substring solo para incidentes manuales
+        for (const inc of incidents) {
+          if (name.includes(inc.calle)) {
+            factor = 99999.0 // Factor altísimo para asegurar que se pinte rojo oscuro
+            break
+          }
+        }
+
+        if (factor !== undefined) {
+          f.properties.traffic_factor = factor
+          matched++
+        } else {
+          delete f.properties.traffic_factor
+        }
+      }
+
+      console.log(`[Traffic] Matched ${matched} / ${features.length} features`)
+
+      // Re-setear datos con las propiedades inyectadas
+      source.setData({ type: 'FeatureCollection', features })
+
+      // Cambiar el paint de las capas de calles a usar colores de tráfico
+      for (const layerId of ROAD_LAYERS) {
+        if (map.getLayer(layerId)) {
+          map.setPaintProperty(layerId, 'line-color', TRAFFIC_COLOR)
+        }
+      }
+
+      onDone?.()
+    })
+    .catch(console.error)
 }

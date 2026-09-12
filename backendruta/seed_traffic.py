@@ -17,52 +17,45 @@ from backendruta.database import (
 logger = logging.getLogger("seed_traffic")
 logging.basicConfig(level=logging.INFO)
 
-# Coordenadas reales representativas de avenidas clave en Monterrey [lon, lat]
-AVENIDAS_MTY = {
-    "Av. Eugenio Garza Sada": [
-        [-100.2930, 25.6580],
-        [-100.2915, 25.6515],  # Frente a Rectoría Tec
-        [-100.2880, 25.6420],
-        [-100.2840, 25.6310],
-    ],
-    "Av. Constitución": [
-        [-100.3250, 25.6660],
-        [-100.3100, 25.6690],
-        [-100.2950, 25.6720],
-        [-100.2800, 25.6740],
-    ],
-    "Av. Morones Prieto": [
-        [-100.3300, 25.6620],
-        [-100.3100, 25.6650],
-        [-100.2920, 25.6680],
-        [-100.2780, 25.6700],
-    ],
-    "Av. José Eleuterio González (Gonzalitos)": [
-        [-100.3510, 25.6720],
-        [-100.3525, 25.6850],
-        [-100.3540, 25.6980],
-        [-100.3550, 25.7120],
-    ],
-    "Av. Revolución": [
-        [-100.2810, 25.6680],
-        [-100.2800, 25.6550],
-        [-100.2790, 25.6420],
-        [-100.2780, 25.6320],
-    ],
-    "Av. Lázaro Cárdenas": [
-        [-100.3450, 25.6480],
-        [-100.3300, 25.6430],
-        [-100.3150, 25.6380],
-        [-100.2950, 25.6350],
-    ],
-}
+# Extraeremos nombres de avenidas directamente del grafo para cubrir toda la ciudad.
+# Solo consideramos vías principales para mantener el rendimiento de la simulación.
+import pickle
+from pathlib import Path
+BASE_DIR = Path(__file__).resolve().parent.parent
+G_path = BASE_DIR / "data" / "mty_graph.pkl"
+
+def get_calles_principales() -> List[str]:
+    calles = set()
+    if not G_path.exists():
+        logger.warning("No se encontró mty_graph.pkl. Usando fallback básico.")
+        return ["Eugenio Garza Sada", "Constitución", "Morones Prieto", "Gonzalitos"]
+        
+    logger.info("Extrayendo calles del grafo para simulación...")
+    G = pickle.loads(G_path.read_bytes())
+    for u, v, d in G.edges(data=True):
+        n = d.get("name")
+        h = d.get("highway", "")
+        if isinstance(h, list): h = h[0]
+        
+        # Filtrar solo vías importantes para no sobrecargar de ruido el mapa
+        if n and h in ("motorway", "trunk", "primary", "secondary", "tertiary"):
+            if isinstance(n, list):
+                calles.update(n)
+            else:
+                calles.add(n)
+    
+    logger.info(f"Se encontraron {len(calles)} avenidas/calles principales.")
+    return list(calles)
 
 
 def generar_datos_simulacion():
     """Genera 120 minutos de tráfico (14:00 - 16:00) con fluctuaciones aleatorias leves."""
     hoy = date.today()
     registros: List[Dict[str, Any]] = []
+    
+    avenidas_reales = get_calles_principales()
 
+    logger.info("Generando datos de simulación por minuto (esto tomará unos segundos)...")
     # Iterar cada minuto de 14:00 a 16:00 (121 minutos)
     for total_minutos in range(14 * 60, 16 * 60 + 1):
         hora = total_minutos // 60
@@ -70,9 +63,9 @@ def generar_datos_simulacion():
         dt = datetime.combine(hoy, time(hora, minuto))
         hora_str = f"{hora:02d}:{minuto:02d}"
 
-        for calle, coords in AVENIDAS_MTY.items():
+        for calle in avenidas_reales:
             # Tráfico base fluido a moderado
-            base_retraso = 1.0 if "Gonzalitos" not in calle else 1.3
+            base_retraso = 1.0 if "Gonzalitos" not in calle and "Constitución" not in calle else 1.2
             
             # Ruido aleatorio (baja sensibilidad)
             ruido = random.uniform(0.0, 0.4)
@@ -94,13 +87,13 @@ def generar_datos_simulacion():
                 "delay_segundos": delay,
                 "velocidad_kmh": velocidad,
                 "motivo": motivo,
-                "coords": coords
+                "coords": []  # Ya no usamos coords estáticas, el frontend colorea por nombre
             })
 
-    # Guardar en lotes de 100 registros
+    # Guardar en lotes de 1000 registros
     logger.info(f"Guardando {len(registros)} registros de tráfico base (random)...")
-    for i in range(0, len(registros), 100):
-        save_traffic_batch(registros[i:i + 100])
+    for i in range(0, len(registros), 5000):
+        save_traffic_batch(registros[i:i + 5000])
 
     logger.info("Población de datos base completada exitosamente. (Incidentes se inyectarán vía API).")
 
