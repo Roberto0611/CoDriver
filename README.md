@@ -92,3 +92,5 @@ cd frontend && npm run check
 | `frontend/` | React + Vite + MapLibre |
 | `data/` | Descarga del grafo y exportes para el front |
 | `scripts/` | Utilidades sueltas y el check de líneas |
+
+prueba
