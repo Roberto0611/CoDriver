@@ -51,10 +51,17 @@ def test_no_acepta_lo_que_no_deja_volver_a_clase():
 
 
 def test_mochila_llena_es_restriccion():
+    """La capacidad cuenta pedidos EN VUELO, o sea los que siguen en la ruta.
+
+    Un pedido ya recogido no aparece en `mochila` pero su dropoff sigue pendiente
+    y ocupa lugar, asi que la restriccion se mide sobre la ruta, no sobre mochila.
+    """
     otro_tec = rutas.puntos_de("Tec")[1]
-    llena = [f"o_{i}" for i in range(CAPACIDAD)]
+    ruta_llena = [
+        Parada("dropoff", rutas.puntos_de("Tec")[i + 2], f"o_{i}") for i in range(CAPACIDAD)
+    ]
     nueva, dec = politica_nuez(
-        oferta(TEC_I, otro_tec, pago=900.0), estado(mochila=llena), [], cfg()
+        oferta(TEC_I, otro_tec, pago=900.0), estado(), ruta_llena, cfg()
     )
     assert nueva is None
     assert dec.restriccion == "mochila_llena"
@@ -66,7 +73,11 @@ def test_acepta_lo_que_rinde_mas_que_sus_minutos():
     assert dec.accion == "aceptar"
     assert dec.restriccion is None
     assert dec.terminos["ventaja"] > 0
-    assert nueva == [Parada("pickup", TEC_I, "o_test"), Parada("dropoff", otro_tec, "o_test")]
+    # `listo_en` lo pone la politica para que el ruteo cuente la espera del restaurante.
+    assert [(p.tipo, p.punto, p.oferta_id) for p in nueva] == [
+        ("pickup", TEC_I, "o_test"),
+        ("dropoff", otro_tec, "o_test"),
+    ]
 
 
 def test_salta_lo_que_paga_menos_que_sus_minutos():

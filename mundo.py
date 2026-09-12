@@ -26,31 +26,53 @@ ZONAS = {
 # ponytail: multiplicadores a ojo de regio, no medidos. Esta es LA perilla de
 # calibración del simulador — si los tiempos se sienten falsos, se toca aquí.
 # Flujo libre (OSM maxspeed) x este factor = tiempo real de viaje.
+# El trafico no es uniforme: depende de PARA DONDE vas y a que hora. En la mañana
+# todos entran al centro, en la tarde todos salen, y cruzar el rio Santa Catarina
+# sufre las dos. Un solo factor para toda la ciudad es un mundo sin ritmo, y en un
+# mundo sin ritmo no hay nada que un agente listo pueda aprender.
+#
+# ponytail: cuatro curvas a ojo de regio, no medidas. ESTA es la perilla de
+# calibracion del mundo. Para volverlas reales: 5 pares de puntos conocidos en
+# Google Maps a las 8, 14 y 18 h, y el cociente contra el tiempo a flujo libre.
+
+ZONAS_SUR = {"Valle", "Contry", "Tec"}          # del otro lado del rio
+ZONAS_CENTRO = {"Centro", "Obispado"}           # el nucleo de trabajo y comercio
+
+CURVAS_CORREDOR = {
+    # Dentro de tu propia zona: casi plano, nunca duele mucho.
+    "local": {
+        0: 1.0, 1: 1.0, 2: 1.0, 3: 1.0, 4: 1.0, 5: 1.05,
+        6: 1.15, 7: 1.30, 8: 1.35, 9: 1.25, 10: 1.20, 11: 1.20,
+        12: 1.25, 13: 1.30, 14: 1.30, 15: 1.35, 16: 1.40, 17: 1.45,
+        18: 1.50, 19: 1.40, 20: 1.25, 21: 1.15, 22: 1.05, 23: 1.0,
+    },
+    # Entrando al centro: el infierno es en la mañana.
+    "hacia_centro": {
+        0: 1.0, 1: 1.0, 2: 1.0, 3: 1.0, 4: 1.0, 5: 1.10,
+        6: 1.60, 7: 2.40, 8: 2.70, 9: 2.10, 10: 1.50, 11: 1.40,
+        12: 1.50, 13: 1.60, 14: 1.60, 15: 1.70, 16: 1.90, 17: 2.00,
+        18: 2.00, 19: 1.80, 20: 1.40, 21: 1.20, 22: 1.10, 23: 1.0,
+    },
+    # Saliendo del centro: el infierno es en la tarde, y empieza a las 3.
+    "desde_centro": {
+        0: 1.0, 1: 1.0, 2: 1.0, 3: 1.0, 4: 1.0, 5: 1.05,
+        6: 1.20, 7: 1.50, 8: 1.60, 9: 1.50, 10: 1.40, 11: 1.40,
+        12: 1.50, 13: 1.60, 14: 1.70, 15: 2.00, 16: 2.40, 17: 2.80,
+        18: 2.90, 19: 2.50, 20: 1.80, 21: 1.40, 22: 1.10, 23: 1.0,
+    },
+    # Cruzar el rio: sufre las dos horas pico y siempre es lo peor.
+    "cruza_rio": {
+        0: 1.0, 1: 1.0, 2: 1.0, 3: 1.0, 4: 1.0, 5: 1.10,
+        6: 1.50, 7: 2.30, 8: 2.60, 9: 2.20, 10: 1.70, 11: 1.60,
+        12: 1.70, 13: 1.90, 14: 2.00, 15: 2.40, 16: 2.90, 17: 3.20,
+        18: 3.30, 19: 2.90, 20: 2.00, 21: 1.50, 22: 1.20, 23: 1.0,
+    },
+}
+
+# Promedio de los cuatro corredores. Solo para cuando no se sabe el par de zonas.
 TRAFICO_POR_HORA = {
-    0: 1.0,
-    1: 1.0,
-    2: 1.0,
-    3: 1.0,
-    4: 1.0,
-    5: 1.1,
-    6: 1.4,
-    7: 2.2,
-    8: 2.4,
-    9: 1.9,  # entrada a escuelas y trabajo
-    10: 1.4,
-    11: 1.4,
-    12: 1.5,
-    13: 1.7,
-    14: 1.8,
-    15: 1.6,  # hora de comida
-    16: 1.8,
-    17: 2.3,
-    18: 2.5,
-    19: 2.2,  # salida, el peor rato del día
-    20: 1.6,
-    21: 1.3,
-    22: 1.1,
-    23: 1.0,
+    h: round(sum(c[h] for c in CURVAS_CORREDOR.values()) / len(CURVAS_CORREDOR), 2)
+    for h in range(24)
 }
 
 # ponytail: capa SINTÉTICA, curada a mano. No hay datos abiertos confiables de
@@ -77,8 +99,31 @@ RIESGO_BASE = {
 UMBRAL_RIESGO = 0.6  # arriba de esto, restricción dura: no se acepta, ni por dinero
 
 
-def factor_trafico(hora: int) -> float:
-    return TRAFICO_POR_HORA[hora % 24]
+def corredor(origen: str, destino: str) -> str:
+    """A que tipo de viaje pertenece ir de una zona a otra.
+
+    Cruzar el rio manda sobre todo lo demas: es el cuello de botella de la ciudad.
+    """
+    if (origen in ZONAS_SUR) != (destino in ZONAS_SUR):
+        return "cruza_rio"
+    if destino in ZONAS_CENTRO and origen not in ZONAS_CENTRO:
+        return "hacia_centro"
+    if origen in ZONAS_CENTRO and destino not in ZONAS_CENTRO:
+        return "desde_centro"
+    return "local"
+
+
+def factor_trafico(hora: int, origen: str | None = None, destino: str | None = None) -> float:
+    """Cuanto se estira el tiempo a flujo libre.
+
+    Con el par de zonas usa la curva de su corredor; sin el, el promedio de la
+    ciudad. LA FUENTE UNICA: tanto el motor (via rutas.minutos) como el mapa
+    (via backendruta/seed_traffic) preguntan aqui. Nadie inventa factores aparte.
+    """
+    h = hora % 24
+    if origen is None or destino is None:
+        return TRAFICO_POR_HORA[h]
+    return CURVAS_CORREDOR[corredor(origen, destino)][h]
 
 
 def riesgo(zona: str, hora: int) -> float:

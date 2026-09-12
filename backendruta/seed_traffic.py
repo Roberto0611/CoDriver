@@ -5,10 +5,15 @@ crítico a las 14:35 para la demostración del agente.
 
 import logging
 import random
+import sys
 from datetime import date, datetime, time
+from pathlib import Path
 from typing import Any
 
-from backendruta.database import init_db, save_traffic_batch
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+
+from backendruta.database import init_db, save_traffic_batch  # noqa: E402
+from mundo import CURVAS_CORREDOR  # noqa: E402
 
 logger = logging.getLogger("seed_traffic")
 logging.basicConfig(level=logging.INFO)
@@ -54,9 +59,25 @@ AVENIDAS_MTY = {
 }
 
 
+# A que corredor pertenece cada avenida. Gonzalitos y Garza Sada son los ejes
+# que entran al centro; Constitucion y Morones corren junto al rio; Revolucion y
+# Lazaro Cardenas son las salidas hacia el sur y el poniente.
+CORREDOR_DE_CALLE = {
+    "Av. Eugenio Garza Sada": "hacia_centro",
+    "Av. Constitución": "cruza_rio",
+    "Av. Morones Prieto": "cruza_rio",
+    "Av. José Eleuterio González (Gonzalitos)": "hacia_centro",
+    "Av. Revolución": "desde_centro",
+    "Av. Lázaro Cárdenas": "desde_centro",
+}
+
+SEED = 7   # el mapa tiene que verse igual cada vez que el juez repite el turno
+
+
 def generar_datos_simulacion():
     """Genera 120 minutos de tráfico (14:00 - 16:00) con fluctuaciones aleatorias leves."""
     hoy = date.today()
+    rng = random.Random(SEED)
     registros: list[dict[str, Any]] = []
 
     # Iterar cada minuto de 14:00 a 16:00 (121 minutos)
@@ -67,19 +88,21 @@ def generar_datos_simulacion():
         hora_str = f"{hora:02d}:{minuto:02d}"
 
         for calle, coords in AVENIDAS_MTY.items():
-            # Tráfico base fluido a moderado
-            base_retraso = 1.0 if "Gonzalitos" not in calle else 1.3
+            # El factor NO se inventa aquí: sale de la misma curva que usa el motor
+            # para decidir. Así el rojo del mapa y el número de la decisión son el
+            # mismo dato, y un juez puede preguntar "¿por eso se desvió?".
+            base_retraso = CURVAS_CORREDOR[CORREDOR_DE_CALLE[calle]][hora]
 
-            # Ruido aleatorio (baja sensibilidad)
-            ruido = random.uniform(0.0, 0.4)
-            factor_retraso = round(base_retraso + ruido, 2)
+            # Variación leve entre minutos, con semilla: mismo seed, mismo mapa.
+            factor_retraso = round(base_retraso * rng.uniform(0.95, 1.05), 2)
 
             # Velocidad y delay en base al factor
             velocidad = int(50 / factor_retraso)
             delay = int((factor_retraso - 1.0) * 120)  # Delay base
             motivo = "Tráfico fluido/moderado regular"
-
-            if factor_retraso > 1.5:
+            if factor_retraso > 2.2:
+                motivo = "Tráfico muy pesado"
+            elif factor_retraso > 1.5:
                 motivo = "Tráfico pesado"
 
             registros.append(
@@ -96,13 +119,14 @@ def generar_datos_simulacion():
             )
 
     # Guardar en lotes de 100 registros
-    logger.info(f"Guardando {len(registros)} registros de tráfico base (random)...")
+    logger.info(f"Guardando {len(registros)} registros derivados de mundo.CURVAS_CORREDOR...")
     for i in range(0, len(registros), 100):
         save_traffic_batch(registros[i : i + 100])
 
     logger.info(
         "Población de datos base completada exitosamente. (Incidentes se inyectarán vía API)."
     )
+    return registros
 
 
 def seed_all():

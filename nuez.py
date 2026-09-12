@@ -1,12 +1,16 @@
 """B6: la politica de Nuez. Costo de oportunidad en vez de umbral fijo.
 
-La diferencia con el greedy es UNA linea: en lugar de comparar contra un umbral
-fijo de $3/min, compara contra lo que rinden esos minutos segun la tabla de valor.
+Dos diferencias con el greedy:
+  1. El costo del pedido es MARGINAL (ruteo.py): lo que cuesta encima de lo que ya
+     trae, con las paradas reordenadas. Un pedido de paso cuesta 3 min, no 25.
+  2. El umbral no es fijo: compara contra lo que rinden esos minutos segun la
+     tabla de valor, que depende de cuanto turno queda y de como esta el trafico.
 
 Las restricciones duras son las mismas y no se negocian: seguridad de la zona y
 alcanzar a volver al ancla antes de clase.
 """
 
+import ruteo
 import rutas
 import valor
 from contrato import ConfigTurno, Decision, EstadoRepartidor, Oferta
@@ -24,14 +28,12 @@ def politica_nuez(
     pos = indice_de(est.pos)
     ancla = rutas.indice_mas_cercano(cfg.ancla.lat, cfg.ancla.lon)
 
-    # Lo que ya trae encolado: el pedido nuevo empieza cuando termine la ruta.
-    cola, desde = 0.0, pos
-    for p in ruta:
-        cola += rutas.minutos(desde, p.punto, hora)
-        desde = p.punto
-
-    # Lo que cuesta ESTE pedido, que es lo unico que se le puede cobrar.
-    propios = rutas.minutos(desde, i_pick, hora) + rutas.minutos(i_pick, i_drop, hora)
+    # B2: cuantos minutos EXTRA cuesta meter este pedido, con las paradas
+    # reordenadas de la mejor forma. Si va de paso, casi nada.
+    nuevas = [Parada("pickup", i_pick, o.id, o.t_aparece + o.t_prep),
+              Parada("dropoff", i_drop, o.id)]
+    nueva_ruta, propios = ruteo.costo_marginal(pos, ruta, nuevas, hora, est.t)
+    _, cola = ruteo.mejor_ruta(pos, ruta, hora, est.t)
     neto = o.pago * o.surge - rutas.km(i_pick, i_drop) * COSTO_KM[cfg.vehiculo]
 
     # El costo de oportunidad: lo que rinden esos minutos normalmente.
@@ -48,12 +50,18 @@ def politica_nuez(
     def no(razon: str, restriccion=None):
         return None, Decision(est.t, o.id, "saltar", terminos, razon, restriccion)
 
-    if len(est.mochila) >= CAPACIDAD:
+    # Un pedido ya recogido sigue ocupando lugar en la ruta hasta entregarlo.
+    en_vuelo = {p.oferta_id for p in ruta if p.oferta_id}
+    if len(en_vuelo) >= CAPACIDAD:
         return no("Ya traigo la mochila llena.", "mochila_llena")
     if not es_segura(rutas.ZONA_DE[i_drop], hora):
         return no(f"No te mando a {rutas.ZONA_DE[i_drop]} a esta hora.", "zona_insegura")
-    if cola + propios + rutas.minutos(i_drop, ancla, hora) > est.t_restante - cfg.margen_min:
-        return no("No alcanzas a volver a tiempo para tu clase.", "regreso_infactible")
+    # El regreso se mide desde la ULTIMA parada de la ruta reordenada, no desde
+    # este pedido: al agrupar, el destino de este puede quedar a media ruta.
+    if nueva_ruta:
+        regreso = rutas.minutos(nueva_ruta[-1].punto, ancla, hora)
+        if cola + propios + regreso > est.t_restante - cfg.margen_min:
+            return no("No alcanzas a volver a tiempo para tu clase.", "regreso_infactible")
 
     # LA linea. Todo lo demas es igual al baseline.
     if neto < precio + MARGEN:
@@ -61,7 +69,6 @@ def politica_nuez(
             f"Esos {propios:.0f} minutos rinden ${precio:.0f} normalmente, y este paga ${neto:.0f}."
         )
 
-    nueva = ruta + [Parada("pickup", i_pick, o.id), Parada("dropoff", i_drop, o.id)]
-    return nueva, Decision(
+    return nueva_ruta, Decision(
         est.t, o.id, "aceptar", terminos, f"Te deja ${neto - precio:.0f} por encima de lo normal."
     )
