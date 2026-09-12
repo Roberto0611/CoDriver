@@ -6,7 +6,7 @@ Documento de contexto del proyecto. Lo que decidimos, por qué, y cómo se traba
 
 ## 0. Estado actual — leer esto primero
 
-**Última actualización: 12 de septiembre de 2026.** Rama de trabajo: `feature/turnos-grabados`.
+**Última actualización: 12 de septiembre de 2026 (tarde).** Rama de trabajo: `main`.
 
 **El proyecto en tres renglones:** un estudiante tiene una ventana libre entre clases y quiere
 sacar dinero repartiendo comida. Nuestro agente decide qué aceptar y qué no, le gana a un
@@ -48,10 +48,11 @@ python comparar.py 200 --duracion 480
 
 Son resultados del mundo sintético con esa configuración, no una promesa para cualquier
 vehículo u horario. Las pruebas cubren además ventanas de 65 y 137 min, tres vehículos y
-turnos de 8 horas desde las 8, 14 y 21 h. Verificación local: 166 tests Python pasan (1 de voz
+turnos de 8 horas desde las 8, 14 y 21 h. Verificación local: 177 tests Python pasan (1 de voz
 en vivo omitido), 11 tests de front pasan, lint/formato/tipos/contrato/límite de líneas y build
-en verde. El endpoint y el JSONL oficial también pasan su validador. Ya corren los
-cinco agentes online y el `Oracle` offline con los mismos seeds de REPORTE.
+en verde. El endpoint y el JSONL oficial también pasan su validador, incluido el log con los
+campos de `explain_decision`. Ya corren los cinco agentes online y el `Oracle` offline con los
+mismos seeds de REPORTE.
 
 ### Qué existe y qué falta
 
@@ -59,8 +60,8 @@ cinco agentes online y el `Oracle` offline con los mismos seeds de REPORTE.
 |---|---|---|
 | **0** | El mundo y el rival | ✅ |
 | **1** | **EL NÚMERO** — tabla de valor + política de Nuez | ✅ **+29.2% en seeds no vistos** |
-| **1b** | Conformidad con el spec oficial de Infosys | 🟡 duración, restricciones, `/decide` + JSONL, cinco agentes online y Oracle ✅; faltan modo degradado y shocks |
-| **2** | Hacerlo visible — replay y pantalla partida | parcial: turnos grabados ✅, panel de decisión ❌ |
+| **1b** | Conformidad con el spec oficial de Infosys | 🟡 duración, restricciones, `/decide` + JSONL, cinco agentes online, Oracle, `explain_decision` y **modo degradado** ✅; faltan los shocks |
+| **2** | Hacerlo visible — replay y pantalla partida | 🟡 los JSON grabados existen, pero **el front todavía no los reproduce** (hoy hace una carrera de rutas A→B). Brief listo en [`docs/front-turno-grabado.md`](docs/front-turno-grabado.md) |
 | **3** | Hacerlo hablar — Gemini + ElevenLabs | el equipo lo trae aparte |
 | **4** | Tracks baratos y ensayo | sin empezar |
 
@@ -89,10 +90,15 @@ Esta sección es para quien retome el proyecto sin haber estado en la conversaci
 | `sim.py` | Generador de ofertas + reloj del turno + **política greedy (el baseline)** |
 | `ruteo.py` | Orden óptimo de paradas por enumeración exacta + costo marginal |
 | `valor.py` | Tabla de valor offline: `V.json` para ventanas de hasta 120 min y `V_480.json` para hasta 480 min. Admite otras calibraciones por CLI |
-| `nuez.py` | **La política del agente.** Costo de oportunidad en vez de umbral fijo |
+| `nuez.py` | **La política del agente.** Costo de oportunidad en vez de umbral fijo. Lee la `Estrategia` vigente; sin ella se comporta igual que siempre |
+| `estrategia.py` | **Las tres perillas que el modelo puede mover, y hasta dónde.** `sanear` recorta lo que venga fuera de rango |
+| `backendruta/strategy.py` | La capa lenta: el hilo, Gemini, el suplente y el `strategy_update` del JSONL |
 | `comparar.py` | El arnés de medición. **Aquí sale EL NÚMERO** |
 | `backendruta/courier_api.py` | Adaptador del protocolo: sesión, `/decide`, overrides, fechas ISO y zonas enteras |
+| `backendruta/courier_format.py` | Traduce una `Decision` del motor a la respuesta del spec: razón en inglés bajo 40 palabras, `economics` y eventos del JSONL |
+| `backendruta/explain.py` | **`explain_decision`.** Arma `inputs` + `alternatives_considered` al decidir, los guarda en el evento `decision` y los busca por `order_id` (en memoria o leyendo el JSONL) |
 | `backendruta/event_log.py` | Escritura local del JSONL cronológico; no depende de red ni TigerData |
+| `docs/front-turno-grabado.md` | Brief para el front: formato de los turnos grabados y qué construir en el mapa |
 | `courier/` | El spec oficial que mandó Infosys. Material ajeno: se lee, no se toca (excluido de ruff/mypy) |
 
 ### Comandos
@@ -133,7 +139,9 @@ Los demás, cuando toquen: `python seguridad.py` corre las cinco restricciones;
 `python scripts/engine_baseline.py --write` mueve el ratchet a propósito;
 `python scripts/contract_codegen.py --write` tras tocar `contrato.py`;
 `python data/export_turno.py` regraba los turnos que reproduce el front;
-`python "courier/validate_format (2).py" --event-log mi_turno.jsonl` valida el formato.
+`python "courier/validate_format (2).py" --event-log mi_turno.jsonl` valida el formato;
+`python -m backendruta.explain ORD-0042 --log mi_turno.jsonl` explica una decisión sin nada
+corriendo (con el servidor arriba: `GET /explain/{order_id}`).
 
 ### Lo que ya se midió y NO funcionó — no repetirlo
 
@@ -177,9 +185,84 @@ el porcentaje**: un agente brillante que no cumple el esquema pierde puntos por 
 | 3 ✅ | **Turnos de 8 horas y duración variable** | Tabla larga offline, CLI configurable, velocidad por vehículo y conversión de `shift_hours` en `/shift/start` |
 | 4 ✅ | **Endpoint `/decide` + log de eventos en su JSONL** | Adaptador separado, overrides aplicados, razones inglesas bajo 40 palabras y JSONL local. Validador oficial en verde para endpoint y log |
 | 5 ✅ | **Los cinco baselines + el Oracle** | `oracle.py` conoce el stream completo offline, explora agendas sin apilar y escoge el mejor resultado reproducible frente a los cinco agentes online |
-| 6 | `explain_decision` + modo degradado | Los jueces van a invalidar la credencial del modelo a media corrida. Hay que seguir decidiendo con la última estrategia y **señalar `degraded: true`**. Un fallback silencioso es crédito parcial; un crash es reprobado |
-| 7 | Shocks en vivo (`surge`, `closure`, `rain`, `delay`) | El brief exige al menos uno durante el demo |
-| 8 | Panel de decisión en el front | Judgment sigue en cero del lado visual |
+| 6a ✅ | **`explain_decision`** | `GET /explain/{order_id}` (alias `/explain_decision/{order_id}`) responde en ms desde el registro; si el proceso se reinició, lee el JSONL. Nunca re-decide |
+| 6b ✅ | **Modo degradado + capa de estrategia** | `backendruta/strategy.py`. Gemini corre en un hilo aparte y solo mueve tres perillas; la ruta rápida nunca lo llama. Sin credencial, `degraded: true` y sigue decidiendo. Se recupera solo |
+| 7 | Shocks en vivo (`surge`, `closure`, `rain`, `delay`) | El brief exige al menos uno durante el demo. `closure` no aparece hoy en ningún `.py` |
+| 8 | Reproducir el turno en el front + contadores + panel de decisión | Judgment sigue en cero del lado visual. Es trabajo solo de front, sobre los JSON grabados: [`docs/front-turno-grabado.md`](docs/front-turno-grabado.md) |
+
+### `explain_decision`: qué quedó
+
+- **Se arma al decidir, no al preguntar.** `explain.build` usa los números que el motor ya tenía y
+  los guarda en el evento `decision` del JSONL: `inputs` (posición, tiempo restante, minutos para
+  terminar, oferta, límites del vehículo, estrategia activa) y `alternatives_considered`.
+- **Una alternativa con números por cada tipo de decisión.** Aceptada: "SKIP and keep waiting" y
+  por qué perdió. Saltada por dinero: "ACCEPT" con cuánto le faltó. Saltada por seguridad: la
+  restricción con sus números (p. ej. *95 min contra el límite de 90*) **y** lo que habría dicho la
+  cuenta de dinero sola: *"Pay math alone says ACCEPT, but safety constraints… cannot be bought
+  with money."* Esa segunda línea es la que conviene enseñar al juez.
+- **`nuez.py` guarda tres términos más** (`minutos_ruta_actual`, `minutos_para_terminar`,
+  `minutos_de_turno`) para mostrar la cuenta del fin de turno. No cambian ninguna decisión: el
+  ratchet sigue igual.
+- **Razón de `/decide` sin contradicciones al redondear.** Antes decía *"MXN 26 net is below the
+  MXN 26…"*, y a veces el pedido pagaba **más** que el costo: lo rechazaba el margen mínimo
+  `nuez.MARGEN` ($1), que la frase no mencionaba. Ahora va con un decimal y nombra ese margen.
+- **Tests:** `tests/test_explain.py`.
+
+### La capa de estrategia y el modo degradado: qué quedó
+
+**La regla que lo explica todo:** Gemini **nunca decide un pedido**. Solo mueve perillas, y el
+motor las lee de memoria entre pings.
+
+```
+ping  ->  motor  ->  lee capa.actual  ->  responde      microsegundos, tier1
+          hilo   ->  llama a Gemini   ->  reemplaza     cada 5 min, aparte
+```
+
+Esto es literalmente la regla del spec: *"any code path that calls a model inside the decision
+window fails Feasibility"*. Varios equipos van a poner el LLM en medio y ahí se caen.
+
+**Las tres perillas** (`estrategia.py`), y ninguna es de seguridad:
+
+| Perilla | Qué hace | Rango duro |
+|---|---|---|
+| `margen_mxn` | qué tan exigente es con el dinero | 0 – 40 |
+| `descuento_parado` | cuánto vale un minuto estando quieto | 0.1 – 1.0 |
+| `multiplicador_zona` | encarece el tiempo hacia una zona (lluvia, cierre, concierto) | 0.5 – 3.0 |
+
+Las cinco restricciones duras viven en `seguridad.py` y **ningún modelo las alcanza**. Si Gemini
+dijera *"métete a Escobedo a las 11 PM que pagan bien"*, el motor dice que no igual: el dinero ni
+siquiera entra a esa función. Hay un test que falla si aparece una perilla nueva sin revisarla.
+
+**`sanear` recorta en vez de creer.** Un modelo puede alucinar, venir envenenado por un prompt
+metido en un nombre de calle, o equivocarse de unidades. Un `margen_mxn` de $9999 apagaría al
+repartidor; los rangos de arriba lo dejan en 40 antes de que llegue al motor. Una zona inventada
+se ignora: el modelo no puede crear geografía.
+
+**El seguro del número:** `BASE` son los valores de hoy. Mientras nadie actualice la estrategia,
+el agente se comporta idéntico a cuando se midió el +29.2%, y el ratchet lo confirma byte a byte.
+
+**La credencial se lee de `os.environ` en cada llamada**, a propósito. Los jueces la invalidan en
+el entorno del proceso; un cliente creado al arrancar con la llave guardada en memoria nunca se
+enteraría y no habría degradado que enseñar. Es una línea y es un punto del puntaje.
+
+**Variables de entorno:**
+
+| | |
+|---|---|
+| `GEMINI_API_KEY` | sin ella, el sistema arranca degradado (que es la verdad: no hay modelo) |
+| `GEMINI_MODELO` | por omisión `gemini-2.0-flash` |
+| `NUEZ_MODELO=falso` | usa el suplente local, para trabajar sin credencial. Devuelve los valores BASE: no cambia ninguna decisión |
+
+**El suplente NO reemplaza a Gemini en el demo.** Es andamio para trabajar sin llave y el doble
+que usan los tests: en CI no hay red ni credencial, y no se le puede pedir a Google que se ponga
+lento a la orden. El ensayo del degradado sí se hace con Gemini real, borrando la variable.
+
+**Tests:** `tests/test_estrategia.py`. Los tres momentos que el juez provoca — el modelo tarda y
+`/decide` responde igual, le quitan la llave y sale `degraded: true`, se la devuelven y se
+recupera — más los rangos y el guardia de las perillas.
+
+**Lo que queda del 6b:** ensayarlo con la credencial puesta, y decidir si Gemini además narra la
+decisión en voz alta (eso es la capa de voz, no ésta).
 
 ### Detalles del spec que se olvidan fácil
 
@@ -195,19 +278,22 @@ el porcentaje**: un agente brillante que no cumple el esquema pierde puntos por 
   menos dos como momentos en vivo."** O sea: hay que *provocar* la regla del calor y la del
   descanso frente al juez, no solo tenerlas.
 - **Responder desde el log en menos de 10 segundos** es en sí mismo parte del puntaje. Re-derivarlo
-  en vivo es la respuesta equivocada aunque salga bien.
+  en vivo es la respuesta equivocada aunque salga bien. Ya cubierto por `backendruta/explain.py`.
 
 ### Pendientes chicos pero que se notan
 
-- **El turno grabado del seed 1 quedó feo**: el greedy hace $66 y 1 entrega. Es el golden de
-  regresión, por eso no se cambió, pero **para el demo hay que escoger otros seeds, y de REPORTE**.
-  Se regraban con `python data/export_turno.py <seeds>`.
+- **Los turnos grabados son de TUNEO** (1, 7 y 42), y el del seed 1 quedó feo: el greedy hace $66
+  y 1 entrega. Es el golden de regresión, por eso no se cambió, pero **para el demo hay que
+  escoger otros seeds, y de REPORTE**. Se regraban con `python data/export_turno.py 1 2000 2001 2002`.
+  Incluir el `1`: `turnos.json` se reescribe solo con los seeds que se pasen.
 - **La varianza por turno es enorme** (desviación ~56 puntos porcentuales; el peor turno −83%, el
   mejor +252%). **Un turno animado no es evidencia.** Hay que mostrar la distribución de 50 turnos
   al lado del turno bonito, o el juez tiene razón en no creernos.
-- **El front come ~3 GB de RAM.** Causas: inflado del parse de JSON, el patrón O(n²) de
-  `_roadFeatures.concat` + `setData`, y `INCLUIR_LOCALES = True` en `data/export_geojson.py`. La
-  palanca más barata es esa bandera de una línea.
+- **El front comía ~3 GB de RAM.** La medición es anterior a la carga de calles por zona
+  (`frontend/src/map/roads.ts`): el patrón `_roadFeatures.concat` que se citaba como causa ya no
+  aparece en `src/`. **Medir de nuevo antes de invertirle tiempo.** Si sigue alto, la palanca más
+  barata es `INCLUIR_LOCALES = False` en `data/export_geojson.py`.
+- **La UI actual usa emoji como íconos** (🤖 🧠 ⚔️ 📍 👁️), que `docs/ui-style-guide.md` prohíbe.
 
 ---
 
@@ -883,7 +969,8 @@ Hitos que no se mueven:
 | B8 | ~~**Turnos de 8 h + los tres vehículos con su velocidad**~~ | ✅ `V_480.json`, duración/hora/vehículo por CLI, velocidad aplicada en planificación y recorrido |
 | B9 | ~~**Endpoint `/decide` + log JSONL del spec**~~ | ✅ `/shift/start`, `/decide`, `/shift/status`, `/shift/end`, `/zones`; ambos modos del validador oficial en verde |
 | B10 | ~~**Los cinco baselines + el Oracle**~~ | ✅ `baselines.py` aporta los tres rivales y `oracle.py` el sexto renglón offline. En 200 REPORTE: Nuez $259, Oracle $275, 0 llegadas tarde; `python comparar.py 200 --rivales` los mide |
-| B11 | **`explain_decision` + modo degradado** | Responde por `order_id` en <10 s y marca `degraded: true` |
+| B11 | ~~**`explain_decision`**~~ | ✅ `backendruta/explain.py`: `inputs` + `alternatives_considered` en cada evento `decision`, respuesta en ms, también desde un JSONL cerrado |
+| B12 | **Capa de estrategia + modo degradado** | Nunca frena `/decide`, marca `degraded: true` al perder el modelo y se recupera solo. Diseño en §0b |
 | B7 | Contrafactual: qué habría pasado aceptando lo rechazado | Un número y una lista al cierre del turno |
 
 ### Carril C — Front y demo
@@ -892,8 +979,8 @@ Hitos que no se mueven:
 |---|---|---|
 | C1 | **Contrato de eventos WebSocket** | Congelado en la hora 1 |
 | C2 | Pantalla de configuración (ventana, ancla, vehículo, margen) | Cuatro inputs, no una app |
-| C3 | Mapa MapLibre con los dos agentes y sus rutas | Dos motos moviéndose sobre calles reales |
-| C4 | Contadores + panel de decisión con los términos visibles | Al señalar una decisión se ve por qué |
+| C3 | Mapa MapLibre con los dos agentes y sus rutas | Dos motos moviéndose sobre calles reales. **Mapa y calles ✅; falta reproducir `turno_*.json`**, ver [`docs/front-turno-grabado.md`](docs/front-turno-grabado.md) |
+| C4 | Contadores + panel de decisión con los términos visibles | Al señalar una decisión se ve por qué. Los datos ya están en `frames[t].decisiones`; el backend ya expone `GET /explain/{order_id}` |
 | C5 | Botón de seed del juez + botón de evento (surge / cierre) | El juez puede apretarlos él mismo |
 | C6 | Branding Nuez: nombre, SVG, paleta, prompt de personalidad | **3h máximo, en paralelo.** Paleta y tokens ✅ (sección 8b); falta el SVG de la ardilla (Eli) |
 
@@ -940,6 +1027,9 @@ son cuatro inputs, no una app.
 - **Simulador bonito, agente mediocre** → el 60% de los equipos se queda sin tiempo para el agente. **Baseline corriendo en la hora 10, sin excepciones.**
 - **Solana como NFT decorativo** → se nota y resta credibilidad.
 - **Sin baseline visible** → "ganó $840" no significa nada para un juez sin comparación.
+- **Leer la API key una sola vez al arrancar** → los jueces la invalidan en el entorno del
+  proceso; si la tenemos en memoria no nos enteramos y el modo degradado no se puede demostrar.
+- **Creerle al modelo sin recortar** → un `margen_mxn` alucinado apaga al repartidor. `sanear`.
 - **Reportar sobre los seeds que tuneaste** → el protocolo topa Results en 3 sin importar el
   margen. Los dos conjuntos están en `seeds.py` y `comparar.py` revienta si se cruzan.
 - **Un turno animado como evidencia** → la varianza por turno es enorme. El turno bonito va al
@@ -986,6 +1076,10 @@ son cuatro inputs, no una app.
   contra `tests/engine_baseline.json` (greedy exacto, delta de Nuez nunca baja). Si un cambio
   al mundo o al simulador es a propósito: `python scripts/engine_baseline.py --write` y
   regrabar `python data/export_turno.py 1`.
+- **Python 3.11 para regenerar el contrato.** Python 3.13 le quita la sangría a los docstrings
+  al compilar y 3.11 no, así que el snapshot salía distinto según la laptop y tronaba el Contract
+  Check sin que nadie hubiera tocado `contrato.py`. Ya está resuelto de raíz: `contract_codegen.py`
+  usa `inspect.cleandoc`, que da lo mismo en las dos.
 - **Versiones fijas.** Python en `.python-version`, Node en `frontend/.nvmrc`,
   `requirements*.txt` con `==`. CI lee esos archivos; las laptops deberían también.
 - **Toda función pura nueva trae su test.** Python en `tests/`, front en `src/**/*.test.ts`.

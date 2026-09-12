@@ -20,7 +20,7 @@ MP3 = b"ID3fake-mp3-bytes-" * 4
 
 @pytest.fixture
 def cfg(tmp_path: Path) -> Config:
-    return Config(api_key="k-test", cache_dir=tmp_path / "voz", base_url="https://xi.test")
+    return Config(_api_key="k-test", cache_dir=tmp_path / "voz", base_url="https://xi.test")
 
 
 def cliente_fake(status: int = 200, cuerpo: bytes = MP3, registro: list | None = None):
@@ -58,10 +58,10 @@ def test_cache_key_depende_de_texto_voz_y_modelo(cfg: Config):
     assert a == tts.cache_key("  Skip it. ", cfg), "misma frase, mismo archivo"
     assert a != tts.cache_key("Take it.", cfg)
     assert a != tts.cache_key(
-        "Skip it.", Config(api_key="k", voice_id="otra", cache_dir=cfg.cache_dir)
+        "Skip it.", Config(_api_key="k", voice_id="otra", cache_dir=cfg.cache_dir)
     )
     assert a != tts.cache_key(
-        "Skip it.", Config(api_key="k", tts_model="eleven_v3", cache_dir=cfg.cache_dir)
+        "Skip it.", Config(_api_key="k", tts_model="eleven_v3", cache_dir=cfg.cache_dir)
     )
 
 
@@ -108,7 +108,7 @@ def test_errores_de_api_son_vozerror_con_mensaje_util(cfg: Config):
 
 
 def test_sin_llave_o_sin_texto_falla_claro(cfg: Config, tmp_path: Path):
-    sin = Config(api_key=None, cache_dir=tmp_path / "x")
+    sin = Config(_api_key=None, cache_dir=tmp_path / "x")
     with pytest.raises(tts.VozError, match="ELEVENLABS_API_KEY"):
         tts.sintetizar("Skip it.", cfg=sin)
     with pytest.raises(tts.VozError, match="texto"):

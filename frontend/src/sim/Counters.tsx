@@ -26,7 +26,8 @@ export function Counters({ greedy, nuez, greedyMeta, nuezMeta, terminado }: Prop
         <div className="counter-agent">
           <span className="counter-agent-label is-greedy">Greedy</span>
           <span className="counter-value num">
-            {greedy.ganado.toFixed(0)}<small>MXN</small>
+            {greedy.ganado.toFixed(0)}
+            <small>MXN</small>
           </span>
           <span className="counter-sub">
             {greedy.entregas} deliveries · {greedy.saltadas} skipped
@@ -35,7 +36,8 @@ export function Counters({ greedy, nuez, greedyMeta, nuezMeta, terminado }: Prop
         <div className="counter-agent">
           <span className="counter-agent-label is-nuez">Nuez</span>
           <span className="counter-value num">
-            {nuez.ganado.toFixed(0)}<small>MXN</small>
+            {nuez.ganado.toFixed(0)}
+            <small>MXN</small>
           </span>
           <span className="counter-sub">
             {nuez.entregas} deliveries · {nuez.saltadas} skipped
@@ -45,9 +47,7 @@ export function Counters({ greedy, nuez, greedyMeta, nuezMeta, terminado }: Prop
 
       {/* Diferencia */}
       <div className={`counter-diff ${diffClass}`}>
-        {diff === 0
-          ? 'Tied'
-          : `Nuez ${diffSign}MXN ${diff.toFixed(0)}`}
+        {diff === 0 ? 'Tied' : `Nuez ${diffSign}MXN ${diff.toFixed(0)}`}
       </div>
 
       {/* Resumen final */}

@@ -24,9 +24,21 @@ const config: ConfigTurno = {
 const puntos: GeoJSON.FeatureCollection = {
   type: 'FeatureCollection',
   features: [
-    { type: 'Feature', geometry: { type: 'Point', coordinates: [-100.29, 25.65] }, properties: { i: 0 } },
-    { type: 'Feature', geometry: { type: 'Point', coordinates: [-100.30, 25.66] }, properties: { i: 1 } },
-    { type: 'Feature', geometry: { type: 'Point', coordinates: [-100.31, 25.67] }, properties: { i: 2 } },
+    {
+      type: 'Feature',
+      geometry: { type: 'Point', coordinates: [-100.29, 25.65] },
+      properties: { i: 0 },
+    },
+    {
+      type: 'Feature',
+      geometry: { type: 'Point', coordinates: [-100.3, 25.66] },
+      properties: { i: 1 },
+    },
+    {
+      type: 'Feature',
+      geometry: { type: 'Point', coordinates: [-100.31, 25.67] },
+      properties: { i: 2 },
+    },
   ],
 }
 
@@ -37,8 +49,16 @@ const tramos: Tramo[] = [
 
 // Polilínea simple de 3 puntos (segmentos iguales)
 const geometria: Record<string, [number, number][]> = {
-  '0-1': [[-100.29, 25.65], [-100.295, 25.655], [-100.30, 25.66]],
-  '1-2': [[-100.30, 25.66], [-100.305, 25.665], [-100.31, 25.67]],
+  '0-1': [
+    [-100.29, 25.65],
+    [-100.295, 25.655],
+    [-100.3, 25.66],
+  ],
+  '1-2': [
+    [-100.3, 25.66],
+    [-100.305, 25.665],
+    [-100.31, 25.67],
+  ],
 }
 
 // ── Tests ────────────────────────────────────────────────────────────────
@@ -49,7 +69,11 @@ describe('distanciaAcumulada', () => {
   })
 
   it('acumula distancias correctamente', () => {
-    const d = distanciaAcumulada([[-100, 25], [-100, 26], [-100, 28]])
+    const d = distanciaAcumulada([
+      [-100, 25],
+      [-100, 26],
+      [-100, 28],
+    ])
     expect(d[0]).toBe(0)
     expect(d[1]).toBeCloseTo(1)
     expect(d[2]).toBeCloseTo(3) // 1 + 2
@@ -97,7 +121,7 @@ describe('posicionEnMinuto', () => {
     // t=17 es entre tramo 0-1 (termina t=15) y tramo 1-2 (empieza t=20)
     const pos = posicionEnMinuto(17, tramos, geometria, config, puntos)
     // punto 1 = [-100.30, 25.66]
-    expect(pos).toEqual([-100.30, 25.66])
+    expect(pos).toEqual([-100.3, 25.66])
   })
 
   it('después del último tramo devuelve el último hasta', () => {
@@ -127,20 +151,39 @@ describe('minutosAHora', () => {
 describe('contadoresEnT', () => {
   const frames: Frame[] = [
     {
-      t: 0, ofertas: [], decisiones: [
+      t: 0,
+      ofertas: [],
+      decisiones: [
         { t: 0, oferta_id: 'o1', accion: 'aceptar', terminos: {}, razon: '', restriccion: null },
       ],
-      llegada: null, cobro: 0, ganado: 0,
+      llegada: null,
+      cobro: 0,
+      ganado: 0,
     },
     {
-      t: 1, ofertas: [], decisiones: [
-        { t: 1, oferta_id: 'o2', accion: 'saltar', terminos: {}, razon: '', restriccion: 'reservation_wage' },
+      t: 1,
+      ofertas: [],
+      decisiones: [
+        {
+          t: 1,
+          oferta_id: 'o2',
+          accion: 'saltar',
+          terminos: {},
+          razon: '',
+          restriccion: 'reservation_wage',
+        },
       ],
-      llegada: null, cobro: 50, ganado: 50,
+      llegada: null,
+      cobro: 50,
+      ganado: 50,
     },
     {
-      t: 2, ofertas: [], decisiones: [],
-      llegada: null, cobro: 0, ganado: 50,
+      t: 2,
+      ofertas: [],
+      decisiones: [],
+      llegada: null,
+      cobro: 0,
+      ganado: 50,
     },
   ]
 

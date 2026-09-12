@@ -18,10 +18,12 @@ from fastapi import APIRouter, HTTPException
 
 import rutas
 import valor
-from backendruta import courier_format
+from backendruta import courier_format, explain, strategy
 from backendruta.courier_models import DecideRequest, DecideResponse, ShiftStartRequest, ShiftState
 from backendruta.event_log import EventLog
+from backendruta.strategy import CapaEstrategia
 from contrato import ConfigTurno, EstadoRepartidor, Oferta, Punto
+from estrategia import Estrategia
 from mundo import ZONAS
 from nuez import politica_nuez
 from sim import Parada, _punto
@@ -54,8 +56,17 @@ class CourierService:
     def __init__(self, log_path: Path):
         self.log = EventLog(log_path)
         self.state: ShiftState | None = None
-        self.degraded = False
+        self.explanations = explain.ExplainIndex()
         self._lock = RLock()
+        # La capa lenta. Vive aqui pero NO se llama desde decide(): solo se lee
+        # `self.estrategia.actual`, que es leer una variable.
+        self.estrategia = CapaEstrategia(al_cambiar=self._log_strategy)
+        self.estrategia.contexto = self._contexto_modelo
+
+    @property
+    def degraded(self) -> bool:
+        """True cuando el motor decide con una estrategia vieja porque el modelo no responde."""
+        return self.estrategia.degradado
 
     def start(self, request: ShiftStartRequest) -> dict[str, Any]:
         with self._lock:
@@ -96,7 +107,21 @@ class CourierService:
                 "fuel_mxn_per_km": courier_format.fuel_cost(request.vehicle),
             }
             self.log.start(event)
+            self.explanations.clear()
+            # El hilo del modelo arranca con el turno. Si no hay credencial, la
+            # primera vuelta marca `degraded` y el motor sigue con la estrategia base.
+            self.estrategia.arrancar()
             return {**event, "event_log": str(self.log.path)}
+
+    def explain(self, order_id: str) -> dict[str, Any]:
+        """Busca en memoria; si el proceso se reinicio, lee el JSONL. Nunca re-decide."""
+        with self._lock:
+            record = self.explanations.get(order_id)
+            if record is None and self.log.path.exists():
+                record = explain.ExplainIndex.from_log(self.log.path).get(order_id)
+            if record is None:
+                raise HTTPException(status_code=404, detail=f"{order_id} no tiene decision")
+            return record
 
     def decide(self, request: DecideRequest) -> DecideResponse:
         started = time.perf_counter()
@@ -125,21 +150,30 @@ class CourierService:
                     tabla=table,
                     minutos_directos=direct_minutes,
                     km_entrega=request.distance_delivery_km,
+                    estrategia=self.estrategia.actual,
                 )
             except ValueError as exc:
                 raise HTTPException(status_code=422, detail=str(exc)) from exc
 
             response = courier_format.response(request, decision, started, self.degraded)
-            self.log.append(courier_format.offer_event(request))
-            self.log.append(
-                courier_format.decision_event(
-                    request,
-                    courier,
-                    response,
-                    self._current_zone_id(),
-                    sorted(self.state.accepted),
-                )
+            explanation = explain.build(
+                request=request,
+                response=response,
+                terms=decision.terminos,
+                position_zone=self._current_zone_id(),
+                time_remaining_min=courier.t_restante,
+                continuous_riding_min=courier.minutos_manejando,
+                in_flight_orders=sorted(self.state.accepted),
+                strategy={
+                    "policy": "nuez_opportunity_cost",
+                    "value_table_horizon_min": max(table),
+                    **self.estrategia.actual.resumen(),
+                    "degraded": self.degraded,
+                },
             )
+            self.log.append(courier_format.offer_event(request))
+            self.log.append(courier_format.decision_event(request, response, explanation))
+            self.explanations.add(explanation)
             self.state.offered += 1
             if new_route is not None:
                 was_idle = not self.state.route
@@ -170,6 +204,7 @@ class CourierService:
                 "safety_violations": 0,
             }
             self.log.append(event)
+            self.estrategia.detener()
             return event
 
     def status(self) -> dict[str, Any]:
@@ -392,6 +427,20 @@ class CourierService:
             arrival = max(arrival, destination.listo_en)
         self.state.arrival_minute = arrival
 
+    def _contexto_modelo(self) -> dict[str, Any]:
+        return strategy.contexto_del_turno(self.state, ZONE_NAMES)
+
+    def _log_strategy(self, propuesta: Estrategia, degraded: bool) -> None:
+        """Lo llama el hilo de la capa lenta, nunca /decide.
+
+        No toma el lock del turno a proposito: si lo tomara, un ping que llegue justo
+        en ese instante esperaria al hilo del modelo, que es exactamente lo que el
+        presupuesto de 50 ms prohibe. El EventLog ya trae su propio lock.
+        """
+        evento = strategy.evento_actualizacion(self.state, propuesta, degraded)
+        if evento is not None:
+            self.log.append(evento)
+
     def _current_zone_id(self) -> int:
         assert self.state is not None
         return ZONE_ID_BY_NAME[rutas.ZONA_DE[self.state.position]]
@@ -423,6 +472,12 @@ async def decide(request: DecideRequest) -> DecideResponse:
 @router.post("/shift/end")
 def end_shift(sim_time: datetime | None = None) -> dict[str, Any]:
     return service.end(sim_time)
+
+
+@router.get("/explain/{order_id}")
+@router.get("/explain_decision/{order_id}")
+def explain_decision(order_id: str) -> dict[str, Any]:
+    return service.explain(order_id)
 
 
 @router.get("/shift/status")

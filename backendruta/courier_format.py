@@ -6,7 +6,8 @@ from typing import Any
 
 import seguridad
 from backendruta.courier_models import DecideRequest, DecideResponse
-from contrato import Decision, EstadoRepartidor, Vehiculo
+from contrato import Decision, Vehiculo
+from nuez import MARGEN
 
 
 def iso(value: datetime) -> str:
@@ -79,13 +80,19 @@ def english_reason(decision: Decision) -> str:
     pay = terms.get("pago_neto", 0)
     cost = terms.get("precio_tiempo", 0)
     minutes = terms.get("minutos", 0)
+    # Con decimales: redondeado a pesos, "MXN 26 is below MXN 26" suena a error.
+    if decision.accion == "saltar" and pay >= cost:
+        return (
+            f"Skip: MXN {pay:.1f} net is only MXN {pay - cost:.1f} above the MXN {cost:.1f} "
+            f"opportunity cost for {minutes:.0f} minutes; the minimum edge is MXN {MARGEN:.1f}."
+        )
     if decision.accion == "saltar":
         return (
-            f"Skip: MXN {pay:.0f} net is below the MXN {cost:.0f} "
+            f"Skip: MXN {pay:.1f} net is below the MXN {cost:.1f} "
             f"opportunity cost for {minutes:.0f} minutes."
         )
     return (
-        f"Accept: MXN {pay:.0f} net exceeds the MXN {cost:.0f} "
+        f"Accept: MXN {pay:.1f} net exceeds the MXN {cost:.1f} "
         f"opportunity cost for {minutes:.0f} minutes."
     )
 
@@ -97,24 +104,16 @@ def offer_event(request: DecideRequest) -> dict[str, Any]:
 
 
 def decision_event(
-    request: DecideRequest,
-    courier: EstadoRepartidor,
-    result: DecideResponse,
-    position_zone: int,
-    in_flight_orders: list[str],
+    request: DecideRequest, result: DecideResponse, explanation: dict[str, Any]
 ) -> dict[str, Any]:
+    """El evento lleva la explicacion completa: explain_decision solo la vuelve a leer."""
     event = result.model_dump(mode="json")
     event.update(
         {
             "event": "decision",
             "sim_time": iso(request.sim_time),
-            "inputs": {
-                "position_zone": position_zone,
-                "time_remaining_min": courier.t_restante,
-                "continuous_riding_min": courier.minutos_manejando,
-                "in_flight_orders": in_flight_orders,
-                "vehicle": request.vehicle,
-            },
+            "inputs": explanation["inputs"],
+            "alternatives_considered": explanation["alternatives_considered"],
         }
     )
     return event

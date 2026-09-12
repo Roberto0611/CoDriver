@@ -15,9 +15,10 @@ import ruteo
 import seguridad
 import valor
 from contrato import ConfigTurno, Decision, EstadoRepartidor, Oferta
+from estrategia import BASE, Estrategia
 from sim import Parada, indice_de
 
-MARGEN = 1.0  # el pedido debe rendir al menos esto por encima del costo de oportunidad
+MARGEN = BASE.margen_mxn  # el pedido debe rendir al menos esto sobre el costo de oportunidad
 
 # Cuando la ruta esta vacia, un minuto rinde EXACTAMENTE cero. La tabla de valor
 # dice lo que rinde un repartidor promedio, pero el promedio incluye a los que ya
@@ -25,7 +26,11 @@ MARGEN = 1.0  # el pedido debe rendir al menos esto por encima del costo de opor
 # lo cobra rechaza todo y termina el turno en ceros (era el caso del seed 1007).
 # ponytail: 0.5 salio de barrer el parametro; medido en 300 seeds contra x1.0 da
 # +$8.9 por turno, 3.4 veces el error. Si se recalibra el mundo, volver a barrerlo.
-DESCUENTO_PARADO = 0.5
+DESCUENTO_PARADO = BASE.descuento_parado
+
+# Los dos de arriba son los valores BASE. El modelo puede moverlos pasando otra
+# `Estrategia`, pero el default es el de siempre: sin capa de estrategia encima,
+# el agente se comporta identico a cuando se midio el numero.
 
 
 def politica_nuez(
@@ -37,6 +42,7 @@ def politica_nuez(
     tabla: dict[int, float] | None = None,
     minutos_directos: float | None = None,
     km_entrega: float | None = None,
+    estrategia: Estrategia = BASE,
 ) -> tuple[list[Parada] | None, Decision]:
     hora = (cfg.hora_inicio + est.t // 60) % 24
     i_pick, i_drop = indice_de(o.pickup), indice_de(o.dropoff)
@@ -64,7 +70,10 @@ def politica_nuez(
         tabla = valor.para_turno(cfg.duracion_min)
     precio = valor.precio_del_tiempo(est.t_restante - cola, propios, tabla)
     if not ruta:
-        precio *= DESCUENTO_PARADO
+        precio *= estrategia.descuento_parado
+    # Encarecer el tiempo hacia una zona es como el modelo dice "hoy no por ahi":
+    # no la prohibe (eso solo lo hace seguridad.py), la vuelve mas cara de aceptar.
+    precio *= estrategia.precio_de_zona(rutas.ZONA_DE[i_drop])
 
     terminos = {
         "pago_neto": round(neto, 1),
@@ -73,6 +82,8 @@ def politica_nuez(
         "precio_tiempo": round(precio, 1),
         "ventaja": round(neto - precio, 1),
         "parado": float(not ruta),
+        "margen_exigido": estrategia.margen_mxn,
+        "multiplicador_zona": estrategia.precio_de_zona(rutas.ZONA_DE[i_drop]),
     }
 
     def no(razon: str, restriccion=None):
@@ -88,6 +99,11 @@ def politica_nuez(
     # como estara a las 15:10. Medirlo con la hora actual es como llega tarde el
     # repartidor con la cuenta cuadrada.
     hora_fin = (cfg.hora_inicio + int(est.t + cola + propios) // 60) % 24
+    para_terminar = cola + propios + rutas.minutos(fin, ancla, hora_fin, cfg.vehiculo)
+    # Quedan en los terminos para que explain_decision muestre la cuenta del fin de turno.
+    terminos["minutos_ruta_actual"] = round(cola, 1)
+    terminos["minutos_para_terminar"] = round(para_terminar, 1)
+    terminos["minutos_de_turno"] = round(est.t_restante - cfg.margen_min, 1)
     bloqueo = seguridad.revisar(
         vehiculo=cfg.vehiculo,
         hora=hora,
@@ -96,14 +112,14 @@ def politica_nuez(
         carga_kg=sum(p.peso_kg for p in ruta if p.tipo == "dropoff") + o.peso_kg,
         carga_l=sum(p.volumen_l for p in ruta if p.tipo == "dropoff") + o.volumen_l,
         pedidos_en_vuelo=len({p.oferta_id for p in ruta if p.oferta_id}) + 1,
-        minutos_para_terminar=cola + propios + rutas.minutos(fin, ancla, hora_fin, cfg.vehiculo),
+        minutos_para_terminar=para_terminar,
         minutos_de_turno=est.t_restante - cfg.margen_min,
     )
     if bloqueo:
         return no(bloqueo[1], bloqueo[0])
 
     # LA linea. Lo unico que se compra con dinero, y por eso lleva reservation_wage.
-    if neto < precio + MARGEN:
+    if neto < precio + estrategia.margen_mxn:
         return no(
             f"Esos {propios:.0f} minutos rinden ${precio:.0f} normalmente, "
             f"y este paga ${neto:.0f}.",
