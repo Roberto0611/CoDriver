@@ -399,10 +399,22 @@
 }
 
 @keyframes pulse-out {
-  0% { transform: scale(0.5); opacity: 1; }
-  15% { transform: scale(1.2); opacity: 1; }
-  30% { transform: scale(1); opacity: 1; }
-  100% { transform: scale(0.8); opacity: 0; }
+  0% {
+    transform: scale(0.5);
+    opacity: 1;
+  }
+  15% {
+    transform: scale(1.2);
+    opacity: 1;
+  }
+  30% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(0.8);
+    opacity: 0;
+  }
 }
 
 /* ─── Marcador de Destino (Próximo Pickup/Dropoff) ─── */
