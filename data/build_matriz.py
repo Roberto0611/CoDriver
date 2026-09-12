@@ -15,13 +15,12 @@ from pathlib import Path
 
 import networkx as nx
 import numpy as np
-import osmnx as ox
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 from mundo import ZONAS  # noqa: E402
 
-PUNTOS_POR_ZONA = 15    # 14 zonas x 15 = 210 puntos -> matriz de 210x210
-SEED = 7                # el muestreo es determinista: todos obtienen los mismos puntos
+PUNTOS_POR_ZONA = 15  # 14 zonas x 15 = 210 puntos -> matriz de 210x210
+SEED = 7  # el muestreo es determinista: todos obtienen los mismos puntos
 
 AQUI = Path(__file__).parent
 SALIDA = AQUI / "matriz.pkl"
@@ -30,14 +29,15 @@ SALIDA = AQUI / "matriz.pkl"
 def muestrear_puntos(G, nodos_validos):
     """Toma PUNTOS_POR_ZONA nodos reales dentro del radio de cada zona."""
     rng = random.Random(SEED)
-    puntos = []       # (zona, node_id, lat, lon)
-    usados = set()    # zonas vecinas se traslapan; un nodo pertenece a una sola
+    puntos = []  # (zona, node_id, lat, lon)
+    usados = set()  # zonas vecinas se traslapan; un nodo pertenece a una sola
 
     for zona, (lat, lon, radio) in ZONAS.items():
         # Grados aproximados que cubre el radio; sobra para filtrar candidatos.
         grados = radio / 111_000 * 1.5
         cerca = [
-            n for n in nodos_validos
+            n
+            for n in nodos_validos
             if n not in usados
             and abs(G.nodes[n]["y"] - lat) < grados
             and abs(G.nodes[n]["x"] - lon) < grados
@@ -72,7 +72,7 @@ def main():
         largos = nx.single_source_dijkstra_path_length(sub, origen, weight="travel_time")
         for destino, seg in largos.items():
             if destino in indice:
-                M[i, indice[destino]] = seg / 60.0   # minutos de flujo libre
+                M[i, indice[destino]] = seg / 60.0  # minutos de flujo libre
         if (i + 1) % 30 == 0:
             print(f"  {i + 1}/{len(ids)}")
 

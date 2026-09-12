@@ -29,12 +29,12 @@ class Punto:
 class ConfigTurno:
     """Lo que el estudiante llena antes de arrancar."""
 
-    duracion_min: int           # la ventana entre clases, ej. 120
-    ancla: Punto                # a dónde tiene que volver
-    margen_min: int = 10        # colchón antes de que empiece la clase
+    duracion_min: int  # la ventana entre clases, ej. 120
+    ancla: Punto  # a dónde tiene que volver
+    margen_min: int = 10  # colchón antes de que empiece la clase
     vehiculo: Vehiculo = "moto"
-    seed: int = 0               # mismo seed = mismo turno, siempre
-    hora_inicio: int = 14       # hora del día: afecta tráfico, surge y riesgo
+    seed: int = 0  # mismo seed = mismo turno, siempre
+    hora_inicio: int = 14  # hora del día: afecta tráfico, surge y riesgo
 
 
 @dataclass(frozen=True)
@@ -42,11 +42,11 @@ class Oferta:
     """Un ping de la app. El simulador las emite, el motor las juzga."""
 
     id: str
-    plataforma: str             # rappi | uber | didi
-    pago: float                 # pesos, antes de surge
-    surge: float                # multiplicador, 1.0 = normal
-    t_aparece: int              # minuto del turno en que entra el ping
-    t_prep: int                 # minutos que falta para que esté listo en el restaurante
+    plataforma: str  # rappi | uber | didi
+    pago: float  # pesos, antes de surge
+    surge: float  # multiplicador, 1.0 = normal
+    t_aparece: int  # minuto del turno en que entra el ping
+    t_prep: int  # minutos que falta para que esté listo en el restaurante
     pickup: Punto
     dropoff: Punto
 
@@ -55,12 +55,12 @@ class Oferta:
 class EstadoRepartidor:
     """Dónde va y cómo va. Lo lee el front para pintar, y el motor para decidir."""
 
-    t: int                      # minuto actual del turno
+    t: int  # minuto actual del turno
     t_restante: int
     pos: Punto
-    mochila: list[str] = field(default_factory=list)   # ids de ofertas aceptadas
+    mochila: list[str] = field(default_factory=list)  # ids de ofertas aceptadas
     ganado: float = 0.0
-    fatiga: float = 0.0         # 0..1, sube con horas y con calor
+    fatiga: float = 0.0  # 0..1, sube con horas y con calor
 
 
 @dataclass(frozen=True)
@@ -75,8 +75,8 @@ class Decision:
     oferta_id: str
     accion: Accion
     terminos: dict[str, float]  # pago_neto, minutos, precio_tiempo, gasolina, fatiga
-    razon: str                  # una frase, lista para la voz
-    restriccion: Restriccion | None = None   # si mandó una restricción dura
+    razon: str  # una frase, lista para la voz
+    restriccion: Restriccion | None = None  # si mandó una restricción dura
 
 
 @dataclass(frozen=True)
@@ -87,8 +87,8 @@ class EventoMundo:
     tipo: Literal["surge", "cierre", "lluvia", "evento_masivo"]
     zona: str
     duracion_min: int
-    mult_demanda: float = 1.0   # cuántos más pings
-    mult_tiempo: float = 1.0    # cuánto más tardado moverse ahí
+    mult_demanda: float = 1.0  # cuántos más pings
+    mult_tiempo: float = 1.0  # cuánto más tardado moverse ahí
 
 
 def demo():
@@ -107,8 +107,16 @@ def demo():
     assert json.loads(crudo)["terminos"]["precio_tiempo"] == 91.0
     assert json.loads(crudo)["restriccion"] == "regreso_infactible"
 
-    o = Oferta("o_042", "rappi", 48.0, 1.4, 37, 8,
-               Punto("Contry", 25.66, -100.28), Punto("Valle", 25.65, -100.36))
+    o = Oferta(
+        "o_042",
+        "rappi",
+        48.0,
+        1.4,
+        37,
+        8,
+        Punto("Contry", 25.66, -100.28),
+        Punto("Valle", 25.65, -100.36),
+    )
     assert json.loads(json.dumps(asdict(o)))["pickup"]["nombre"] == "Contry"
 
     print(json.dumps(asdict(d), indent=2, ensure_ascii=False))

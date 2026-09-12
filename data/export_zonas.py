@@ -10,7 +10,6 @@ Uso:  python data/export_zonas.py
 """
 
 import json
-import math
 import pickle
 import sys
 from pathlib import Path
@@ -21,16 +20,16 @@ from mundo import RIESGO_BASE, UMBRAL_RIESGO, ZONAS, es_segura, riesgo  # noqa: 
 AQUI = Path(__file__).parent
 PUBLIC = AQUI.parent / "frontend" / "public"
 
-import pickle
-from shapely.geometry import MultiPoint
+from shapely.geometry import MultiPoint  # noqa: E402
+
 
 def zonas_geojson():
     # Leer los puntos del simulador para saber exactamente dónde ocurren las cosas
     datos = pickle.loads((AQUI / "matriz.pkl").read_bytes())
-    
+
     # Agrupar coordenadas (lon, lat) por cada zona
-    puntos_por_zona = {}
-    for zona, node, lat, lon in datos["puntos"]:
+    puntos_por_zona: dict[str, list[tuple[float, float]]] = {}
+    for zona, _node, lat, lon in datos["puntos"]:
         if zona not in puntos_por_zona:
             puntos_por_zona[zona] = []
         puntos_por_zona[zona].append((lon, lat))
@@ -38,33 +37,41 @@ def zonas_geojson():
     feats = []
     for zona, (lat, lon, radio) in ZONAS.items():
         puntos = puntos_por_zona.get(zona, [])
-        
+
         # Si la zona tiene al menos 3 puntos, le ponemos nuestra "liga elástica" (Convex Hull)
         if len(puntos) >= 3:
             # 1. Envuelve los puntos matemáticamente
-            # 2. Le da un "buffer" (margen) de ~300 metros (0.003 grados) para que no quede puntiagudo
+            # 2. Le da un "buffer" (margen) de ~300 m (0.003 grados) para que no quede puntiagudo
             poly = MultiPoint(puntos).convex_hull.buffer(0.003, resolution=4)
             geom = poly.__geo_interface__
         else:
             # Fallback a un cuadrito simple si por alguna razón no hay puntos
             d = 0.01
-            anillo = [[lon-d, lat-d], [lon+d, lat-d], [lon+d, lat+d], [lon-d, lat+d], [lon-d, lat-d]]
+            anillo = [
+                [lon - d, lat - d],
+                [lon + d, lat - d],
+                [lon + d, lat + d],
+                [lon - d, lat + d],
+                [lon - d, lat - d],
+            ]
             geom = {"type": "Polygon", "coordinates": [anillo]}
-            
-        feats.append({
-            "type": "Feature",
-            "geometry": geom,
-            "properties": {
-                "zona": zona,
-                "centro": [round(lon, 5), round(lat, 5)],
-                "radio_m": radio,
-                "riesgo_base": RIESGO_BASE[zona],
-                "riesgo_dia": round(riesgo(zona, 14), 2),
-                "riesgo_noche": round(riesgo(zona, 23), 2),
-                "bloqueada_noche": not es_segura(zona, 23),
-                "umbral": UMBRAL_RIESGO,
-            },
-        })
+
+        feats.append(
+            {
+                "type": "Feature",
+                "geometry": geom,
+                "properties": {
+                    "zona": zona,
+                    "centro": [round(lon, 5), round(lat, 5)],
+                    "radio_m": radio,
+                    "riesgo_base": RIESGO_BASE[zona],
+                    "riesgo_dia": round(riesgo(zona, 14), 2),
+                    "riesgo_noche": round(riesgo(zona, 23), 2),
+                    "bloqueada_noche": not es_segura(zona, 23),
+                    "umbral": UMBRAL_RIESGO,
+                },
+            }
+        )
     return {"type": "FeatureCollection", "features": feats}
 
 
@@ -89,13 +96,16 @@ def main():
     for nombre, gj in (("zonas.json", zonas_geojson()), ("puntos.json", puntos_geojson())):
         salida = PUBLIC / nombre
         salida.write_text(json.dumps(gj), encoding="utf-8")
-        print(f"{nombre:<14} {len(gj['features']):>4} features  {salida.stat().st_size / 1e3:>6.1f} KB")
+        kb = salida.stat().st_size / 1e3
+        print(f"{nombre:<14} {len(gj['features']):>4} features  {kb:>6.1f} KB")
 
     z = zonas_geojson()
     assert len(z["features"]) == len(ZONAS)
     anillo = z["features"][0]["geometry"]["coordinates"][0]
     assert anillo[0] == anillo[-1], "el poligono debe cerrar"
-    bloqueadas = [f["properties"]["zona"] for f in z["features"] if f["properties"]["bloqueada_noche"]]
+    bloqueadas = [
+        f["properties"]["zona"] for f in z["features"] if f["properties"]["bloqueada_noche"]
+    ]
     print(f"\nbloqueadas a las 23h: {', '.join(bloqueadas)}")
 
 

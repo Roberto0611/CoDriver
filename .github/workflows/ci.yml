@@ -1,0 +1,97 @@
+name: CI
+
+# Un job por check, para que en el PR se vea de un vistazo qué falló.
+# Dentro de cada job, un paso para Python y otro para el front.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  deps:
+    name: Install Dependencies
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup
+      - name: Python · pip check (sin conflictos)
+        run: pip check
+      - name: Python · pip-audit (sin vulnerabilidades)
+        run: python -m pip_audit -r requirements.txt -r requirements-dev.txt
+      - name: Frontend · npm audit (sin vulnerabilidades altas)
+        working-directory: frontend
+        run: npm audit --audit-level=high
+
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup
+      - name: Python · ruff check
+        run: ruff check .
+      - name: Frontend · oxlint
+        working-directory: frontend
+        run: npm run lint
+
+  format:
+    name: Format Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup
+      - name: Python · ruff format --check
+        run: ruff format --check .
+      - name: Frontend · prettier --check
+        working-directory: frontend
+        run: npm run format:check
+
+  types:
+    name: Type Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup
+      - name: Python · mypy
+        run: mypy
+      - name: Frontend · tsc
+        working-directory: frontend
+        run: npm run typecheck
+
+  tests:
+    name: Unit Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup
+      - name: Python · pytest
+        run: pytest
+      - name: Frontend · vitest
+        working-directory: frontend
+        run: npm test
+
+  lines:
+    name: File Length Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Ningún archivo de código pasa de 500 líneas
+        run: python3 scripts/max_lines.py .
+
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup
+        with:
+          python: "false"
+      - name: Frontend · vite build
+        working-directory: frontend
+        run: npm run build

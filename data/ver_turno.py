@@ -34,13 +34,13 @@ def main():
 
     # Zonas de fondo
     for zona, (lat, lon, radio) in ZONAS.items():
-        ax.add_patch(plt.Circle((lon, lat), radio / 111_000, color="#1e293b",
-                                alpha=0.35, zorder=0))
+        ax.add_patch(plt.Circle((lon, lat), radio / 111_000, color="#1e293b", alpha=0.35, zorder=0))
         ax.text(lon, lat, zona, color="#475569", fontsize=7, ha="center", zorder=1)
 
     # Los 210 puntos donde pueden aparecer pedidos
-    ax.scatter([c[1] for c in rutas.COORD_DE], [c[0] for c in rutas.COORD_DE],
-               s=4, c="#334155", zorder=2)
+    ax.scatter(
+        [c[1] for c in rutas.COORD_DE], [c[0] for c in rutas.COORD_DE], s=4, c="#334155", zorder=2
+    )
 
     # Ofertas: rechazadas en rojo tenue, aceptadas en verde
     for o in res.ofertas:
@@ -57,8 +57,17 @@ def main():
     if res.trayecto:
         xs = [rutas.COORD_DE[p][1] for _, p, _ in res.trayecto]
         ys = [rutas.COORD_DE[p][0] for _, p, _ in res.trayecto]
-        ax.plot(xs, ys, color="#fbbf24", lw=2.5, alpha=0.95, zorder=6,
-                marker="o", ms=5, label="recorrido")
+        ax.plot(
+            xs,
+            ys,
+            color="#fbbf24",
+            lw=2.5,
+            alpha=0.95,
+            zorder=6,
+            marker="o",
+            ms=5,
+            label="recorrido",
+        )
 
     ax.scatter(tec[1], tec[0], s=320, c="#38bdf8", marker="*", zorder=7, label="Tec (ancla)")
 
@@ -67,7 +76,10 @@ def main():
         f"Turno seed={SEED}  ·  {len(res.ofertas)} ofertas  ·  {res.entregas} entregas  "
         f"·  ${res.ganado:.0f}  ·  {tarde}\n"
         f"verde = aceptadas    rojo = rechazadas    amarillo = por donde anduvo",
-        color="#e2e8f0", fontsize=11, pad=16)
+        color="#e2e8f0",
+        fontsize=11,
+        pad=16,
+    )
     ax.legend(facecolor="#1e293b", labelcolor="#e2e8f0", loc="lower left")
     ax.set_aspect(1 / 0.9)
     ax.axis("off")

@@ -1,0 +1,33 @@
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+extend-exclude = ["frontend", "cache", ".venv", "venv"]
+
+[tool.ruff.lint]
+# E/W estilo, F errores reales, I imports ordenados, B bugs comunes, UP sintaxis moderna.
+select = ["E", "F", "W", "I", "B", "UP"]
+# Los asserts en los demo() de cada modulo son a proposito.
+ignore = ["B011"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["E501"]
+
+[tool.ruff.format]
+# Se respeta el estilo de comillas que ya tiene cada archivo: menos diff, menos conflictos.
+quote-style = "preserve"
+
+[tool.mypy]
+python_version = "3.11"
+files = ["."]
+exclude = "^(frontend|cache|\\.venv|venv|node_modules)/"
+ignore_missing_imports = true
+warn_unused_ignores = true
+warn_redundant_casts = true
+check_untyped_defs = true
+explicit_package_bases = true
+namespace_packages = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+addopts = "-q"

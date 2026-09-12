@@ -1,0 +1,122 @@
+/* ═══════════════════════════════════════════════════════
+   Nuez — design tokens
+   Fuente: DESIGN.md (Cupertino Telemetry). Un canvas cálido,
+   tinta oscura, un solo color de marca (ciruela) y tres
+   colores operativos con un significado fijo cada uno:
+     esmeralda = dinero / turno activo
+     ámbar     = urgencia, surge, zona congestionada
+     índigo    = decisión del algoritmo, ruta, geocerca
+   Nada más lleva color.
+   ═══════════════════════════════════════════════════════ */
+
+:root {
+  /* Superficies */
+  --canvas: #faf6f3;
+  --surface-low: #f7f3f0;
+  --surface: #f1edea;
+  --surface-high: #ebe7e4;
+  --card: #ffffff;
+  --glass: rgba(250, 246, 243, 0.9);
+
+  /* Tinta */
+  --ink: #18151a;
+  --ink-2: #3e3d41;
+  --ink-3: #807479;
+  --ink-4: #a89da2;
+
+  /* Marca */
+  --plum: #684959;
+  --plum-deep: #4f3242;
+  --plum-soft: #e5cad9;
+  --plum-tint: rgba(104, 73, 89, 0.08);
+
+  /* Operativos */
+  --emerald: #10b981;
+  --emerald-ink: #047857;
+  --emerald-tint: rgba(16, 185, 129, 0.14);
+  --amber: #f59e0b;
+  --amber-ink: #92400e;
+  --amber-tint: rgba(245, 158, 11, 0.16);
+  --indigo: #4f46e5;
+  --indigo-ink: #3323cc;
+  --indigo-tint: rgba(79, 70, 229, 0.12);
+  --rose-ink: #93000a;
+  --rose-tint: #ffdad6;
+
+  /* Bordes y sombras (teñidas de ciruela, nunca negro puro) */
+  --hairline: #d8ccca;
+  --hairline-strong: rgba(104, 73, 89, 0.3);
+  --shadow-card: 0 1px 3px rgba(104, 73, 89, 0.05), 0 4px 12px rgba(104, 73, 89, 0.04);
+  --shadow-float: 0 8px 24px rgba(104, 73, 89, 0.14);
+  --shadow-button: 0 2px 8px rgba(104, 73, 89, 0.35);
+  --focus-ring: 0 0 0 3px rgba(104, 73, 89, 0.15);
+
+  /* Forma */
+  --r-sm: 8px;
+  --r-md: 12px;
+  --r-lg: 16px;
+  --r-xl: 24px;
+  --r-pill: 9999px;
+
+  /* Tipografía: Outfit para todo, números tabulares en telemetría */
+  --font: 'Outfit', 'Avenir Next', 'Segoe UI', system-ui, sans-serif;
+
+  --ease: cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* ─── Reset ─── */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html,
+body,
+#root {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+
+body {
+  font-family: var(--font);
+  font-size: 14px;
+  line-height: 20px;
+  background: var(--canvas);
+  color: var(--ink);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+button,
+select,
+input {
+  font: inherit;
+  color: inherit;
+}
+
+/* Números que cambian en vivo no deben bailar: cifras tabulares. */
+.num {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum' 1;
+}
+
+/* Etiqueta pequeña en mayúsculas (la única que lleva tracking abierto). */
+.caps {
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 14px;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--ink-2);
+}
+
+/* ─── App Layout ─── */
+.app {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}

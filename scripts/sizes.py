@@ -1,6 +1,8 @@
-import osmnx as ox
 import json
 import warnings
+
+import osmnx as ox
+
 warnings.filterwarnings('ignore')
 
 zonas_queries = {
@@ -17,7 +19,7 @@ zonas_queries = {
     "Mitras": "Mitras, Monterrey, Nuevo León, Mexico",
     "Escobedo": "General Escobedo, Nuevo León, Mexico",
     "SantaCatarina": "Santa Catarina, Nuevo León, Mexico",
-    "Apodaca": "Apodaca, Nuevo León, Mexico"
+    "Apodaca": "Apodaca, Nuevo León, Mexico",
 }
 
 results = {}
@@ -31,13 +33,13 @@ for zona, query in zonas_queries.items():
         minx, miny, maxx, maxy = geom.bounds
         width = maxx - minx
         height = maxy - miny
-        
+
         results[zona] = {
             "type": geom.geom_type,
             "width_deg": round(width, 4),
-            "height_deg": round(height, 4)
+            "height_deg": round(height, 4),
         }
-    except Exception as e:
+    except Exception:
         pass
 
 print(json.dumps(results, indent=2))

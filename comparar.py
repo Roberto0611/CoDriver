@@ -15,18 +15,24 @@ from contrato import ConfigTurno, Punto
 from nuez import politica_nuez
 from sim import politica_greedy, simular
 
-SEED_BASE = 1000   # fuera del rango con el que se construyo V.json
+SEED_BASE = 1000  # fuera del rango con el que se construyo V.json
 N = int(sys.argv[1]) if len(sys.argv) > 1 else 50
 
 
 def main():
     tec = rutas.COORD_DE[rutas.puntos_de("Tec")[0]]
-    base = dict(duracion_min=120, ancla=Punto("Tec", *tec), margen_min=10,
-                vehiculo="moto", hora_inicio=14)
+    ancla = Punto("Tec", *tec)
 
     filas = []
     for k in range(N):
-        cfg = ConfigTurno(**base, seed=SEED_BASE + k)
+        cfg = ConfigTurno(
+            duracion_min=120,
+            ancla=ancla,
+            margen_min=10,
+            vehiculo="moto",
+            hora_inicio=14,
+            seed=SEED_BASE + k,
+        )
         g = simular(cfg, politica_greedy)
         n = simular(cfg, politica_nuez)
         filas.append((g, n))
@@ -39,13 +45,19 @@ def main():
     print(f"{N} turnos frescos (seeds {SEED_BASE}-{SEED_BASE + N - 1})\n")
     print(f"  {'':<18} {'greedy':>10} {'NUEZ':>10}")
     print(f"  {'ganancia media':<18} ${statistics.mean(gre):>9.0f} ${statistics.mean(nue):>9.0f}")
-    print(f"  {'ganancia mediana':<18} ${statistics.median(gre):>9.0f} ${statistics.median(nue):>9.0f}")
-    print(f"  {'entregas':<18} {statistics.mean([g.entregas for g, _ in filas]):>10.1f} "
-          f"{statistics.mean([n.entregas for _, n in filas]):>10.1f}")
-    print(f"  {'llegaron tarde':<18} {sum(g.llego_tarde for g, _ in filas):>10} "
-          f"{sum(n.llego_tarde for _, n in filas):>10}")
-    print(f"  {'% turno ocupado':<18} {statistics.mean([g.minutos_ocupado for g, _ in filas]) / 1.2:>9.0f}% "
-          f"{statistics.mean([n.minutos_ocupado for _, n in filas]) / 1.2:>9.0f}%")
+    med_g, med_n = statistics.median(gre), statistics.median(nue)
+    print(f"  {'ganancia mediana':<18} ${med_g:>9.0f} ${med_n:>9.0f}")
+    print(
+        f"  {'entregas':<18} {statistics.mean([g.entregas for g, _ in filas]):>10.1f} "
+        f"{statistics.mean([n.entregas for _, n in filas]):>10.1f}"
+    )
+    print(
+        f"  {'llegaron tarde':<18} {sum(g.llego_tarde for g, _ in filas):>10} "
+        f"{sum(n.llego_tarde for _, n in filas):>10}"
+    )
+    ocup_g = statistics.mean([g.minutos_ocupado for g, _ in filas]) / 1.2
+    ocup_n = statistics.mean([n.minutos_ocupado for _, n in filas]) / 1.2
+    print(f"  {'% turno ocupado':<18} {ocup_g:>9.0f}% {ocup_n:>9.0f}%")
 
     print(f"\n  DELTA: {delta:+.1f}%   ganó en {gana}/{N} turnos")
 

@@ -9,20 +9,20 @@ Genera dos archivos en frontend/public/:
 
 import json
 import pickle
+import sys
 from pathlib import Path
 
 import networkx as nx
 import osmnx as ox
-import sys
 
 AQUI = Path(__file__).parent
 sys.path.insert(0, str(AQUI.parent))
-from mundo import ZONAS
+from mundo import ZONAS  # noqa: E402
 
 FRONTEND_PUBLIC = AQUI.parent / "frontend" / "public"
 
 # Puntos de ejemplo para la ruta demo
-ORIGEN = (25.6714, -100.3090)   # Macroplaza
+ORIGEN = (25.6714, -100.3090)  # Macroplaza
 DESTINO = (25.6510, -100.3590)  # Valle, San Pedro
 
 # Las calles locales son el 83.6% de las aristas (224k de 268k) y a zoom 11-14
@@ -31,7 +31,7 @@ DESTINO = (25.6510, -100.3590)  # Valle, San Pedro
 # Ponlo en True si alguna vez hace falta el detalle a zoom 17.
 INCLUIR_LOCALES = True
 
-DECIMALES = 5   # ~1 metro de precision; el sexto decimal solo pesa
+DECIMALES = 5  # ~1 metro de precision; el sexto decimal solo pesa
 
 
 def classify_highway(highway):
@@ -54,7 +54,7 @@ def edges_to_geojson_chunked(G):
     _, edges = ox.graph_to_gdfs(G)
 
     zonas_centers = {name: (lat, lon) for name, (lat, lon, _) in ZONAS.items()}
-    chunks = {name: [] for name in ZONAS}
+    chunks: dict[str, list[dict]] = {name: [] for name in ZONAS}
 
     omitidas = 0
     for _, row in edges.iterrows():
@@ -72,7 +72,7 @@ def edges_to_geojson_chunked(G):
         nearest_zona = None
         min_dist = float('inf')
         for name, (z_lat, z_lon) in zonas_centers.items():
-            dist = (c_lat - z_lat)**2 + (c_lon - z_lon)**2
+            dist = (c_lat - z_lat) ** 2 + (c_lon - z_lon) ** 2
             if dist < min_dist:
                 min_dist = dist
                 nearest_zona = name
@@ -90,12 +90,14 @@ def edges_to_geojson_chunked(G):
                 "name": row.get("name", "") if isinstance(row.get("name", ""), str) else "",
             },
         }
-        chunks[nearest_zona].append(feature)
+        chunks[str(nearest_zona)].append(feature)
 
     if omitidas:
         print(f"  calles locales omitidas: {omitidas:,} (INCLUIR_LOCALES=False)")
-        
-    return {name: {"type": "FeatureCollection", "features": feats} for name, feats in chunks.items()}
+
+    return {
+        name: {"type": "FeatureCollection", "features": feats} for name, feats in chunks.items()
+    }
 
 
 def route_to_geojson(G, origen, destino, weight="travel_time"):
@@ -140,12 +142,14 @@ def main():
     # 1. Red vial completa
     print("Convirtiendo 268,318 aristas a GeoJSON por zonas...")
     chunks = edges_to_geojson_chunked(G)
-    
+
     for zona, geojson_data in chunks.items():
         out_path = FRONTEND_PUBLIC / f"mty_edges_{zona}.json"
         out_path.write_text(json.dumps(geojson_data), encoding="utf-8")
         size_mb = out_path.stat().st_size / (1024 * 1024)
-        print(f"  -> {out_path.name} ({size_mb:.1f} MB, {len(geojson_data['features']):,} features)")
+        print(
+            f"  -> {out_path.name} ({size_mb:.1f} MB, {len(geojson_data['features']):,} features)"
+        )
 
     # 2. Ruta de ejemplo
     print("Calculando ruta Macroplaza -> Valle...")
@@ -153,7 +157,10 @@ def main():
     out_route = FRONTEND_PUBLIC / "mty_route.json"
     out_route.write_text(json.dumps(route_gj), encoding="utf-8")
     props = route_gj["features"][0]["properties"]
-    print(f"  -> {out_route.name} ({props['length_km']} km, {props['time_min']} min, {props['nodes']} nodos)")
+    print(
+        f"  -> {out_route.name} ({props['length_km']} km, {props['time_min']} min, "
+        f"{props['nodes']} nodos)"
+    )
 
     print("\nListo. Arranca el frontend con: cd frontend && npm run dev")
 

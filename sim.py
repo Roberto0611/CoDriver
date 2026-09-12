@@ -10,9 +10,10 @@ Corre headless en milisegundos: 300 turnos para la tabla de valor son segundos.
 """
 
 import random
+from collections.abc import Callable
 from dataclasses import dataclass, field
-from functools import lru_cache
-from typing import Callable, Literal
+from functools import cache
+from typing import Literal
 
 import rutas
 from contrato import ConfigTurno, Decision, EstadoRepartidor, Oferta, Punto
@@ -21,21 +22,21 @@ from mundo import es_segura
 # --- A3: parametros del generador -------------------------------------------
 # ponytail: numeros a ojo, calibrados para que un turno de 2h de ~$250-400.
 # Esta es la perilla de la economia del juego; si el turno se siente falso, es aqui.
-OFERTAS_POR_MIN = 0.8      # ~96 pings en una ventana de 2 horas
-PAGO_BASE = 22.0           # lo que paga cualquier entrega, por corta que sea
+OFERTAS_POR_MIN = 0.8  # ~96 pings en una ventana de 2 horas
+PAGO_BASE = 22.0  # lo que paga cualquier entrega, por corta que sea
 PAGO_POR_KM = 7.0
-RUIDO_PAGO = 0.35          # +-35%: SIN esto todos los pedidos rinden igual y no hay que decidir
+RUIDO_PAGO = 0.35  # +-35%: SIN esto todos los pedidos rinden igual y no hay que decidir
 PREP_MIN, PREP_MAX = 4, 15  # minutos que tarda el restaurante
-CAPACIDAD = 3              # pedidos simultaneos en la mochila
+CAPACIDAD = 3  # pedidos simultaneos en la mochila
 
 # Un estudiante con 2 horas trabaja SU zona. Los pings normales salen cerca;
 # la fraccion de trampas son los lejanos bien pagados que el motor debe rechazar.
-RADIO_PICKUP = 9.0         # minutos a flujo libre desde el ancla
-RADIO_ENTREGA = 11.0       # minutos a flujo libre desde el pickup
-PROB_TRAMPA = 0.14         # 1 de cada 7 pings es un viaje largo y tentador
-BONO_TRAMPA = 1.25         # y encima paga por arriba de tarifa: por eso tienta
+RADIO_PICKUP = 9.0  # minutos a flujo libre desde el ancla
+RADIO_ENTREGA = 11.0  # minutos a flujo libre desde el pickup
+PROB_TRAMPA = 0.14  # 1 de cada 7 pings es un viaje largo y tentador
+BONO_TRAMPA = 1.25  # y encima paga por arriba de tarifa: por eso tienta
 VELOCIDAD = {"moto": 1.0, "scooter": 1.25, "bici": 1.8, "pie": 5.0}
-COSTO_KM = {"moto": 1.8, "scooter": 0.9, "bici": 0.0, "pie": 0.0}   # pesos de gasolina
+COSTO_KM = {"moto": 1.8, "scooter": 0.9, "bici": 0.0, "pie": 0.0}  # pesos de gasolina
 
 
 @dataclass(frozen=True)
@@ -57,17 +58,20 @@ class Resultado:
     trayecto: list[tuple[int, int, str]] = field(default_factory=list)  # (minuto, punto, tipo)
     # Tramos recorridos, para que el front anime la moto: (t_salida, t_llegada, desde, hasta)
     tramos: list[tuple[int, float, int, int]] = field(default_factory=list)
-    cobros: list[tuple[int, float]] = field(default_factory=list)   # (minuto, pesos netos)
+    cobros: list[tuple[int, float]] = field(default_factory=list)  # (minuto, pesos netos)
 
 
 # --- A3: generador de ofertas ------------------------------------------------
 
 
-@lru_cache(maxsize=None)
+@cache
 def _vecinos(origen: int, radio_min: float) -> tuple[int, ...]:
     """Puntos a menos de radio_min a flujo libre. Cacheado: se pide miles de veces."""
-    cerca = tuple(j for j in range(len(rutas.PUNTOS))
-                  if j != origen and rutas.minutos(j=j, i=origen, hora=3) <= radio_min)
+    cerca = tuple(
+        j
+        for j in range(len(rutas.PUNTOS))
+        if j != origen and rutas.minutos(j=j, i=origen, hora=3) <= radio_min
+    )
     return cerca or tuple(j for j in range(len(rutas.PUNTOS)) if j != origen)
 
 
@@ -77,13 +81,12 @@ def generar_ofertas(cfg: ConfigTurno) -> list[Oferta]:
     ancla = rutas.indice_mas_cercano(cfg.ancla.lat, cfg.ancla.lon)
     todos = tuple(range(len(rutas.PUNTOS)))
 
-    ofertas = []
+    ofertas: list[Oferta] = []
     for t in range(cfg.duracion_min):
         # Llegadas Poisson aproximadas: una moneda por minuto.
         if rng.random() > OFERTAS_POR_MIN:
             continue
 
-        hora = (cfg.hora_inicio + t // 60) % 24
         trampa = rng.random() < PROB_TRAMPA
 
         pickup = rng.choice(_vecinos(ancla, RADIO_PICKUP))
@@ -91,21 +94,23 @@ def generar_ofertas(cfg: ConfigTurno) -> list[Oferta]:
         if dropoff == pickup:
             continue
 
-        pago = (PAGO_BASE + PAGO_POR_KM * rutas.km(pickup, dropoff))
+        pago = PAGO_BASE + PAGO_POR_KM * rutas.km(pickup, dropoff)
         pago *= rng.uniform(1 - RUIDO_PAGO, 1 + RUIDO_PAGO)
         if trampa:
             pago *= BONO_TRAMPA
 
-        ofertas.append(Oferta(
-            id=f"o_{len(ofertas):03d}",
-            plataforma=rng.choice(["rappi", "uber", "didi"]),
-            pago=round(pago, 1),
-            surge=round(rng.choices([1.0, 1.3, 1.8], weights=[80, 15, 5])[0], 2),
-            t_aparece=t,
-            t_prep=rng.randint(PREP_MIN, PREP_MAX),
-            pickup=_punto(pickup),
-            dropoff=_punto(dropoff),
-        ))
+        ofertas.append(
+            Oferta(
+                id=f"o_{len(ofertas):03d}",
+                plataforma=rng.choice(["rappi", "uber", "didi"]),
+                pago=round(pago, 1),
+                surge=round(rng.choices([1.0, 1.3, 1.8], weights=[80, 15, 5])[0], 2),
+                t_aparece=t,
+                t_prep=rng.randint(PREP_MIN, PREP_MAX),
+                pickup=_punto(pickup),
+                dropoff=_punto(dropoff),
+            )
+        )
     return ofertas
 
 
@@ -123,8 +128,9 @@ def indice_de(p: Punto) -> int:
 
 # Una politica recibe la oferta, el estado y la ruta actual; devuelve la ruta
 # nueva si acepta (o None si salta) mas la Decision con sus terminos.
-Politica = Callable[[Oferta, EstadoRepartidor, list[Parada], ConfigTurno],
-                    tuple[list[Parada] | None, Decision]]
+Politica = Callable[
+    [Oferta, EstadoRepartidor, list[Parada], ConfigTurno], tuple[list[Parada] | None, Decision]
+]
 
 
 def simular(cfg: ConfigTurno, politica: Politica) -> Resultado:
@@ -139,14 +145,16 @@ def simular(cfg: ConfigTurno, politica: Politica) -> Resultado:
 
     pos = ancla
     ruta: list[Parada] = []
-    t_llegada = 0.0            # minuto en que se llega a la primera parada de la ruta
-    listo_en: dict[str, int] = {}   # cuando esta listo cada pedido en el restaurante
+    t_llegada = 0.0  # minuto en que se llega a la primera parada de la ruta
+    listo_en: dict[str, int] = {}  # cuando esta listo cada pedido en el restaurante
     aceptadas: dict[str, Oferta] = {}
 
     for t in range(cfg.duracion_min):
         hora = (cfg.hora_inicio + t // 60) % 24
         estado = EstadoRepartidor(
-            t=t, t_restante=cfg.duracion_min - t, pos=_punto(pos),
+            t=t,
+            t_restante=cfg.duracion_min - t,
+            pos=_punto(pos),
             mochila=[p.oferta_id for p in ruta if p.tipo == "pickup" and p.oferta_id],
             ganado=res.ganado,
             fatiga=min(1.0, res.minutos_ocupado / 240 * (1.3 if 12 <= hora <= 17 else 1.0)),
@@ -173,8 +181,8 @@ def simular(cfg: ConfigTurno, politica: Politica) -> Resultado:
         # 2. Avanzar: llegar a la parada en curso si toca.
         while ruta and t >= t_llegada:
             parada = ruta[0]
-            if parada.tipo == "pickup" and t < listo_en.get(parada.oferta_id, 0):
-                break   # esperando a que el restaurante termine
+            if parada.tipo == "pickup" and t < listo_en.get(parada.oferta_id or "", 0):
+                break  # esperando a que el restaurante termine
             pos = parada.punto
             ruta = ruta[1:]
             res.trayecto.append((t, pos, parada.tipo))
@@ -210,8 +218,9 @@ def simular(cfg: ConfigTurno, politica: Politica) -> Resultado:
 # --- B1: el baseline ---------------------------------------------------------
 
 
-def politica_greedy(o: Oferta, est: EstadoRepartidor, ruta: list[Parada],
-                    cfg: ConfigTurno) -> tuple[list[Parada] | None, Decision]:
+def politica_greedy(
+    o: Oferta, est: EstadoRepartidor, ruta: list[Parada], cfg: ConfigTurno
+) -> tuple[list[Parada] | None, Decision]:
     """Baseline honesto: acepta lo que se ve bien pagado y entrega en el orden que acepto.
 
     No es un hombre de paja: respeta capacidad, seguridad y se regresa cuando ya
@@ -230,9 +239,12 @@ def politica_greedy(o: Oferta, est: EstadoRepartidor, ruta: list[Parada],
 
     minutos = cola + rutas.minutos(desde, i_pick, hora) + rutas.minutos(i_pick, i_drop, hora)
     neto = o.pago * o.surge - rutas.km(i_pick, i_drop) * COSTO_KM[cfg.vehiculo]
-    propios = minutos - cola      # lo que cuesta ESTE pedido, sin la cola de adelante
-    terminos = {"pago_neto": round(neto, 1), "minutos": round(propios, 1),
-                "por_minuto": round(neto / max(propios, 1), 2)}
+    propios = minutos - cola  # lo que cuesta ESTE pedido, sin la cola de adelante
+    terminos = {
+        "pago_neto": round(neto, 1),
+        "minutos": round(propios, 1),
+        "por_minuto": round(neto / max(propios, 1), 2),
+    }
 
     def no(razon: str, restriccion=None):
         return None, Decision(est.t, o.id, "saltar", terminos, razon, restriccion)
