@@ -17,37 +17,24 @@ from typing import Any
 from fastapi import APIRouter, HTTPException
 
 import rutas
+import shocks
 import valor
-from backendruta import courier_format, explain, strategy
-from backendruta.courier_models import DecideRequest, DecideResponse, ShiftStartRequest, ShiftState
+from backendruta import courier_format, explain, strategy, zonas
+from backendruta.courier_models import (
+    DecideRequest,
+    DecideResponse,
+    ShiftStartRequest,
+    ShiftState,
+    ShockRequest,
+)
 from backendruta.event_log import EventLog
 from backendruta.strategy import CapaEstrategia
-from contrato import ConfigTurno, EstadoRepartidor, Oferta, Punto
+from backendruta.zonas import ID_POR_NOMBRE
+from backendruta.zonas import NOMBRES as ZONE_NAMES
+from contrato import ConfigTurno, EstadoRepartidor, Oferta
 from estrategia import Estrategia
-from mundo import ZONAS
 from nuez import politica_nuez
 from sim import Parada, _punto
-
-# Los ids son parte de nuestro stream: el orden es estable y se publica en /zones.
-ZONE_NAMES = tuple(ZONAS)
-ZONE_ID_BY_NAME = {name: zone_id for zone_id, name in enumerate(ZONE_NAMES)}
-
-
-def _point_for_zone(zone_id: int) -> Punto:
-    if not 0 <= zone_id < len(ZONE_NAMES):
-        raise ValueError(f"zona {zone_id} desconocida; usa GET /zones")
-    name = ZONE_NAMES[zone_id]
-    return _punto(rutas.puntos_de(name)[0])
-
-
-def _index_for_zone(zone_id: int) -> int:
-    return rutas.puntos_de(_zone_name(zone_id))[0]
-
-
-def _zone_name(zone_id: int) -> str:
-    if not 0 <= zone_id < len(ZONE_NAMES):
-        raise ValueError(f"zona {zone_id} desconocida; usa GET /zones")
-    return ZONE_NAMES[zone_id]
 
 
 class CourierService:
@@ -71,7 +58,7 @@ class CourierService:
     def start(self, request: ShiftStartRequest) -> dict[str, Any]:
         with self._lock:
             try:
-                position = _index_for_zone(request.start_location_zone)
+                position = zonas.indice(request.start_location_zone)
             except ValueError as exc:
                 raise HTTPException(status_code=422, detail=str(exc)) from exc
             duration = round(request.shift_hours * 60)
@@ -81,7 +68,7 @@ class CourierService:
                 raise HTTPException(status_code=422, detail="el turno debe durar entre 1 y 480 min")
             config = ConfigTurno(
                 duracion_min=actual_duration,
-                ancla=_point_for_zone(request.start_location_zone),
+                ancla=zonas.punto(request.start_location_zone),
                 margen_min=0,
                 vehiculo=request.vehicle,
                 seed=request.seed,
@@ -151,6 +138,7 @@ class CourierService:
                     minutos_directos=direct_minutes,
                     km_entrega=request.distance_delivery_km,
                     estrategia=self.estrategia.actual,
+                    activos=self._activos(),
                 )
             except ValueError as exc:
                 raise HTTPException(status_code=422, detail=str(exc)) from exc
@@ -279,7 +267,7 @@ class CourierService:
             since_break = (request.sim_time - overrides.last_break_end_time).total_seconds() / 60
             self.state.continuous_riding_min = max(0, round(since_break))
         if overrides.position_zone is not None:
-            self.state.position = _index_for_zone(overrides.position_zone)
+            self.state.position = zonas.indice(overrides.position_zone)
         if overrides.in_flight_orders is not None:
             self._replace_in_flight(overrides.in_flight_orders)
 
@@ -333,7 +321,7 @@ class CourierService:
                 route.append(
                     Parada(
                         "pickup",
-                        _index_for_zone(pickup_zone),
+                        zonas.indice(pickup_zone),
                         order_id,
                         self.state.current_minute + prep,
                     )
@@ -341,7 +329,7 @@ class CourierService:
             route.append(
                 Parada(
                     "dropoff",
-                    _index_for_zone(dropoff_zone),
+                    zonas.indice(dropoff_zone),
                     order_id,
                     peso_kg=float(raw.get("weight_kg", 1)),
                     volumen_l=float(raw.get("volume_liters", 5)),
@@ -370,8 +358,8 @@ class CourierService:
             surge=surge,
             t_aparece=self.state.current_minute,
             t_prep=round(request.restaurant_prep_min),
-            pickup=_point_for_zone(request.zone_pickup),
-            dropoff=_point_for_zone(request.zone_dropoff),
+            pickup=zonas.punto(request.zone_pickup),
+            dropoff=zonas.punto(request.zone_dropoff),
             peso_kg=request.weight_kg,
             volumen_l=request.volume_liters,
         )
@@ -427,8 +415,33 @@ class CourierService:
             arrival = max(arrival, destination.listo_en)
         self.state.arrival_minute = arrival
 
+    def _activos(self) -> shocks.Activos:
+        """La foto de las disrupciones vigentes en el minuto actual del turno."""
+        if self.state is None:
+            return shocks.NINGUNO
+        return shocks.en(self.state.current_minute, self.state.shocks)
+
+    def shock(self, request: ShockRequest) -> dict[str, Any]:
+        """El boton del juez. Entra por la puerta de siempre y NO frena el bucle."""
+        with self._lock:
+            if self.state is None:
+                raise HTTPException(status_code=409, detail="no hay turno activo")
+            cuando = request.sim_time or (
+                self.state.start_time + timedelta(minutes=self.state.current_minute)
+            )
+            minuto = math.floor((cuando - self.state.start_time).total_seconds() / 60)
+            try:
+                zona = zonas.nombre(request.zone) if request.zone is not None else None
+            except ValueError as exc:
+                raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+            self.state.shocks = (*self.state.shocks, courier_format.to_shock(request, minuto, zona))
+            evento = courier_format.shock_event(request, cuando, request.zone)
+            self.log.append(evento)
+            return {**evento, "active_shocks": len(self._activos().shocks)}
+
     def _contexto_modelo(self) -> dict[str, Any]:
-        return strategy.contexto_del_turno(self.state, ZONE_NAMES)
+        return strategy.contexto_del_turno(self.state, ZONE_NAMES, self._activos())
 
     def _log_strategy(self, propuesta: Estrategia, degraded: bool) -> None:
         """Lo llama el hilo de la capa lenta, nunca /decide.
@@ -443,7 +456,7 @@ class CourierService:
 
     def _current_zone_id(self) -> int:
         assert self.state is not None
-        return ZONE_ID_BY_NAME[rutas.ZONA_DE[self.state.position]]
+        return ID_POR_NOMBRE[rutas.ZONA_DE[self.state.position]]
 
 
 DEFAULT_LOG = Path(os.getenv("NUEZ_EVENT_LOG", "cache/courier/current_shift.jsonl"))
@@ -452,11 +465,8 @@ router = APIRouter(tags=["courier-protocol"])
 
 
 @router.get("/zones")
-def zones() -> list[dict[str, Any]]:
-    return [
-        {"id": zone_id, "name": name, "lat": ZONAS[name][0], "lon": ZONAS[name][1]}
-        for zone_id, name in enumerate(ZONE_NAMES)
-    ]
+def zones() -> list[dict[str, float | int | str]]:
+    return zonas.catalogo()
 
 
 @router.post("/shift/start")
@@ -478,6 +488,11 @@ def end_shift(sim_time: datetime | None = None) -> dict[str, Any]:
 @router.get("/explain_decision/{order_id}")
 def explain_decision(order_id: str) -> dict[str, Any]:
     return service.explain(order_id)
+
+
+@router.post("/shock")
+def inject_shock(request: ShockRequest) -> dict[str, Any]:
+    return service.shock(request)
 
 
 @router.get("/shift/status")

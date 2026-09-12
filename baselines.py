@@ -9,6 +9,7 @@ from dataclasses import dataclass
 
 import rutas
 import seguridad
+import shocks
 from contrato import ConfigTurno, Decision, EstadoRepartidor, Oferta
 from sim import Parada, indice_de
 
@@ -25,7 +26,13 @@ class Evaluacion:
     minutos_hasta_pickup: float
 
 
-def evaluar(o: Oferta, est: EstadoRepartidor, ruta: list[Parada], cfg: ConfigTurno) -> Evaluacion:
+def evaluar(
+    o: Oferta,
+    est: EstadoRepartidor,
+    ruta: list[Parada],
+    cfg: ConfigTurno,
+    activos: shocks.Activos = shocks.NINGUNO,
+) -> Evaluacion:
     """Calcula una oferta sin aplicar preferencia de dinero, distancia o valor futuro."""
     hora = (cfg.hora_inicio + est.t // 60) % 24
     i_pick, i_drop = indice_de(o.pickup), indice_de(o.dropoff)
@@ -83,10 +90,16 @@ def _salta(
 
 
 def politica_accept_all(
-    o: Oferta, est: EstadoRepartidor, ruta: list[Parada], cfg: ConfigTurno
+    o: Oferta,
+    est: EstadoRepartidor,
+    ruta: list[Parada],
+    cfg: ConfigTurno,
+    *,
+    activos: shocks.Activos = shocks.NINGUNO,
+    **_,
 ) -> tuple[list[Parada] | None, Decision]:
     """AcceptAll: todo pedido que sea seguro y factible entra, sin mirar su valor."""
-    eva = evaluar(o, est, ruta, cfg)
+    eva = evaluar(o, est, ruta, cfg, activos)
     if eva.bloqueo:
         return _salta(est, o, eva.terminos, eva.bloqueo[1], eva.bloqueo[0])
     return eva.nueva_ruta, Decision(
@@ -95,10 +108,16 @@ def politica_accept_all(
 
 
 def politica_highest_pay(
-    o: Oferta, est: EstadoRepartidor, ruta: list[Parada], cfg: ConfigTurno
+    o: Oferta,
+    est: EstadoRepartidor,
+    ruta: list[Parada],
+    cfg: ConfigTurno,
+    *,
+    activos: shocks.Activos = shocks.NINGUNO,
+    **_,
 ) -> tuple[list[Parada] | None, Decision]:
     """HighestPay: persigue pago total; no considera distancia ni costo de oportunidad."""
-    eva = evaluar(o, est, ruta, cfg)
+    eva = evaluar(o, est, ruta, cfg, activos)
     if eva.bloqueo:
         return _salta(est, o, eva.terminos, eva.bloqueo[1], eva.bloqueo[0])
     if eva.terminos["pago_neto"] < PAGO_ALTO_MIN_MXN:
@@ -119,10 +138,16 @@ def politica_highest_pay(
 
 
 def politica_nearest_first(
-    o: Oferta, est: EstadoRepartidor, ruta: list[Parada], cfg: ConfigTurno
+    o: Oferta,
+    est: EstadoRepartidor,
+    ruta: list[Parada],
+    cfg: ConfigTurno,
+    *,
+    activos: shocks.Activos = shocks.NINGUNO,
+    **_,
 ) -> tuple[list[Parada] | None, Decision]:
     """NearestFirst: persigue pickups cercanos; no considera pago ni destino final."""
-    eva = evaluar(o, est, ruta, cfg)
+    eva = evaluar(o, est, ruta, cfg, activos)
     if eva.bloqueo:
         return _salta(est, o, eva.terminos, eva.bloqueo[1], eva.bloqueo[0])
     if eva.minutos_hasta_pickup > PICKUP_CERCANO_MAX_MIN:

@@ -20,6 +20,7 @@ from typing import Any
 from mundo import es_segura
 
 # --- 2 y 3: manejar seguido cansa, y a las 3 de la tarde en MTY cansa mas -----
+TOLERANCIA_MIN = 1.0  # holgura minima del plan contra el fin de turno
 DESCANSO_MIN = 20  # lo que dura el descanso; 20 min parado resetean el contador
 LIMITE_CONTINUO_MIN = 240  # 4 horas seguidas y se para, pase lo que pase
 LIMITE_CALOR_MIN = 90  # entre 12 y 4 el limite baja a hora y media
@@ -94,7 +95,11 @@ def revisar(
             f"obligatorio de {DESCANSO_MIN} minutos."
         )
 
-    if minutos_para_terminar > minutos_de_turno:
+    # El plan tiene que caber con un minuto de holgura, no clavado en la linea. Es
+    # una ESTIMACION y el reloj del turno avanza de minuto en minuto: planear al
+    # segundo exacto convierte el fin de turno en un volado. Medido en 300 seeds,
+    # esta holgura baja los turnos rebasados de 7 a 2 y cuesta ~$1 por turno.
+    if minutos_para_terminar > minutos_de_turno - TOLERANCIA_MIN:
         return (
             "shift_end_infeasible",
             "No alcanzas a entregarlo y volver antes de que acabe tu turno.",

@@ -129,7 +129,11 @@ def politica_del_plan(plan: PlanOracle) -> Politica:
     siguiente = 0
 
     def politica(
-        oferta: Oferta, est: EstadoRepartidor, ruta: list[Parada], cfg: ConfigTurno
+        oferta: Oferta,
+        est: EstadoRepartidor,
+        ruta: list[Parada],
+        cfg: ConfigTurno,
+        **_,
     ) -> tuple[list[Parada] | None, Decision]:
         nonlocal siguiente
         esperado = plan.oferta_ids[siguiente] if siguiente < len(plan.oferta_ids) else None

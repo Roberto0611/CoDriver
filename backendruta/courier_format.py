@@ -5,7 +5,8 @@ from datetime import datetime
 from typing import Any
 
 import seguridad
-from backendruta.courier_models import DecideRequest, DecideResponse
+import shocks
+from backendruta.courier_models import DecideRequest, DecideResponse, ShockRequest
 from contrato import Decision, Vehiculo
 from nuez import MARGEN
 
@@ -117,3 +118,37 @@ def decision_event(
         }
     )
     return event
+
+
+def shock_event(request: ShockRequest, cuando: datetime, zone_id: int | None) -> dict[str, Any]:
+    """El evento `shock` del protocolo. Solo lleva los campos que aplican a su tipo."""
+    evento: dict[str, Any] = {
+        "event": "shock",
+        "sim_time": iso(cuando),
+        "shock_type": request.shock_type,
+        "duration_min": request.duration_min,
+    }
+    if zone_id is not None:
+        evento["zone"] = zone_id
+    if request.shock_type == "surge":
+        evento["multiplier"] = request.multiplier
+    if request.shock_type == "closure" and request.road:
+        evento["road"] = request.road
+    if request.shock_type == "delay":
+        evento["order_id"] = request.order_id
+        evento["slip_min"] = request.slip_min
+    return evento
+
+
+def to_shock(request: ShockRequest, minuto: int, zona: str | None) -> shocks.Shock:
+    """La forma interna: minutos desde que empezo el turno y zona por nombre."""
+    return shocks.Shock(
+        t=max(0, minuto),
+        tipo=request.shock_type,
+        duracion_min=request.duration_min,
+        zona=zona,
+        multiplicador=request.multiplier,
+        calle=request.road,
+        oferta_id=request.order_id,
+        retraso_min=request.slip_min,
+    )

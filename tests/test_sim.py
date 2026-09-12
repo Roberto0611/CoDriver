@@ -153,7 +153,10 @@ def test_ventanas_variables_vehiculos_y_regreso(duracion, hora, vehiculo):
         for politica in (politica_greedy, politica_nuez):
             res = simular(config, politica)
             assert not res.llego_tarde, (seed, duracion, hora, vehiculo, politica.__name__)
-            assert res.entregas == sum(d.accion == "aceptar" for d in res.decisiones)
+            # Lo aceptado se entrega O se cancela: una disrupcion puede volver
+            # infactible un plan que si era factible al aceptarlo.
+            aceptadas = sum(d.accion == "aceptar" for d in res.decisiones)
+            assert res.entregas + res.cancelados == aceptadas
             assert all(0 <= d.t < duracion for d in res.decisiones)
             assert 0 <= res.minutos_ocupado <= duracion
             for salida, llegada, origen, destino in res.tramos:
