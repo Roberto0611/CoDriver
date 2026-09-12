@@ -8,7 +8,7 @@ import { baseStyle, MTY_CENTER, MTY_ZOOM } from './map/style'
 import { addRouteLayers, toggleTrafficLayer } from './map/layers'
 import { attachHoverPopups } from './map/popups'
 import { createRoadLoader } from './map/roads'
-import { drawRoute, fetchRoute, routeInfoOf, type RouteInfo } from './map/route'
+import { drawRoute, fetchRoute, routeInfoOf, type VSInfo } from './map/route'
 
 // Configurar worker de MapLibre para Vite
 maplibregl.setWorkerUrl(maplibreWorkerUrl)
@@ -38,16 +38,20 @@ function App() {
   const markersRef = useRef<{
     origin: maplibregl.Marker | null
     destination: maplibregl.Marker | null
-  }>({ origin: null, destination: null })
+    classicCar: maplibregl.Marker | null
+    aiCar: maplibregl.Marker | null
+    oracleCar?: maplibregl.Marker | null
+  }>({ origin: null, destination: null, classicCar: null, aiCar: null, oracleCar: null })
   const [loading, setLoading] = useState(true)
   const [loadingRoute, setLoadingRoute] = useState(false)
   const [stats, setStats] = useState<GraphStats | null>(null)
-  const [route, setRoute] = useState<RouteInfo | null>(null)
+  const [route, setRoute] = useState<VSInfo | null>(null)
   const [origin, setOrigin] = useState<string>('Centro')
   const [destination, setDestination] = useState<string>('Valle')
   const [showTraffic, setShowTraffic] = useState(false)
   const [currentTime, setCurrentTime] = useState('14:00')
   const [isPlaying, setIsPlaying] = useState(false)
+  const isNaviePlayground = typeof window !== 'undefined' && window.location.hash === '#navie'
 
   const initMap = useCallback(async () => {
     if (!mapContainer.current || mapRef.current) return
@@ -90,12 +94,14 @@ function App() {
   }, [])
 
   useEffect(() => {
+    if (isNaviePlayground) return
+
     initMap()
     return () => {
       mapRef.current?.remove()
       mapRef.current = null
     }
-  }, [initMap])
+  }, [initMap, isNaviePlayground])
 
   // Toggle de tráfico: actualizar capa cuando cambia la hora o la visibilidad, o si cargan más calles
   useEffect(() => {
@@ -150,6 +156,10 @@ function App() {
     } finally {
       setLoadingRoute(false)
     }
+  }
+
+  if (isNaviePlayground) {
+    return <NaviePlayground />
   }
 
   return (
@@ -227,82 +237,122 @@ function App() {
       {/* Panel de ruta (centro a la izquierda) */}
       <div className="overlay-panel">
         {/* Buscador de rutas */}
-        <div className="glass-card">
+        <div className="glass-card finder-card">
           <div className="finder">
-            <div className="finder-title">Trace a route</div>
-
-            <div className="field">
-              <label htmlFor="origin">Origin</label>
-              <div className="select">
-                <select id="origin" value={origin} onChange={(e) => setOrigin(e.target.value)}>
-                  {ZONAS_LIST.map((z) => (
-                    <option key={z} value={z}>
-                      {z}
-                    </option>
-                  ))}
-                </select>
-                {Icon.chevron}
+            <div className="finder-title">📍 Simulation Setup</div>
+            <div className="finder-fields">
+              <div className="field">
+                <label htmlFor="origin">Origin</label>
+                <div className="select">
+                  <select id="origin" value={origin} onChange={(e) => setOrigin(e.target.value)}>
+                    {ZONAS_LIST.map((z) => (
+                      <option key={z} value={z}>{z}</option>
+                    ))}
+                  </select>
+                  {Icon.chevron}
+                </div>
+              </div>
+              <div className="field">
+                <label htmlFor="destination">Destination</label>
+                <div className="select">
+                  <select
+                    id="destination"
+                    value={destination}
+                    onChange={(e) => setDestination(e.target.value)}
+                  >
+                    {ZONAS_LIST.map((z) => (
+                      <option key={z} value={z}>{z}</option>
+                    ))}
+                  </select>
+                  {Icon.chevron}
+                </div>
               </div>
             </div>
-
-            <div className="field">
-              <label htmlFor="destination">Destination</label>
-              <div className="select">
-                <select
-                  id="destination"
-                  value={destination}
-                  onChange={(e) => setDestination(e.target.value)}
-                >
-                  {ZONAS_LIST.map((z) => (
-                    <option key={z} value={z}>
-                      {z}
-                    </option>
-                  ))}
-                </select>
-                {Icon.chevron}
-              </div>
-            </div>
-
             <button className="btn-primary" onClick={fetchDynamicRoute} disabled={loadingRoute}>
               {Icon.route}
-              {loadingRoute ? 'Routing…' : 'Trace route'}
+              {loadingRoute ? 'Running Simulation…' : 'Start Race'}
             </button>
           </div>
         </div>
 
-        {/* Ruta */}
+        {/* Dashboard VS */}
         {route && (
-          <div className="glass-card">
-            <div className="route-info">
-              <div className="route-header">
-                <div className="route-dot" />
-                Fastest route
-              </div>
-              <div className="route-endpoints">
-                <div className="route-endpoint">
-                  <div className="route-endpoint-marker origin" />
-                  {route.from}
+          <div className="vs-dashboard">
+            <div className="vs-header">⚔️ ALGORITHM SHOWDOWN</div>
+            
+            <div className="vs-cards">
+              {/* Classic Agent Card */}
+              {route.classic && (
+                <div className="glass-card agent-card classic-agent">
+                  <div className="agent-header">
+                    <span className="agent-icon">🤖</span>
+                    <span className="agent-name">Classic Algorithm</span>
+                  </div>
+                  <div className="agent-stats">
+                    <div className="stat-box">
+                      <span className="stat-value">{route.classic.timeMin}</span>
+                      <span className="stat-label">mins</span>
+                    </div>
+                    <div className="stat-box">
+                      <span className="stat-value">{route.classic.lengthKm}</span>
+                      <span className="stat-label">km</span>
+                    </div>
+                  </div>
+                  <div className="agent-log">
+                    <code>[{currentTime}] Route locked. Ignoring live traffic.</code>
+                  </div>
                 </div>
-                <div className="route-connector" />
-                <div className="route-endpoint">
-                  <div className="route-endpoint-marker destination" />
-                  {route.to}
+              )}
+
+              {/* AI Agent Card */}
+              {route.ai && (
+                <div className="glass-card agent-card ai-agent">
+                  <div className="agent-header">
+                    <span className="agent-icon">🧠</span>
+                    <span className="agent-name">Nuez AI</span>
+                  </div>
+                  <div className="agent-stats">
+                    <div className="stat-box">
+                      <span className="stat-value">{route.ai.timeMin}</span>
+                      <span className="stat-label">mins</span>
+                    </div>
+                    <div className="stat-box">
+                      <span className="stat-value">{route.ai.lengthKm}</span>
+                      <span className="stat-label">km</span>
+                    </div>
+                  </div>
+                  <div className="agent-log brain-log">
+                    <code>
+                      {route.ai.timeMin < (route.classic?.timeMin || 0) 
+                        ? `[${currentTime}] ⚠️ Traffic ahead. Rerouting via optimal path.` 
+                        : `[${currentTime}] Analyzing traffic... Current path is optimal.`}
+                    </code>
+                  </div>
                 </div>
-              </div>
-              <div className="route-stats">
-                <div className="route-stat">
-                  {route.lengthKm}
-                  <span>km</span>
+              )}
+
+              {/* Oracle Agent Card */}
+              {route.oracle && (
+                <div className="glass-card agent-card oracle-agent">
+                  <div className="agent-header">
+                    <span className="agent-icon">👁️</span>
+                    <span className="agent-name">Oracle Algorithm</span>
+                  </div>
+                  <div className="agent-stats">
+                    <div className="stat-box">
+                      <span className="stat-value">{route.oracle.timeMin}</span>
+                      <span className="stat-label">mins</span>
+                    </div>
+                    <div className="stat-box">
+                      <span className="stat-value">{route.oracle.lengthKm}</span>
+                      <span className="stat-label">km</span>
+                    </div>
+                  </div>
+                  <div className="agent-log">
+                    <code>[{currentTime}] Absolute shortest distance found.</code>
+                  </div>
                 </div>
-                <div className="route-stat">
-                  {route.timeMin}
-                  <span>min</span>
-                </div>
-                <div className="route-stat">
-                  {route.nodes}
-                  <span>nodes</span>
-                </div>
-              </div>
+              )}
             </div>
           </div>
         )}

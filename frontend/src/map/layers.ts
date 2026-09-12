@@ -1,6 +1,6 @@
 import type { FeatureCollection } from 'geojson'
 import type { ExpressionSpecification, Map as MLMap } from 'maplibre-gl'
-import { ROAD, ROUND, ROUTE_CASING, ROUTE_COLOR } from './style'
+import { ROAD, ROUND } from './style'
 
 const EMPTY = { type: 'FeatureCollection' as const, features: [] }
 
@@ -71,21 +71,65 @@ export function addRoadLayers(map: MLMap, zone: string, data: FeatureCollection)
   road('roads-highway', 'highway', ROAD.highway, zoomWidth(9, 1.5, 13, 4, 17, 8))
 }
 
-/** Ruta: un borde blanco fino la separa de las calles, sin glow. */
+/** Rutas: El Agente Clásico es azul y ancho, el Agente IA es púrpura/neón y delgado. */
 export function addRouteLayers(map: MLMap) {
   map.addSource('route', { type: 'geojson', data: EMPTY })
+
+  // Agente Clásico (Tonto) - Línea ancha azul
   map.addLayer({
-    id: 'route-casing',
+    id: 'route-classic-casing',
     type: 'line',
     source: 'route',
-    paint: { 'line-color': ROUTE_CASING, 'line-width': zoomWidth(9, 5, 14, 9) },
+    filter: ['==', ['get', 'agent'], 'classic'],
+    paint: { 'line-color': '#1e3a8a', 'line-width': zoomWidth(9, 6, 14, 14), 'line-opacity': 0.8 },
     layout: ROUND,
   })
   map.addLayer({
-    id: 'route-line',
+    id: 'route-classic-line',
     type: 'line',
     source: 'route',
-    paint: { 'line-color': ROUTE_COLOR, 'line-width': zoomWidth(9, 2.5, 14, 5) },
+    filter: ['==', ['get', 'agent'], 'classic'],
+    paint: { 'line-color': '#3b82f6', 'line-width': zoomWidth(9, 4, 14, 8), 'line-opacity': 0.9 },
+    layout: ROUND,
+  })
+
+  // Agente IA (Inteligente) - Línea delgada y brillante Púrpura (Glow)
+  map.addLayer({
+    id: 'route-ai-glow',
+    type: 'line',
+    source: 'route',
+    filter: ['==', ['get', 'agent'], 'ai'],
+    paint: { 'line-color': '#c026d3', 'line-width': zoomWidth(9, 6, 14, 12), 'line-opacity': 0.4 },
+    layout: ROUND,
+  })
+  map.addLayer({
+    id: 'route-ai-line',
+    type: 'line',
+    source: 'route',
+    filter: ['==', ['get', 'agent'], 'ai'],
+    paint: { 'line-color': '#f5d0fe', 'line-width': zoomWidth(9, 2.5, 14, 5) },
+    layout: ROUND,
+  })
+
+  // Agente Oráculo (Distancia más corta) - Línea Dorada/Amarilla con Dash
+  map.addLayer({
+    id: 'route-oracle-glow',
+    type: 'line',
+    source: 'route',
+    filter: ['==', ['get', 'agent'], 'oracle'],
+    paint: { 'line-color': '#ca8a04', 'line-width': zoomWidth(9, 5, 14, 10), 'line-opacity': 0.3 },
+    layout: ROUND,
+  })
+  map.addLayer({
+    id: 'route-oracle-line',
+    type: 'line',
+    source: 'route',
+    filter: ['==', ['get', 'agent'], 'oracle'],
+    paint: { 
+      'line-color': '#fef08a', 
+      'line-width': zoomWidth(9, 2, 14, 4),
+      'line-dasharray': [2, 2]
+    },
     layout: ROUND,
   })
 }

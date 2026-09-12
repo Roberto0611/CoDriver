@@ -19,7 +19,8 @@
   "dependencies": {
     "maplibre-gl": "^6.9.0",
     "react": "^19.2.8",
-    "react-dom": "^19.2.8"
+    "react-dom": "^19.2.8",
+    "react-router-dom": "^7.18.3"
   },
   "devDependencies": {
     "@types/compression": "^1.8.1",

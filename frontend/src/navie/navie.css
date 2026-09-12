@@ -1,0 +1,243 @@
+:root {
+  --navie-bg: #f4f2ee;
+  --navie-ink: #18151a;
+  --navie-accent: #684959;
+  --navie-warm: #f59e0b;
+  --navie-emerald: #10b981;
+}
+/* --- Estructura Base --- */
+.navie-stage {
+  position: relative;
+  width: 260px;
+  height: 251.6px;
+  filter: drop-shadow(0 10px 18px rgba(0, 0, 0, 0.12));
+  transform-origin: 50% 60%;
+  transition: transform 0.4s ease-in-out;
+}
+
+.navie-stage img,
+.navie-stage .navie-fill {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.navie-stage img {
+  -webkit-user-drag: none;
+  user-select: none;
+  display: block;
+}
+
+/* --- Capas Principales con Transiciones Suaves --- */
+.navie-body-wrap {
+  z-index: 1;
+  transform-origin: 50% 50%;
+  animation: navieBreathe 3.2s ease-in-out infinite;
+  transition: transform 0.4s ease-in-out;
+}
+
+.navie-needle-wrap {
+  z-index: 2;
+  transform-origin: 50% 50%;
+  animation: navieWobble 3.2s cubic-bezier(0.34, 1.4, 0.4, 1) infinite;
+  transition: transform 0.4s ease-in-out;
+}
+
+.navie-eyes-wrap {
+  z-index: 3;
+  transform-origin: 50% 55%;
+  animation: navieBreathe 3.2s ease-in-out infinite;
+  /* Transición global para desaparecer en modo searching */
+  transition: opacity 0.35s ease-in-out, transform 0.35s ease-in-out;
+  opacity: 1;
+  transform: scale(1);
+}
+
+.navie-wink-eyes {
+  z-index: 3;
+  display: block;
+  transform-origin: 50% 50%;
+  animation: navieIdleBlink 3.2s ease-in-out infinite;
+  transition: opacity 0.3s ease-in-out;
+}
+
+.navie-eye-half {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  transform-origin: 50% 50%;
+}
+
+.navie-eye-left  { clip-path: inset(0 51% 0 0); }
+.navie-eye-right { clip-path: inset(0 0 0 51%); }
+
+/* Ojos alternativos con fading suave */
+.navie-eyes-happy,
+.navie-eyes-error {
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.35s ease-in-out;
+}
+
+
+/* ==========================================
+   KEYFRAMES DE ANIMACIONES
+   ========================================== */
+
+/* Reposo */
+@keyframes navieBreathe {
+  0%, 100% { transform: translateY(0) scale(1); }
+  50%      { transform: translateY(-4px) scale(1.015); }
+}
+
+@keyframes navieWobble {
+  0%   { transform: rotate(0deg); }
+  10%  { transform: rotate(22deg); }
+  20%  { transform: rotate(-14deg); }
+  30%  { transform: rotate(8deg); }
+  40%  { transform: rotate(-4deg); }
+  50%, 85% { transform: rotate(0deg); }
+  100% { transform: rotate(0deg); }
+}
+
+@keyframes navieIdleBlink {
+  0%, 65%, 77%, 89%, 100% { transform: scaleY(1); }
+  70%, 72%                { transform: scaleY(0); }
+  82%, 84%                { transform: scaleY(0); }
+}
+
+/* Guiño */
+@keyframes navieTiltWink {
+  0%       { transform: rotate(0deg) translateX(0); }
+  12%      { transform: rotate(-20deg) translateX(-12px); }
+  30%      { transform: rotate(-20deg) translateX(-12px); }
+  45%      { transform: rotate(0deg) translateX(0); }
+  100%     { transform: rotate(0deg) translateX(0); }
+}
+
+@keyframes navieWinkClose {
+  0%, 12%  { transform: scaleY(1); }
+  18%, 24% { transform: scaleY(0); }
+  30%, 100%{ transform: scaleY(1); }
+}
+
+/* Feliz: Rebote del cuerpo */
+@keyframes navieHappyBounce {
+  0%, 100% { transform: translateY(0) scale(1) rotate(0deg); }
+  25%      { transform: translateY(-9px) scale(1.035) rotate(-4deg); }
+  50%      { transform: translateY(0) scale(1) rotate(0deg); }
+  75%      { transform: translateY(-7px) scale(1.025) rotate(4deg); }
+}
+
+/* Feliz: Cierre de ojos sincronizado */
+@keyframes navieHappyBlink {
+  0%, 16%  { transform: scaleY(1); }
+  20%      { transform: scaleY(0); }
+  24%, 66% { transform: scaleY(1); }
+  70%      { transform: scaleY(0); }
+  74%, 100%{ transform: scaleY(1); }
+}
+
+@keyframes navieSwapNormalEyes {
+  0%, 19%   { opacity: 1; }
+  20%, 69%  { opacity: 0; }
+  70%, 100% { opacity: 1; }
+}
+
+@keyframes navieSwapHappyEyes {
+  0%, 19%   { opacity: 0; }
+  20%, 69%  { opacity: 1; }
+  70%, 100% { opacity: 0; }
+}
+
+/* Buscando */
+@keyframes navieSearching {
+  0%   { transform: rotate(0deg); }
+  7%   { transform: rotate(58deg); }
+  14%  { transform: rotate(-42deg); }
+  21%  { transform: rotate(64deg); }
+  28%  { transform: rotate(-55deg); }
+  35%  { transform: rotate(30deg); }
+  41%  { transform: rotate(0deg); }
+  48%  { transform: rotate(0deg); }
+  58%  { transform: rotate(380deg); }
+  68%  { transform: rotate(720deg); }
+  76%  { transform: rotate(695deg); }
+  84%  { transform: rotate(745deg); }
+  92%  { transform: rotate(720deg); }
+  100% { transform: rotate(720deg); }
+}
+
+/* Error */
+@keyframes navieErrorSway {
+  0%, 100% { transform: rotate(0deg) translate(0, 0); }
+  25%      { transform: rotate(3deg) translate(-1.5px, -1px); }
+  50%      { transform: rotate(-2.5deg) translate(1.5px, 0.5px); }
+  75%      { transform: rotate(2deg) translate(-1px, 1px); }
+}
+
+@keyframes navieNeedleRightNervous {
+  0%, 100% { transform: rotate(36deg); }
+  33%      { transform: rotate(25deg); }
+  66%      { transform: rotate(40deg); }
+}
+
+
+/* ==========================================
+   MODOS Y TRANSICIONES
+   ========================================== */
+
+/* Modo: Guiño */
+.navie-stage.navie-wink {
+  animation: navieTiltWink 3.2s ease-in-out infinite;
+}
+.navie-stage.navie-wink .navie-wink-eyes {
+  animation: none;
+}
+.navie-stage.navie-wink .navie-eye-right {
+  animation: navieWinkClose 3.2s ease-in-out infinite;
+}
+
+/* Modo: Feliz */
+.navie-stage.navie-happy {
+  animation: navieHappyBounce 1.2s ease-in-out infinite;
+}
+.navie-stage.navie-happy .navie-eyes-wrap {
+  animation: navieHappyBlink 4.8s ease-in-out infinite;
+}
+.navie-stage.navie-happy .navie-wink-eyes {
+  animation: navieSwapNormalEyes 4.8s ease-in-out infinite;
+}
+.navie-stage.navie-happy .navie-eyes-happy {
+  animation: navieSwapHappyEyes 4.8s ease-in-out infinite;
+}
+
+/* Modo: Buscando (Fade-out elegante + ligero encogimiento) */
+.navie-stage.navie-searching .navie-eyes-wrap {
+  opacity: 0;
+  transform: scale(0.85);
+  pointer-events: none;
+}
+.navie-stage.navie-searching .navie-needle-wrap {
+  animation: navieSearching 4.8s ease-in-out infinite;
+}
+
+/* Modo: Error (Fade-out ojos normales -> Fade-in ojos de error) */
+.navie-stage.navie-error {
+  animation: navieErrorSway 0.95s ease-in-out infinite;
+}
+.navie-stage.navie-error .navie-wink-eyes,
+.navie-stage.navie-error .navie-eyes-happy {
+  opacity: 0;
+  animation: none;
+}
+.navie-stage.navie-error .navie-eyes-error {
+  opacity: 1;
+}
+.navie-stage.navie-error .navie-needle-wrap {
+  animation: navieNeedleRightNervous 0.85s ease-in-out infinite;
+}
