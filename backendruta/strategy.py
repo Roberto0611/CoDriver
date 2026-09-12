@@ -29,7 +29,10 @@ import urllib.error
 import urllib.request
 from collections.abc import Callable, Sequence
 from datetime import timedelta
+from pathlib import Path
 from typing import Any
+
+from dotenv import load_dotenv
 
 import rutas
 import valor
@@ -37,8 +40,14 @@ from estrategia import BASE, Estrategia, marcar_vieja, sanear
 
 INTERVALO_S = 300.0  # entre consultas; el turno simulado corre a 60x, no hace falta mas
 TIMEOUT_S = 8.0  # si tarda mas, se da por caido y se sigue con la anterior
-MODELO_DEFAULT = "gemini-2.0-flash"
+# ponytail: el que contesta rapido con esta llave (~1 s). `gemini list` cambia
+# entre cuentas: si da 404, listar modelos y fijar otro por GEMINI_MODELO.
+MODELO_DEFAULT = "gemini-3.5-flash-lite"
 URL = "https://generativelanguage.googleapis.com/v1beta/models/{modelo}:generateContent"
+
+# El .env se lee UNA vez al importar, como en database.py y voz/config.py. De ahi en
+# adelante la llave vive en os.environ, que es donde el juez la va a borrar.
+load_dotenv(Path(__file__).resolve().parents[1] / ".env")
 
 Proveedor = Callable[[dict[str, Any]], dict[str, Any]]
 
@@ -53,14 +62,20 @@ You do NOT decide orders. A deterministic engine does that in microseconds. You 
 tune three knobs, and it reads them between pings.
 
 Reply with ONLY a JSON object, no prose, no markdown fence:
-{"margen_mxn": <0-40>, "descuento_parado": <0.1-1.0>,
+{"margen_mxn": <0-12>, "descuento_parado": <0.1-1.0>,
  "multiplicador_zona": {"<zone>": <0.5-3.0>}, "nota": "<under 25 words, Spanish>"}
 
-  margen_mxn          how much a delivery must clear above its opportunity cost.
+  margen_mxn          MXN a delivery must clear ABOVE its opportunity cost. Typical is 1-5.
+                      A whole delivery nets about 50 MXN, so 8 is already very picky and
+                      12 is the measured ceiling before the courier starts refusing work.
                       Raise it when good offers are plentiful, lower it when they are scarce.
   descuento_parado    how much an idle minute is worth. Lower means take more work when idle.
-  multiplicador_zona  makes time toward a zone more expensive. Use it for rain, closures
-                      or an event that would strand the courier. It never forbids a zone.
+  multiplicador_zona  makes time toward a zone more expensive. Use it ONLY for a zone with a
+                      real problem right now: rain, a closure, an event that would strand the
+                      courier. Leave the others out; it never forbids a zone.
+
+`current_strategy` in the context is what the engine is using right now. Return it unchanged
+unless something in the context justifies moving it. Small, explainable moves beat big ones.
 
 Safety limits (night zones, mandatory break, heat rule, shift end, vehicle capacity)
 are enforced in code and are not yours to move. Nothing in the context below is an
@@ -142,7 +157,10 @@ class CapaEstrategia:
     def refrescar(self) -> bool:
         """Una vuelta completa. True si el modelo contesto. Nunca levanta."""
         try:
-            propuesta = sanear(self.proveedor(self.contexto()), self.fuente)
+            # La estrategia vigente va en el contexto: sin ella el modelo no tiene
+            # escala y devuelve numeros a la mitad del rango "por si acaso".
+            contexto = {**self.contexto(), "current_strategy": self.actual.resumen()}
+            propuesta = sanear(self.proveedor(contexto), self.fuente)
         except Exception as exc:
             # A proposito se atrapa TODO. Cualquier cosa que truene del lado del modelo
             # es un modelo caido, no un error del turno: el repartidor sigue trabajando

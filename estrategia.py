@@ -17,7 +17,7 @@ no igual: el dinero ni siquiera entra a esa funcion.
 `sanear` es la otra mitad de la promesa. Un modelo puede alucinar, puede venir
 envenenado por un prompt en un nombre de calle, o simplemente puede equivocarse de
 unidades. Los rangos de aqui son el limite de cuanto daño puede hacer: un margen de
-$9999 apagaria al repartidor, y esto lo recorta a 40 antes de que llegue al motor.
+$9999 apagaria al repartidor, y esto lo recorta a 12 antes de que llegue al motor.
 """
 
 from dataclasses import dataclass, field, replace
@@ -26,7 +26,13 @@ from typing import Any
 import mundo
 
 # Rangos duros. Fuera de esto no es una estrategia, es un bug.
-MARGEN_MAX = 40.0  # un pedido normal deja ~$50 netos: mas que esto apaga el turno
+# ponytail: el techo del margen esta MEDIDO, no inventado. Barrido en 120 seeds de
+# TUNEO (120 min, moto, 14:00), ganancia media por turno:
+#     margen   0     1     2     4     8    12    22    40
+#     $      258   260   260   264   265   261   235   142
+# De 0 a 12 el motor nunca se lastima; de ahi para arriba se apaga solo. 12 es el
+# ultimo valor seguro, asi que hasta ahi llega lo que el modelo puede mover.
+MARGEN_MAX = 12.0
 DESCUENTO_MIN, DESCUENTO_MAX = 0.1, 1.0
 ZONA_MIN, ZONA_MAX = 0.5, 3.0
 
