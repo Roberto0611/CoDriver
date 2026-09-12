@@ -27,10 +27,26 @@ def minutos(i: int, j: int, hora: int) -> float:
     return float(_M[i, j]) * factor_trafico(hora)
 
 
+def km(i: int, j: int) -> float:
+    """Distancia aproximada, SIN trafico.
+
+    El trafico te hace tardar mas, no recorrer mas kilometros. Si esto se
+    calculara desde minutos(i, j, hora) la gasolina y el pago se inflarian
+    solos en hora pico.
+    """
+    return float(_M[i, j]) / 60 * 30   # ~30 km/h promedio a flujo libre
+
+
 @lru_cache(maxsize=None)
 def puntos_de(zona: str) -> tuple[int, ...]:
     """Indices de los puntos de interes que caen en una zona."""
     return tuple(i for i, z in enumerate(ZONA_DE) if z == zona)
+
+
+def indice_mas_cercano(lat: float, lon: float) -> int:
+    """El punto de interes mas cercano a una coordenada. Para resolver el ancla."""
+    return min(range(len(COORD_DE)),
+               key=lambda i: (COORD_DE[i][0] - lat) ** 2 + (COORD_DE[i][1] - lon) ** 2)
 
 
 def demo():
