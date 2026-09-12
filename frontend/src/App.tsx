@@ -3,13 +3,9 @@ import * as maplibregl from 'maplibre-gl'
 import maplibreWorkerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?url'
 
 import { Icon } from './ui/icons'
-import { formatNumber, ZONAS_LIST } from './lib/zones'
+import { ZONAS_LIST } from './lib/zones'
 import { baseStyle, MTY_CENTER, MTY_ZOOM } from './map/style'
-import {
-  addRoadLayers,
-  addRouteLayers,
-  toggleTrafficLayer,
-} from './map/layers'
+import { addRoadLayers, addRouteLayers, toggleTrafficLayer } from './map/layers'
 import { attachHoverPopups } from './map/popups'
 import { createRoadLoader } from './map/roads'
 import { drawRoute, fetchRoute, routeInfoOf, type RouteInfo } from './map/route'
@@ -29,7 +25,9 @@ function timeToMinutes(timeStr: string): number {
 
 function minutesToTime(totalMin: number): string {
   const clamped = Math.max(0, Math.min(24 * 60 - 1, totalMin))
-  const h = Math.floor(clamped / 60).toString().padStart(2, '0')
+  const h = Math.floor(clamped / 60)
+    .toString()
+    .padStart(2, '0')
   const m = (clamped % 60).toString().padStart(2, '0')
   return `${h}:${m}`
 }
@@ -169,7 +167,6 @@ function App() {
       {/* Timeline de Tráfico en la parte superior del centro */}
       <div className="timeline-panel">
         <div className="timeline-controls">
-
           <button
             className="timeline-btn-round"
             title="Atrasar 1 minuto"
@@ -232,7 +229,6 @@ function App() {
       <div className="overlay-panel">
         {/* Buscador de rutas */}
         <div className="glass-card">
-
           <div className="finder">
             <div className="finder-title">Trace a route</div>
 
@@ -275,7 +271,6 @@ function App() {
           </div>
         </div>
 
-
         {/* Ruta */}
         {route && (
           <div className="glass-card">
@@ -312,10 +307,7 @@ function App() {
             </div>
           </div>
         )}
-
-
       </div>
-
     </div>
   )
 }

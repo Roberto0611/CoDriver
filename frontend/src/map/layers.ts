@@ -1,6 +1,5 @@
-import type { GeoJSON } from 'geojson'
 import type { ExpressionSpecification, GeoJSONSource, Map as MLMap } from 'maplibre-gl'
-import { AMBER, PLUM, ROAD, ROUND, ROUTE_CASING, ROUTE_COLOR } from './style'
+import { ROAD, ROUND, ROUTE_CASING, ROUTE_COLOR } from './style'
 import { getRoadFeatures } from './roads'
 
 const EMPTY = { type: 'FeatureCollection' as const, features: [] }
@@ -28,7 +27,13 @@ const zoomWidth = (...stops: number[]): ExpressionSpecification => [
 export function addRoadLayers(map: MLMap) {
   map.addSource('road-network', { type: 'geojson', data: EMPTY })
 
-  const road = (id: string, cls: string, color: string, width: ExpressionSpecification, minzoom?: number) => {
+  const road = (
+    id: string,
+    cls: string,
+    color: string,
+    width: ExpressionSpecification,
+    minzoom?: number
+  ) => {
     const layer: any = {
       id,
       type: 'line',
@@ -57,7 +62,13 @@ export function addRoadLayers(map: MLMap) {
   })
   road('roads-tertiary', 'tertiary', ROAD.tertiary, zoomWidth(13, 0.8, 15, 2.2, 17, 4.5), 12.5)
   road('roads-secondary', 'secondary', ROAD.secondary, zoomWidth(11, 0.8, 13, 2.2, 17, 5.5), 11)
-  road('roads-primary-casing', 'primary', ROAD.primaryCasing, zoomWidth(9, 1.6, 13, 4.4, 17, 8.4), 8)
+  road(
+    'roads-primary-casing',
+    'primary',
+    ROAD.primaryCasing,
+    zoomWidth(9, 1.6, 13, 4.4, 17, 8.4),
+    8
+  )
   road('roads-primary', 'primary', ROAD.primary, zoomWidth(9, 1, 13, 3, 17, 6.4), 8)
   road('roads-highway-casing', 'highway', ROAD.highwayCasing, zoomWidth(9, 2.4, 13, 5.6, 17, 10.4))
   road('roads-highway', 'highway', ROAD.highway, zoomWidth(9, 1.5, 13, 4, 17, 8))
@@ -82,7 +93,6 @@ export function addRouteLayers(map: MLMap) {
   })
 }
 
-
 // ── Tráfico ──────────────────────────────────────────────────────────────
 
 const TRAFFIC_API = 'http://127.0.0.1:8000'
@@ -95,21 +105,33 @@ const TRAFFIC_COLOR: ExpressionSpecification = [
     'interpolate',
     ['linear'],
     ['get', 'traffic_factor'],
-    1.0, '#16a34a',  // verde — fluido
-    1.3, '#eab308',  // amarillo — moderado
-    1.6, '#f97316',  // naranja — pesado
-    2.0, '#ef4444',  // rojo — muy pesado
-    100, '#7f1d1d',  // rojo oscuro — cierre/incidente
+    1.0,
+    '#16a34a', // verde — fluido
+    1.3,
+    '#eab308', // amarillo — moderado
+    1.6,
+    '#f97316', // naranja — pesado
+    2.0,
+    '#ef4444', // rojo — muy pesado
+    100,
+    '#7f1d1d', // rojo oscuro — cierre/incidente
   ] as unknown as ExpressionSpecification,
+  // Fallback: el color propio de la calle segun su clase. Se resuelve dentro de
+  // la expresion de MapLibre en vez de escribir una propiedad en cada feature,
+  // que con 268k features es memoria que no hace falta gastar.
   [
     'match',
     ['get', 'class'],
-    'highway', ROAD.highway,
-    'primary', ROAD.primary,
-    'secondary', ROAD.secondary,
-    'tertiary', ROAD.tertiary,
+    'highway',
+    ROAD.highway,
+    'primary',
+    ROAD.primary,
+    'secondary',
+    ROAD.secondary,
+    'tertiary',
+    ROAD.tertiary,
     ROAD.local,
-  ],  // fallback: color original de la calle según su clase
+  ],
 ]
 
 // Colores base por clase de vía (para restaurar al apagar tráfico)
@@ -130,7 +152,7 @@ export function toggleTrafficLayer(
   map: MLMap,
   visible: boolean,
   hora?: string,
-  onDone?: () => void,
+  onDone?: () => void
 ) {
   if (!visible) {
     // Restaurar colores originales
@@ -148,54 +170,60 @@ export function toggleTrafficLayer(
   // Fetch traffic data y colorear calles reales
   fetch(`${TRAFFIC_API}/api/traffic?hora=${hora ?? '14:00'}`)
     .then((r) => r.json())
-    .then((data: { traffic_map: Record<string, number>; incidents: Array<{ calle: string; factor?: number }> }) => {
-      const trafficMap = data.traffic_map
-      const incidents = data.incidents || []
+    .then(
+      (data: {
+        traffic_map: Record<string, number>
+        incidents: Array<{ calle: string; factor?: number }>
+      }) => {
+        const trafficMap = data.traffic_map
+        const incidents = data.incidents || []
+        console.log(
+          '[Traffic] Keys:',
+          Object.keys(trafficMap).length,
+          'Incidents:',
+          incidents.length
+        )
 
-      const fallback = [
-        'match',
-        ['get', 'class'],
-        'highway', ROAD.highway,
-        'primary', ROAD.primary,
-        'secondary', ROAD.secondary,
-        'tertiary', ROAD.tertiary,
-        ROAD.local,
-      ]
+        let matched = 0
+        for (const f of features) {
+          if (!f.properties) continue
 
-      const matchExpr: any[] = ['match', ['get', 'name']]
-      for (const [name, factor] of Object.entries(trafficMap)) {
-         if (!name) continue
-         let color = '#16a34a'
-         if (factor >= 100) color = '#7f1d1d'
-         else if (factor >= 2.0) color = '#ef4444'
-         else if (factor >= 1.6) color = '#f97316'
-         else if (factor >= 1.3) color = '#eab308'
-         matchExpr.push(name, color)
-      }
-      matchExpr.push(fallback)
+          const name: string = f.properties.name ?? ''
+          if (!name) continue
 
-      let finalColorExpr: any = matchExpr
+          // 1. Búsqueda exacta O(1) para el tráfico regular masivo
+          let factor = trafficMap[name]
 
-      if (matchExpr.length < 4) {
-         finalColorExpr = fallback
-      }
+          // 2. Búsqueda por substring solo para incidentes manuales
+          for (const inc of incidents) {
+            if (name.includes(inc.calle)) {
+              factor = 99999.0 // Factor altísimo para asegurar que se pinte rojo oscuro
+              break
+            }
+          }
 
-      if (incidents.length > 0) {
-         const caseExpr: any[] = ['case']
-         for (const inc of incidents) {
-            caseExpr.push(['in', inc.calle, ['coalesce', ['get', 'name'], '']], '#7f1d1d')
-         }
-         caseExpr.push(finalColorExpr)
-         finalColorExpr = caseExpr
-      }
-
-      for (const layerId of ROAD_LAYERS) {
-        if (map.getLayer(layerId)) {
-          map.setPaintProperty(layerId, 'line-color', finalColorExpr)
+          if (factor !== undefined) {
+            f.properties.traffic_factor = factor
+            matched++
+          } else {
+            delete f.properties.traffic_factor
+          }
         }
-      }
 
-      onDone?.()
-    })
+        console.log(`[Traffic] Matched ${matched} / ${features.length} features`)
+
+        // Re-setear datos con las propiedades inyectadas
+        source.setData({ type: 'FeatureCollection', features })
+
+        // Cambiar el paint de las capas de calles a usar colores de tráfico
+        for (const layerId of ROAD_LAYERS) {
+          if (map.getLayer(layerId)) {
+            map.setPaintProperty(layerId, 'line-color', TRAFFIC_COLOR)
+          }
+        }
+
+        onDone?.()
+      }
+    )
     .catch(console.error)
 }

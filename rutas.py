@@ -23,8 +23,13 @@ COORD_DE = [(lat, lon) for _, _, lat, lon in PUNTOS]
 
 
 def minutos(i: int, j: int, hora: int) -> float:
-    """Minutos reales del punto i al j a esa hora del dia."""
-    return float(_M[i, j]) * factor_trafico(hora)
+    """Minutos reales del punto i al j a esa hora del dia.
+
+    El factor depende del corredor (hacia el centro, saliendo, cruzando el rio,
+    local), no solo de la hora: a las 15:30 cruzar a San Pedro cuesta el doble
+    que moverte dentro de tu zona.
+    """
+    return float(_M[i, j]) * factor_trafico(hora, ZONA_DE[i], ZONA_DE[j])
 
 
 def km(i: int, j: int) -> float:
