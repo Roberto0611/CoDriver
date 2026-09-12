@@ -17,7 +17,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(BASE_DIR))
 
 import contrato  # noqa: E402
-from backendruta import database, seed_traffic  # noqa: E402
+from backendruta import database, seed_traffic, voice  # noqa: E402
 from data.export_geojson import route_to_geojson  # noqa: E402
 from mundo import ZONAS  # noqa: E402
 
@@ -25,6 +25,7 @@ app = FastAPI(
     title="Nuez Copiloto API",
     description="API para el simulador y motor del repartidor Nuez",
 )
+app.include_router(voice.router)
 
 
 class IncidenteInput(BaseModel):
