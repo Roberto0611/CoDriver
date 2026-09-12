@@ -122,3 +122,65 @@ export function addPuntosLayer(map: MLMap, data: GeoJSON) {
     },
   })
 }
+
+// ── Tráfico ──────────────────────────────────────────────────────────────
+
+const TRAFFIC_API = 'http://127.0.0.1:8000'
+
+/** Agrega las capas de tráfico (ocultas por defecto). */
+export function addTrafficLayers(map: MLMap) {
+  map.addSource('traffic', { type: 'geojson', data: EMPTY })
+
+  map.addLayer({
+    id: 'traffic-glow',
+    type: 'line',
+    source: 'traffic',
+    filter: ['==', ['get', 'tipo'], 'TRAFICO'],
+    paint: {
+      'line-color': [
+        'interpolate',
+        ['linear'],
+        ['get', 'factor_retraso'],
+        1.0, '#16a34a',
+        1.3, '#eab308',
+        1.8, '#f97316',
+        3.0, '#ef4444',
+      ] as unknown as string,
+      'line-width': zoomWidth(9, 10, 14, 30),
+      'line-blur': zoomWidth(9, 6, 14, 18),
+      'line-opacity': 0.4,
+    },
+    layout: { ...ROUND, visibility: 'none' },
+  })
+
+  map.addLayer({
+    id: 'traffic-incident',
+    type: 'line',
+    source: 'traffic',
+    filter: ['==', ['get', 'tipo'], 'CIERRE_TOTAL'],
+    paint: {
+      'line-color': '#dc2626',
+      'line-width': zoomWidth(9, 6, 14, 16),
+      'line-blur': zoomWidth(9, 3, 14, 8),
+      'line-opacity': 0.75,
+    },
+    layout: { ...ROUND, visibility: 'none' },
+  })
+}
+
+/** Activa o desactiva las capas de tráfico y carga datos para la hora dada. */
+export function toggleTrafficLayer(map: MLMap, visible: boolean, hora?: string) {
+  const vis = visible ? 'visible' : 'none'
+  if (map.getLayer('traffic-glow')) map.setLayoutProperty('traffic-glow', 'visibility', vis)
+  if (map.getLayer('traffic-incident')) map.setLayoutProperty('traffic-incident', 'visibility', vis)
+
+  if (visible && hora) {
+    fetch(`${TRAFFIC_API}/api/traffic?hora=${hora}`)
+      .then((r) => r.json())
+      .then((data) => {
+        const source = map.getSource('traffic') as import('maplibre-gl').GeoJSONSource | undefined
+        source?.setData(data.geojson)
+      })
+      .catch(console.error)
+  }
+}

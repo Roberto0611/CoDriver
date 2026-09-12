@@ -220,6 +220,48 @@
   transform: none;
 }
 
+.btn-danger {
+  height: 44px;
+  padding: 0 20px;
+  border: none;
+  border-radius: var(--r-pill);
+  background: #dc2626;
+  color: #fff;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  cursor: pointer;
+  box-shadow: var(--shadow-button);
+  transition:
+    transform 150ms ease-out,
+    background 150ms var(--ease),
+    box-shadow 150ms var(--ease);
+}
+.btn-danger:hover {
+  background: #b91c1c;
+}
+.btn-danger:active {
+  transform: scale(0.96);
+}
+
+.input-time {
+  height: 36px;
+  padding: 0 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-field);
+  background: var(--surface);
+  color: var(--ink-1);
+  font-size: 14px;
+  font-family: inherit;
+  outline: none;
+  transition: border-color 150ms var(--ease);
+}
+.input-time:focus {
+  border-color: var(--plum);
+}
+
 /* ─── Route Info ─── */
 .route-info {
   display: flex;

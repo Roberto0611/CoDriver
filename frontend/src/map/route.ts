@@ -21,8 +21,10 @@ export interface RouteGeoJSON {
 
 const API = 'http://127.0.0.1:8000'
 
-export async function fetchRoute(origen: string, destino: string): Promise<RouteGeoJSON> {
-  const res = await fetch(`${API}/api/route?origen=${origen}&destino=${destino}`)
+export async function fetchRoute(origen: string, destino: string, hora?: string): Promise<RouteGeoJSON> {
+  let url = `${API}/api/route?origen=${origen}&destino=${destino}`
+  if (hora) url += `&hora=${hora}`
+  const res = await fetch(url)
   if (!res.ok) throw new Error('Error fetching route')
   return res.json()
 }
