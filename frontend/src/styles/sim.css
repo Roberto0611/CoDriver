@@ -368,3 +368,68 @@
   color: var(--ink);
   font-weight: 600;
 }
+
+/* ─── Marcadores de Llegada (Pickup/Dropoff) ─── */
+.marker-arrival {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--card);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+  border: 2px solid;
+  animation: pulse-out 2s forwards;
+}
+
+.marker-arrival svg {
+  width: 14px;
+  height: 14px;
+}
+
+.marker-arrival.is-nuez {
+  border-color: var(--indigo);
+  color: var(--indigo);
+}
+
+.marker-arrival.is-greedy {
+  border-color: var(--amber);
+  color: var(--amber);
+}
+
+@keyframes pulse-out {
+  0% { transform: scale(0.5); opacity: 1; }
+  15% { transform: scale(1.2); opacity: 1; }
+  30% { transform: scale(1); opacity: 1; }
+  100% { transform: scale(0.8); opacity: 0; }
+}
+
+/* ─── Marcador de Destino (Próximo Pickup/Dropoff) ─── */
+.marker-target {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--card);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+  border: 2px dashed;
+  opacity: 0.9;
+}
+
+.marker-target svg {
+  width: 12px;
+  height: 12px;
+}
+
+.marker-target.is-nuez {
+  border-color: var(--indigo);
+  color: var(--indigo);
+}
+
+.marker-target.is-greedy {
+  border-color: var(--amber);
+  color: var(--amber);
+}

@@ -12,9 +12,11 @@ import { createRoadLoader } from './map/roads'
 
 import { cargarTurnosPorSeed, cargarIndiceTurnos, cargarPuntos } from './lib/loader'
 import { posicionEnMinuto, minutosAHora, contadoresEnT, estelaHastaT } from './lib/sim'
+import { esSeguridad, etiquetaRestriccion } from './lib/decision-text'
 import type { TurnoData, TurnoIndex } from './lib/turno'
 import { Counters } from './sim/Counters'
 import { Decisions } from './sim/Decisions'
+import { Distribution } from './sim/Distribution'
 
 maplibregl.setWorkerUrl(maplibreWorkerUrl)
 
@@ -30,6 +32,7 @@ export default function SimView() {
   const mapRef = useRef<maplibregl.Map | null>(null)
   const greedyMarker = useRef<maplibregl.Marker | null>(null)
   const nuezMarker = useRef<maplibregl.Marker | null>(null)
+  const arrivalMarkers = useRef<Record<string, maplibregl.Marker>>({})
 
   const [loading, setLoading] = useState(true)
   const [indice, setIndice] = useState<TurnoIndex | null>(null)
@@ -117,6 +120,7 @@ export default function SimView() {
             'line-color': GREEDY_TRAIL,
             'line-width': 3,
             'line-opacity': 0.5,
+            'line-offset': -2,
           },
           layout: { 'line-cap': 'round', 'line-join': 'round' },
         })
@@ -128,6 +132,7 @@ export default function SimView() {
             'line-color': '#FFFFFF',
             'line-width': 5,
             'line-opacity': 0.6,
+            'line-offset': 2,
           },
           layout: { 'line-cap': 'round', 'line-join': 'round' },
         })
@@ -139,6 +144,7 @@ export default function SimView() {
             'line-color': NUEZ_TRAIL,
             'line-width': 3,
             'line-opacity': 0.8,
+            'line-offset': 2,
           },
           layout: { 'line-cap': 'round', 'line-join': 'round' },
         })
@@ -189,6 +195,71 @@ export default function SimView() {
       const trailN = estelaHastaT(t, nuez.tramos, nuez.geometria)
       ;(map.getSource('trail-nuez') as maplibregl.GeoJSONSource).setData(trailN)
     }
+
+    // Render arrival markers
+    if (puntos) {
+      const activeKeys = new Set<string>()
+
+      const processArrivals = (agentName: 'greedy' | 'nuez', frames: typeof greedy.frames) => {
+        // 1. Llegadas recientes (animación de pulso)
+        for (let i = Math.max(0, t - 4); i <= t; i++) {
+          const frame = frames[i]
+          if (frame?.llegada) {
+            const key = `${agentName}-${i}`
+            activeKeys.add(key)
+            if (!arrivalMarkers.current[key]) {
+              const pt = puntos.features[frame.llegada.punto]
+              if (pt && pt.geometry.type === 'Point') {
+                const el = document.createElement('div')
+                // El elemento raíz no debe tener transformaciones CSS, MapLibre lo controla.
+                const svgContent = frame.llegada.tipo === 'pickup' 
+                  ? `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2"/><path d="M7 2v20"/><path d="M21 15V2v0a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3Zm0 0v7"/></svg>`
+                  : `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>`
+                
+                el.innerHTML = `<div class="marker-arrival is-${agentName}">${svgContent}</div>`
+                const marker = new maplibregl.Marker({ element: el })
+                  .setLngLat(pt.geometry.coordinates as [number, number])
+                  .addTo(mapRef.current!)
+                arrivalMarkers.current[key] = marker
+              }
+            }
+          }
+        }
+
+        // 2. Siguiente destino (marcador estático punteado)
+        const nextFrame = frames.slice(t + 1).find(f => f.llegada)
+        if (nextFrame && nextFrame.llegada) {
+          const targetKey = `${agentName}-target-${nextFrame.llegada.punto}`
+          activeKeys.add(targetKey)
+          if (!arrivalMarkers.current[targetKey]) {
+            const pt = puntos.features[nextFrame.llegada.punto]
+            if (pt && pt.geometry.type === 'Point') {
+              const el = document.createElement('div')
+              const svgContent = nextFrame.llegada.tipo === 'pickup' 
+                ? `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2"/><path d="M7 2v20"/><path d="M21 15V2v0a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3Zm0 0v7"/></svg>`
+                : `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>`
+              
+              el.innerHTML = `<div class="marker-target is-${agentName}">${svgContent}</div>`
+              const marker = new maplibregl.Marker({ element: el })
+                .setLngLat(pt.geometry.coordinates as [number, number])
+                .addTo(mapRef.current!)
+              arrivalMarkers.current[targetKey] = marker
+            }
+          }
+        }
+      }
+
+      processArrivals('greedy', greedy.frames)
+      processArrivals('nuez', nuez.frames)
+
+      // Cleanup old markers
+      for (const [key, marker] of Object.entries(arrivalMarkers.current)) {
+        if (!activeKeys.has(key)) {
+          marker.remove()
+          delete arrivalMarkers.current[key]
+        }
+      }
+    }
   }, [t, greedy, nuez, puntos])
 
   // Auto-play
@@ -229,6 +300,10 @@ export default function SimView() {
     : { ganado: 0, entregas: 0, saltadas: 0 }
   const terminado = t >= maxT - 1
 
+  // Buscar si Nuez acaba de rechazar por seguridad
+  const frameNuez = nuez?.frames[t]
+  const recentSafetyDecision = frameNuez?.decisiones.find(d => d.restriccion && esSeguridad(d.restriccion))
+
   return (
     <div className="app">
       {/* Mapa */}
@@ -240,10 +315,29 @@ export default function SimView() {
         <div className="loading-text">Loading shift…</div>
       </div>
 
-      {/* Logo */}
-      <div className="logo" role="img" aria-label="Nuez">
-        {Icon.mark}
+      {/* Logo y Badge Gemini */}
+      <div className="logo-container" style={{ position: 'absolute', top: 16, right: 16, zIndex: 10, display: 'flex', alignItems: 'center', gap: 12 }}>
+        <div className="gemini-badge" style={{ backgroundColor: '#10b981', color: 'white', padding: '4px 10px', borderRadius: 99, fontSize: '0.75rem', fontWeight: 700, boxShadow: '0 2px 5px rgba(0,0,0,0.2)' }}>
+          Gemini: activo
+        </div>
+        <div className="logo" role="img" aria-label="Nuez" style={{ position: 'static' }}>
+          {Icon.mark}
+        </div>
       </div>
+
+      {/* Banner de Restricción */}
+      {recentSafetyDecision && recentSafetyDecision.restriccion && (
+        <div className="restriction-banner" style={{
+          position: 'absolute', top: '80px', left: '50%', transform: 'translateX(-50%)',
+          backgroundColor: '#f43f5e', color: 'white', padding: '10px 24px', borderRadius: 8,
+          fontWeight: 700, fontSize: '1.05rem', zIndex: 20,
+          display: 'flex', alignItems: 'center', gap: '8px',
+          boxShadow: '0 8px 16px rgba(244, 63, 94, 0.4)',
+          animation: 'pulse 1.5s infinite'
+        }}>
+          {Icon.shield} {etiquetaRestriccion(recentSafetyDecision.restriccion).toUpperCase()} REJECTED
+        </div>
+      )}
 
       {/* Timeline */}
       <div className="timeline-panel">
@@ -305,6 +399,14 @@ export default function SimView() {
 
       {/* Panel izquierdo */}
       <div className="overlay-panel">
+        {/* Nota de Gemini */}
+        <div className="glass-card gemini-note" style={{ marginBottom: 12, padding: '10px 16px', borderLeft: '4px solid #4F46E5' }}>
+          <div style={{ fontSize: '0.75rem', fontWeight: 700, color: '#4F46E5', marginBottom: 4 }}>STRATEGY NOTE (GEMINI)</div>
+          <div style={{ fontSize: '0.85rem', color: '#334155', fontStyle: 'italic' }}>
+            {/* VACIO - Esperando backend en vivo para la nota de Gemini */}
+          </div>
+        </div>
+
         {/* Selector de seed */}
         {indice && (
           <div className="glass-card">
@@ -329,6 +431,11 @@ export default function SimView() {
               </div>
             </div>
           </div>
+        )}
+
+        {/* Distribución */}
+        {indice && (
+          <Distribution />
         )}
 
         {/* Contadores */}
