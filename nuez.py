@@ -29,7 +29,14 @@ DESCUENTO_PARADO = 0.5
 
 
 def politica_nuez(
-    o: Oferta, est: EstadoRepartidor, ruta: list[Parada], cfg: ConfigTurno
+    o: Oferta,
+    est: EstadoRepartidor,
+    ruta: list[Parada],
+    cfg: ConfigTurno,
+    *,
+    tabla: dict[int, float] | None = None,
+    minutos_directos: float | None = None,
+    km_entrega: float | None = None,
 ) -> tuple[list[Parada] | None, Decision]:
     hora = (cfg.hora_inicio + est.t // 60) % 24
     i_pick, i_drop = indice_de(o.pickup), indice_de(o.dropoff)
@@ -42,12 +49,20 @@ def politica_nuez(
         Parada("pickup", i_pick, o.id, o.t_aparece + o.t_prep),
         Parada("dropoff", i_drop, o.id, peso_kg=o.peso_kg, volumen_l=o.volumen_l),
     ]
-    nueva_ruta, propios = ruteo.costo_marginal(pos, ruta, nuevas, hora, est.t)
-    _, cola = ruteo.mejor_ruta(pos, ruta, hora, est.t)
-    neto = o.pago * o.surge - rutas.km(i_pick, i_drop) * seguridad.VEHICULOS[cfg.vehiculo].costo_km
+    nueva_ruta, propios = ruteo.costo_marginal(pos, ruta, nuevas, hora, est.t, cfg.vehiculo)
+    _, cola = ruteo.mejor_ruta(pos, ruta, hora, est.t, cfg.vehiculo)
+    # En /decide Infosys puede mandar tiempos y distancias observados. Cuando el
+    # repartidor esta libre, esos datos mandan sobre nuestra matriz sintetica.
+    # Con trabajo en vuelo se conserva el ruteo exacto para calcular la insercion.
+    if not ruta and minutos_directos is not None:
+        propios = minutos_directos
+    distancia = rutas.km(i_pick, i_drop) if km_entrega is None else km_entrega
+    neto = o.pago * o.surge - distancia * seguridad.VEHICULOS[cfg.vehiculo].costo_km
 
     # El costo de oportunidad: lo que rinden esos minutos normalmente.
-    precio = valor.precio_del_tiempo(est.t_restante - cola, propios)
+    if tabla is None:
+        tabla = valor.para_turno(cfg.duracion_min)
+    precio = valor.precio_del_tiempo(est.t_restante - cola, propios, tabla)
     if not ruta:
         precio *= DESCUENTO_PARADO
 
@@ -72,8 +87,6 @@ def politica_nuez(
     # El regreso se recorre AL FINAL, no ahora: a las 14:00 el mapa miente sobre
     # como estara a las 15:10. Medirlo con la hora actual es como llega tarde el
     # repartidor con la cuenta cuadrada.
-    # ponytail: ruteo.duracion todavia usa una sola hora para toda la ruta; el
-    # tramo de regreso es el que de verdad muerde porque es el mas tardio.
     hora_fin = (cfg.hora_inicio + int(est.t + cola + propios) // 60) % 24
     bloqueo = seguridad.revisar(
         vehiculo=cfg.vehiculo,
@@ -83,7 +96,7 @@ def politica_nuez(
         carga_kg=sum(p.peso_kg for p in ruta if p.tipo == "dropoff") + o.peso_kg,
         carga_l=sum(p.volumen_l for p in ruta if p.tipo == "dropoff") + o.volumen_l,
         pedidos_en_vuelo=len({p.oferta_id for p in ruta if p.oferta_id}) + 1,
-        minutos_para_terminar=cola + propios + rutas.minutos(fin, ancla, hora_fin),
+        minutos_para_terminar=cola + propios + rutas.minutos(fin, ancla, hora_fin, cfg.vehiculo),
         minutos_de_turno=est.t_restante - cfg.margen_min,
     )
     if bloqueo:

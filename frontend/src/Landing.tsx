@@ -1,8 +1,6 @@
-import { Link } from 'react-router-dom';
-import USAMapBackground from './USAmap';
-import PixelCanvasBackground from './PixelCanvasBackground';
-import mapaUrl from './mapa.jpg';
-import bloudUrl from './bloud.svg';
+import { Link } from 'react-router-dom'
+import PixelCanvasBackground from './PixelCanvasBackground'
+import bloudUrl from './bloud.svg'
 
 export default function LandingPage() {
   return (
