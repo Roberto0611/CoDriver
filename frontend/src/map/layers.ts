@@ -1,16 +1,9 @@
 import type { ExpressionSpecification, GeoJSONSource, Map as MLMap } from 'maplibre-gl'
 import { ROAD, ROUND, ROUTE_CASING, ROUTE_COLOR } from './style'
-import { getRoadFeatures } from './roads'
 
 const EMPTY = { type: 'FeatureCollection' as const, features: [] }
 
-export const ROAD_LAYERS = [
-  'roads-highway',
-  'roads-primary',
-  'roads-secondary',
-  'roads-tertiary',
-  'roads-local',
-]
+
 
 const zoomWidth = (...stops: number[]): ExpressionSpecification => [
   'interpolate',
@@ -20,37 +13,38 @@ const zoomWidth = (...stops: number[]): ExpressionSpecification => [
 ]
 
 /**
- * Capas por tipo de vía. Mapa claro: de local a autopista, cada nivel es más
- * ancho y más blanco. Las dos vías grandes llevan un borde (casing) para
- * separarse del canvas sin cambiar de color.
+ * Capas por tipo de vía para una zona específica.
  */
-export function addRoadLayers(map: MLMap) {
-  map.addSource('road-network', { type: 'geojson', data: EMPTY })
+export function addRoadLayers(map: MLMap, zone: string, data: GeoJSON) {
+  const sourceId = `road-network-${zone}`
+  map.addSource(sourceId, { type: 'geojson', data })
+
+  const beforeId = map.getLayer('route') ? 'route' : undefined
 
   const road = (
-    id: string,
+    baseId: string,
     cls: string,
     color: string,
     width: ExpressionSpecification,
     minzoom?: number
   ) => {
     const layer: any = {
-      id,
+      id: `${baseId}-${zone}`,
       type: 'line',
-      source: 'road-network',
+      source: sourceId,
       filter: ['==', ['get', 'class'], cls],
       paint: { 'line-color': color, 'line-width': width },
       layout: ROUND,
     }
     if (minzoom !== undefined) layer.minzoom = minzoom
-    map.addLayer(layer)
+    map.addLayer(layer, beforeId)
   }
 
   // Locales/residenciales (224K features — 83% del grafo)
   map.addLayer({
-    id: 'roads-local',
+    id: `roads-local-${zone}`,
     type: 'line',
-    source: 'road-network',
+    source: sourceId,
     minzoom: 13.5,
     filter: ['==', ['get', 'class'], 'local'],
     paint: {
@@ -59,7 +53,8 @@ export function addRoadLayers(map: MLMap) {
       'line-opacity': zoomWidth(14, 0.6, 16, 1),
     },
     layout: ROUND,
-  })
+  }, beforeId)
+
   road('roads-tertiary', 'tertiary', ROAD.tertiary, zoomWidth(13, 0.8, 15, 2.2, 17, 4.5), 12.5)
   road('roads-secondary', 'secondary', ROAD.secondary, zoomWidth(11, 0.8, 13, 2.2, 17, 5.5), 11)
   road(
@@ -143,24 +138,24 @@ const BASE_COLORS: Record<string, string> = {
   local: ROAD.local,
 }
 
-/**
- * Inyecta `traffic_factor` en los features del road-network que coincidan
- * con los keywords del tráfico, y cambia el paint de las capas a colores
- * térmicos. Al desactivar, restaura los colores originales.
- */
 export function toggleTrafficLayer(
   map: MLMap,
   visible: boolean,
   hora?: string,
   onDone?: () => void
 ) {
+  // Encontrar todas las capas de calles activas
+  const getRoadLayers = () => map.getStyle()?.layers?.filter((l) => l.id.startsWith('roads-') && !l.id.includes('-casing')) || []
+
   if (!visible) {
     // Restaurar colores originales
-    for (const layerId of ROAD_LAYERS) {
-      const cls = layerId.replace('roads-', '')
+    for (const layer of getRoadLayers()) {
+      // Extraer clase base (ej. 'roads-primary-Centro' -> 'primary')
+      const match = layer.id.match(/^roads-([^-]+)/)
+      const cls = match ? match[1] : ''
       const color = BASE_COLORS[cls]
-      if (color && map.getLayer(layerId)) {
-        map.setPaintProperty(layerId, 'line-color', color)
+      if (color) {
+        map.setPaintProperty(layer.id, 'line-color', color)
       }
     }
     onDone?.()
@@ -177,49 +172,51 @@ export function toggleTrafficLayer(
       }) => {
         const trafficMap = data.traffic_map
         const incidents = data.incidents || []
-        console.log(
-          '[Traffic] Keys:',
-          Object.keys(trafficMap).length,
-          'Incidents:',
-          incidents.length
-        )
 
-        let matched = 0
-        for (const f of features) {
-          if (!f.properties) continue
+        const fallback = [
+          'match',
+          ['get', 'class'],
+          'highway',
+          ROAD.highway,
+          'primary',
+          ROAD.primary,
+          'secondary',
+          ROAD.secondary,
+          'tertiary',
+          ROAD.tertiary,
+          ROAD.local,
+        ]
 
-          const name: string = f.properties.name ?? ''
+        const matchExpr: any[] = ['match', ['get', 'name']]
+        for (const [name, factor] of Object.entries(trafficMap)) {
           if (!name) continue
+          let color = '#16a34a'
+          if (factor >= 100) color = '#7f1d1d'
+          else if (factor >= 2.0) color = '#ef4444'
+          else if (factor >= 1.6) color = '#f97316'
+          else if (factor >= 1.3) color = '#eab308'
+          matchExpr.push(name, color)
+        }
+        matchExpr.push(fallback)
 
-          // 1. Búsqueda exacta O(1) para el tráfico regular masivo
-          let factor = trafficMap[name]
+        let finalColorExpr: any = matchExpr
 
-          // 2. Búsqueda por substring solo para incidentes manuales
-          for (const inc of incidents) {
-            if (name.includes(inc.calle)) {
-              factor = 99999.0 // Factor altísimo para asegurar que se pinte rojo oscuro
-              break
-            }
-          }
-
-          if (factor !== undefined) {
-            f.properties.traffic_factor = factor
-            matched++
-          } else {
-            delete f.properties.traffic_factor
-          }
+        if (matchExpr.length < 4) {
+          finalColorExpr = fallback
         }
 
-        console.log(`[Traffic] Matched ${matched} / ${features.length} features`)
-
-        // Re-setear datos con las propiedades inyectadas
-        source.setData({ type: 'FeatureCollection', features })
-
-        // Cambiar el paint de las capas de calles a usar colores de tráfico
-        for (const layerId of ROAD_LAYERS) {
-          if (map.getLayer(layerId)) {
-            map.setPaintProperty(layerId, 'line-color', TRAFFIC_COLOR)
+        if (incidents.length > 0) {
+          const caseExpr: any[] = ['case']
+          for (const inc of incidents) {
+            caseExpr.push(['in', inc.calle, ['coalesce', ['get', 'name'], '']], '#7f1d1d')
           }
+          caseExpr.push(finalColorExpr)
+          finalColorExpr = caseExpr
+        }
+
+        // Aplicar estilo de tráfico directo a GPU
+        for (const layer of getRoadLayers()) {
+          map.setPaintProperty(layer.id, 'line-color', finalColorExpr)
         }
 
         onDone?.()
