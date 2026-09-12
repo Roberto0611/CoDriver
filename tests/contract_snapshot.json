@@ -1,0 +1,214 @@
+{
+  "aliases": {
+    "Accion": "\"aceptar\" | \"saltar\"",
+    "Vehiculo": "\"moto\" | \"bici\" | \"scooter\" | \"pie\"",
+    "Restriccion": "\"regreso_infactible\" | \"zona_insegura\" | \"mochila_llena\""
+  },
+  "classes": {
+    "Punto": {
+      "doc": "",
+      "fields": [
+        {
+          "name": "nombre",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "lat",
+          "type": "number",
+          "required": true
+        },
+        {
+          "name": "lon",
+          "type": "number",
+          "required": true
+        }
+      ]
+    },
+    "ConfigTurno": {
+      "doc": "Lo que el estudiante llena antes de arrancar.",
+      "fields": [
+        {
+          "name": "duracion_min",
+          "type": "number",
+          "required": true
+        },
+        {
+          "name": "ancla",
+          "type": "Punto",
+          "required": true
+        },
+        {
+          "name": "margen_min",
+          "type": "number",
+          "required": false
+        },
+        {
+          "name": "vehiculo",
+          "type": "Vehiculo",
+          "required": false
+        },
+        {
+          "name": "seed",
+          "type": "number",
+          "required": false
+        },
+        {
+          "name": "hora_inicio",
+          "type": "number",
+          "required": false
+        }
+      ]
+    },
+    "Oferta": {
+      "doc": "Un ping de la app. El simulador las emite, el motor las juzga.",
+      "fields": [
+        {
+          "name": "id",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "plataforma",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "pago",
+          "type": "number",
+          "required": true
+        },
+        {
+          "name": "surge",
+          "type": "number",
+          "required": true
+        },
+        {
+          "name": "t_aparece",
+          "type": "number",
+          "required": true
+        },
+        {
+          "name": "t_prep",
+          "type": "number",
+          "required": true
+        },
+        {
+          "name": "pickup",
+          "type": "Punto",
+          "required": true
+        },
+        {
+          "name": "dropoff",
+          "type": "Punto",
+          "required": true
+        }
+      ]
+    },
+    "EstadoRepartidor": {
+      "doc": "Dónde va y cómo va. Lo lee el front para pintar, y el motor para decidir.",
+      "fields": [
+        {
+          "name": "t",
+          "type": "number",
+          "required": true
+        },
+        {
+          "name": "t_restante",
+          "type": "number",
+          "required": true
+        },
+        {
+          "name": "pos",
+          "type": "Punto",
+          "required": true
+        },
+        {
+          "name": "mochila",
+          "type": "string[]",
+          "required": false
+        },
+        {
+          "name": "ganado",
+          "type": "number",
+          "required": false
+        },
+        {
+          "name": "fatiga",
+          "type": "number",
+          "required": false
+        }
+      ]
+    },
+    "Decision": {
+      "doc": "Por qué el motor hizo lo que hizo. Alimenta el front, la voz y el contrafactual.\n\n    `terminos` lleva TODOS los números que entraron a la decisión, no solo el\n    resultado: de ahí sale la explicación al juez y el reporte contrafactual.",
+      "fields": [
+        {
+          "name": "t",
+          "type": "number",
+          "required": true
+        },
+        {
+          "name": "oferta_id",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "accion",
+          "type": "Accion",
+          "required": true
+        },
+        {
+          "name": "terminos",
+          "type": "Record<string, number>",
+          "required": true
+        },
+        {
+          "name": "razon",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "restriccion",
+          "type": "Restriccion | null",
+          "required": false
+        }
+      ]
+    },
+    "EventoMundo": {
+      "doc": "Surge, cierre vial o lluvia. Lo dispara el simulador o el botón del juez.",
+      "fields": [
+        {
+          "name": "t",
+          "type": "number",
+          "required": true
+        },
+        {
+          "name": "tipo",
+          "type": "\"surge\" | \"cierre\" | \"lluvia\" | \"evento_masivo\"",
+          "required": true
+        },
+        {
+          "name": "zona",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "duracion_min",
+          "type": "number",
+          "required": true
+        },
+        {
+          "name": "mult_demanda",
+          "type": "number",
+          "required": false
+        },
+        {
+          "name": "mult_tiempo",
+          "type": "number",
+          "required": false
+        }
+      ]
+    }
+  }
+}

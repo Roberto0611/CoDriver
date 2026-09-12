@@ -1,5 +1,5 @@
 name: Setup toolchains
-description: Python 3.11 + Node 24 con cache, y las dependencias instaladas.
+description: Python (.python-version) + Node (frontend/.nvmrc) con cache, y las dependencias instaladas.
 
 inputs:
   python:
@@ -16,7 +16,7 @@ runs:
       if: inputs.python == 'true'
       uses: actions/setup-python@v5
       with:
-        python-version: "3.11"
+        python-version-file: .python-version
         cache: pip
         cache-dependency-path: |
           requirements.txt
@@ -33,7 +33,7 @@ runs:
       if: inputs.node == 'true'
       uses: actions/setup-node@v4
       with:
-        node-version: 24
+        node-version-file: frontend/.nvmrc
         cache: npm
         cache-dependency-path: frontend/package-lock.json
 

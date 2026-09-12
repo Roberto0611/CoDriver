@@ -1,0 +1,11 @@
+# Todo texto con LF en el working copy, en cualquier OS. Sin esto, Windows convierte a CRLF
+# al hacer checkout y prettier/ruff format fallan localmente aunque CI (Linux) pase.
+* text=auto eol=lf
+
+# Binarios: ni normalizar ni hacer diff.
+*.pkl binary
+*.png binary
+*.jpg binary
+*.ico binary
+*.woff binary
+*.woff2 binary
