@@ -5,7 +5,7 @@ import maplibreWorkerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?url'
 import { Icon } from './ui/icons'
 import { ZONAS_LIST } from './lib/zones'
 import { baseStyle, MTY_CENTER, MTY_ZOOM } from './map/style'
-import { addRoadLayers, addRouteLayers, toggleTrafficLayer } from './map/layers'
+import { addRouteLayers, toggleTrafficLayer } from './map/layers'
 import { attachHoverPopups } from './map/popups'
 import { createRoadLoader } from './map/roads'
 import { drawRoute, fetchRoute, routeInfoOf, type RouteInfo } from './map/route'
@@ -67,7 +67,6 @@ function App() {
 
     map.on('load', async () => {
       try {
-        addRoadLayers(map)
         const loadNearby = createRoadLoader(map, (edges) => setStats({ edges, nodes: 0 }))
         await loadNearby(MTY_CENTER, 8)
         let debounceTimer: ReturnType<typeof setTimeout>
