@@ -60,7 +60,7 @@ mismos seeds de REPORTE.
 |---|---|---|
 | **0** | El mundo y el rival | ✅ |
 | **1** | **EL NÚMERO** — tabla de valor + política de Nuez | ✅ **+29.2% en seeds no vistos** |
-| **1b** | Conformidad con el spec oficial de Infosys | 🟡 duración, restricciones, `/decide` + JSONL, cinco agentes online, Oracle y `explain_decision` ✅; faltan modo degradado y shocks |
+| **1b** | Conformidad con el spec oficial de Infosys | 🟡 duración, restricciones, `/decide` + JSONL, cinco agentes online, Oracle, `explain_decision` y **modo degradado** ✅; faltan los shocks |
 | **2** | Hacerlo visible — replay y pantalla partida | 🟡 los JSON grabados existen, pero **el front todavía no los reproduce** (hoy hace una carrera de rutas A→B). Brief listo en [`docs/front-turno-grabado.md`](docs/front-turno-grabado.md) |
 | **3** | Hacerlo hablar — Gemini + ElevenLabs | el equipo lo trae aparte |
 | **4** | Tracks baratos y ensayo | sin empezar |
@@ -90,7 +90,9 @@ Esta sección es para quien retome el proyecto sin haber estado en la conversaci
 | `sim.py` | Generador de ofertas + reloj del turno + **política greedy (el baseline)** |
 | `ruteo.py` | Orden óptimo de paradas por enumeración exacta + costo marginal |
 | `valor.py` | Tabla de valor offline: `V.json` para ventanas de hasta 120 min y `V_480.json` para hasta 480 min. Admite otras calibraciones por CLI |
-| `nuez.py` | **La política del agente.** Costo de oportunidad en vez de umbral fijo |
+| `nuez.py` | **La política del agente.** Costo de oportunidad en vez de umbral fijo. Lee la `Estrategia` vigente; sin ella se comporta igual que siempre |
+| `estrategia.py` | **Las tres perillas que el modelo puede mover, y hasta dónde.** `sanear` recorta lo que venga fuera de rango |
+| `backendruta/strategy.py` | La capa lenta: el hilo, Gemini, el suplente y el `strategy_update` del JSONL |
 | `comparar.py` | El arnés de medición. **Aquí sale EL NÚMERO** |
 | `backendruta/courier_api.py` | Adaptador del protocolo: sesión, `/decide`, overrides, fechas ISO y zonas enteras |
 | `backendruta/courier_format.py` | Traduce una `Decision` del motor a la respuesta del spec: razón en inglés bajo 40 palabras, `economics` y eventos del JSONL |
@@ -184,7 +186,7 @@ el porcentaje**: un agente brillante que no cumple el esquema pierde puntos por 
 | 4 ✅ | **Endpoint `/decide` + log de eventos en su JSONL** | Adaptador separado, overrides aplicados, razones inglesas bajo 40 palabras y JSONL local. Validador oficial en verde para endpoint y log |
 | 5 ✅ | **Los cinco baselines + el Oracle** | `oracle.py` conoce el stream completo offline, explora agendas sin apilar y escoge el mejor resultado reproducible frente a los cinco agentes online |
 | 6a ✅ | **`explain_decision`** | `GET /explain/{order_id}` (alias `/explain_decision/{order_id}`) responde en ms desde el registro; si el proceso se reinició, lee el JSONL. Nunca re-decide |
-| 6b | **Modo degradado** | Los jueces van a invalidar la credencial del modelo a media corrida. Hay que seguir decidiendo con la última estrategia y **señalar `degraded: true`**. Un fallback silencioso es crédito parcial; un crash es reprobado. **Bloqueado por una decisión del equipo**, ver "Modo degradado: diseño propuesto" abajo |
+| 6b ✅ | **Modo degradado + capa de estrategia** | `backendruta/strategy.py`. Gemini corre en un hilo aparte y solo mueve tres perillas; la ruta rápida nunca lo llama. Sin credencial, `degraded: true` y sigue decidiendo. Se recupera solo |
 | 7 | Shocks en vivo (`surge`, `closure`, `rain`, `delay`) | El brief exige al menos uno durante el demo. `closure` no aparece hoy en ningún `.py` |
 | 8 | Reproducir el turno en el front + contadores + panel de decisión | Judgment sigue en cero del lado visual. Es trabajo solo de front, sobre los JSON grabados: [`docs/front-turno-grabado.md`](docs/front-turno-grabado.md) |
 
@@ -206,37 +208,61 @@ el porcentaje**: un agente brillante que no cumple el esquema pierde puntos por 
   `nuez.MARGEN` ($1), que la frase no mencionaba. Ahora va con un decimal y nombra ese margen.
 - **Tests:** `tests/test_explain.py`.
 
-### Modo degradado: diseño propuesto (falta decidir)
+### La capa de estrategia y el modo degradado: qué quedó
 
-**El hueco:** en el backend no existe ningún modelo. `CourierService.degraded` existe pero nunca
-cambia, porque no hay nada que se pueda caer. Si hoy el juez invalida la credencial, no pasa nada
-y no hay forma de demostrar la recuperación.
+**La regla que lo explica todo:** Gemini **nunca decide un pedido**. Solo mueve perillas, y el
+motor las lee de memoria entre pings.
 
-**El diseño:**
+```
+ping  ->  motor  ->  lee capa.actual  ->  responde      microsegundos, tier1
+          hilo   ->  llama a Gemini   ->  reemplaza     cada 5 min, aparte
+```
 
-1. **Un objeto `Estrategia`** con lo que el modelo sí puede mover (`reservation_wage_mxn_hr`,
-   `target_zone`, multiplicadores por zona, `DESCUENTO_PARADO`). Arranca con los valores de hoy,
-   así que el +29.2% no cambia mientras nadie la actualice.
-2. **La ruta rápida solo lee** `self.strategy`. Nunca espera ni llama a red. Todo sigue en `tier1`.
-3. **Un hilo en segundo plano la actualiza** con timeout corto.
-   - Si el modelo responde: reemplaza la estrategia, `degraded = False` y escribe
-     `strategy_update` al JSONL.
-   - Si falla: conserva la anterior, `degraded = True` y escribe `strategy_update` solo al cambiar
-     de estado.
-   - Se recupera solo.
-4. **Leer la credencial de `os.environ` en cada llamada.** Los jueces la invalidan en el entorno
-   del proceso; un cliente creado al arrancar con la llave guardada nunca se enteraría.
-5. **Replay:** las estrategias salen de los `strategy_update` del log, no del modelo.
-6. **Tests con un modelo falso:** uno que tarda 5 s no frena `/decide` (<50 ms); borrar la variable
-   de entorno da `degraded: true` en respuesta y `/shift/status`; restaurarla vuelve a `false`.
+Esto es literalmente la regla del spec: *"any code path that calls a model inside the decision
+window fails Feasibility"*. Varios equipos van a poner el LLM en medio y ahí se caen.
 
-**La decisión pendiente:** qué modelo y qué parámetros mueve la capa de estrategia (Gemini lo trae
-el equipo aparte). Tres caminos:
+**Las tres perillas** (`estrategia.py`), y ninguna es de seguridad:
 
-- **Definir la interfaz con un modelo falso** y que el equipo conecte Gemini después. Es el
-  recomendado: el degradado queda demostrable aunque Gemini llegue tarde.
-- **Conectar Gemini ya** con un prompt mínimo.
-- **Esperar** lo que traiga el equipo.
+| Perilla | Qué hace | Rango duro |
+|---|---|---|
+| `margen_mxn` | qué tan exigente es con el dinero | 0 – 40 |
+| `descuento_parado` | cuánto vale un minuto estando quieto | 0.1 – 1.0 |
+| `multiplicador_zona` | encarece el tiempo hacia una zona (lluvia, cierre, concierto) | 0.5 – 3.0 |
+
+Las cinco restricciones duras viven en `seguridad.py` y **ningún modelo las alcanza**. Si Gemini
+dijera *"métete a Escobedo a las 11 PM que pagan bien"*, el motor dice que no igual: el dinero ni
+siquiera entra a esa función. Hay un test que falla si aparece una perilla nueva sin revisarla.
+
+**`sanear` recorta en vez de creer.** Un modelo puede alucinar, venir envenenado por un prompt
+metido en un nombre de calle, o equivocarse de unidades. Un `margen_mxn` de $9999 apagaría al
+repartidor; los rangos de arriba lo dejan en 40 antes de que llegue al motor. Una zona inventada
+se ignora: el modelo no puede crear geografía.
+
+**El seguro del número:** `BASE` son los valores de hoy. Mientras nadie actualice la estrategia,
+el agente se comporta idéntico a cuando se midió el +29.2%, y el ratchet lo confirma byte a byte.
+
+**La credencial se lee de `os.environ` en cada llamada**, a propósito. Los jueces la invalidan en
+el entorno del proceso; un cliente creado al arrancar con la llave guardada en memoria nunca se
+enteraría y no habría degradado que enseñar. Es una línea y es un punto del puntaje.
+
+**Variables de entorno:**
+
+| | |
+|---|---|
+| `GEMINI_API_KEY` | sin ella, el sistema arranca degradado (que es la verdad: no hay modelo) |
+| `GEMINI_MODELO` | por omisión `gemini-2.0-flash` |
+| `NUEZ_MODELO=falso` | usa el suplente local, para trabajar sin credencial. Devuelve los valores BASE: no cambia ninguna decisión |
+
+**El suplente NO reemplaza a Gemini en el demo.** Es andamio para trabajar sin llave y el doble
+que usan los tests: en CI no hay red ni credencial, y no se le puede pedir a Google que se ponga
+lento a la orden. El ensayo del degradado sí se hace con Gemini real, borrando la variable.
+
+**Tests:** `tests/test_estrategia.py`. Los tres momentos que el juez provoca — el modelo tarda y
+`/decide` responde igual, le quitan la llave y sale `degraded: true`, se la devuelven y se
+recupera — más los rangos y el guardia de las perillas.
+
+**Lo que queda del 6b:** ensayarlo con la credencial puesta, y decidir si Gemini además narra la
+decisión en voz alta (eso es la capa de voz, no ésta).
 
 ### Detalles del spec que se olvidan fácil
 
@@ -1001,6 +1027,9 @@ son cuatro inputs, no una app.
 - **Simulador bonito, agente mediocre** → el 60% de los equipos se queda sin tiempo para el agente. **Baseline corriendo en la hora 10, sin excepciones.**
 - **Solana como NFT decorativo** → se nota y resta credibilidad.
 - **Sin baseline visible** → "ganó $840" no significa nada para un juez sin comparación.
+- **Leer la API key una sola vez al arrancar** → los jueces la invalidan en el entorno del
+  proceso; si la tenemos en memoria no nos enteramos y el modo degradado no se puede demostrar.
+- **Creerle al modelo sin recortar** → un `margen_mxn` alucinado apaga al repartidor. `sanear`.
 - **Reportar sobre los seeds que tuneaste** → el protocolo topa Results en 3 sin importar el
   margen. Los dos conjuntos están en `seeds.py` y `comparar.py` revienta si se cruzan.
 - **Un turno animado como evidencia** → la varianza por turno es enorme. El turno bonito va al
@@ -1047,6 +1076,10 @@ son cuatro inputs, no una app.
   contra `tests/engine_baseline.json` (greedy exacto, delta de Nuez nunca baja). Si un cambio
   al mundo o al simulador es a propósito: `python scripts/engine_baseline.py --write` y
   regrabar `python data/export_turno.py 1`.
+- **Python 3.11 para regenerar el contrato.** Python 3.13 le quita la sangría a los docstrings
+  al compilar y 3.11 no, así que el snapshot salía distinto según la laptop y tronaba el Contract
+  Check sin que nadie hubiera tocado `contrato.py`. Ya está resuelto de raíz: `contract_codegen.py`
+  usa `inspect.cleandoc`, que da lo mismo en las dos.
 - **Versiones fijas.** Python en `.python-version`, Node en `frontend/.nvmrc`,
   `requirements*.txt` con `==`. CI lee esos archivos; las laptops deberían también.
 - **Toda función pura nueva trae su test.** Python en `tests/`, front en `src/**/*.test.ts`.

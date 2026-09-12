@@ -181,14 +181,20 @@ def test_jsonl_pasa_el_validador_oficial_y_guarda_inputs(api):
         json.loads(line) for line in service.log.path.read_text(encoding="utf-8").splitlines()
     ]
     event_names = [event["event"] for event in events]
-    assert event_names[:3] == ["shift_start", "order_offered", "decision"]
-    assert event_names[-1] == "shift_end"
-    assert "position_update" in event_names
-    assert "earnings_update" in event_names
-    assert events[1]["sim_time"] == "2026-03-21T14:30:00"
-    assert events[1]["zone_pickup"] == 4
-    assert events[2]["inputs"]["time_remaining_min"] == 330
-    assert [event["sim_time"] for event in events] == sorted(event["sim_time"] for event in events)
+    # `strategy_update` lo escribe el hilo de la capa lenta, que corre entre pings
+    # y no se sincroniza con ellos a proposito. Puede caer en cualquier hueco: lo
+    # que tiene que estar en orden es la ruta rapida.
+    rapida = [event for event in events if event["event"] != "strategy_update"]
+    rapidos = [event["event"] for event in rapida]
+    assert rapidos[:3] == ["shift_start", "order_offered", "decision"]
+    assert rapidos[-1] == "shift_end"
+    assert "position_update" in rapidos
+    assert "earnings_update" in rapidos
+    assert "strategy_update" in event_names, "la capa de estrategia tiene que reportarse"
+    assert rapida[1]["sim_time"] == "2026-03-21T14:30:00"
+    assert rapida[1]["zone_pickup"] == 4
+    assert rapida[2]["inputs"]["time_remaining_min"] == 330
+    assert [event["sim_time"] for event in rapida] == sorted(e["sim_time"] for e in rapida)
 
     validated = subprocess.run(
         [

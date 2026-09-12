@@ -18,12 +18,14 @@ from fastapi import APIRouter, HTTPException
 
 import rutas
 import valor
-from backendruta import courier_format, explain
+from backendruta import courier_format, explain, strategy
 from backendruta.courier_models import DecideRequest, DecideResponse, ShiftStartRequest, ShiftState
 from backendruta.event_log import EventLog
+from backendruta.strategy import CapaEstrategia
 from contrato import ConfigTurno, EstadoRepartidor, Oferta, Punto
+from estrategia import Estrategia
 from mundo import ZONAS
-from nuez import DESCUENTO_PARADO, MARGEN, politica_nuez
+from nuez import politica_nuez
 from sim import Parada, _punto
 
 # Los ids son parte de nuestro stream: el orden es estable y se publica en /zones.
@@ -54,9 +56,17 @@ class CourierService:
     def __init__(self, log_path: Path):
         self.log = EventLog(log_path)
         self.state: ShiftState | None = None
-        self.degraded = False
         self.explanations = explain.ExplainIndex()
         self._lock = RLock()
+        # La capa lenta. Vive aqui pero NO se llama desde decide(): solo se lee
+        # `self.estrategia.actual`, que es leer una variable.
+        self.estrategia = CapaEstrategia(al_cambiar=self._log_strategy)
+        self.estrategia.contexto = self._contexto_modelo
+
+    @property
+    def degraded(self) -> bool:
+        """True cuando el motor decide con una estrategia vieja porque el modelo no responde."""
+        return self.estrategia.degradado
 
     def start(self, request: ShiftStartRequest) -> dict[str, Any]:
         with self._lock:
@@ -98,6 +108,9 @@ class CourierService:
             }
             self.log.start(event)
             self.explanations.clear()
+            # El hilo del modelo arranca con el turno. Si no hay credencial, la
+            # primera vuelta marca `degraded` y el motor sigue con la estrategia base.
+            self.estrategia.arrancar()
             return {**event, "event_log": str(self.log.path)}
 
     def explain(self, order_id: str) -> dict[str, Any]:
@@ -137,6 +150,7 @@ class CourierService:
                     tabla=table,
                     minutos_directos=direct_minutes,
                     km_entrega=request.distance_delivery_km,
+                    estrategia=self.estrategia.actual,
                 )
             except ValueError as exc:
                 raise HTTPException(status_code=422, detail=str(exc)) from exc
@@ -153,8 +167,7 @@ class CourierService:
                 strategy={
                     "policy": "nuez_opportunity_cost",
                     "value_table_horizon_min": max(table),
-                    "idle_discount": DESCUENTO_PARADO,
-                    "min_edge_mxn": MARGEN,
+                    **self.estrategia.actual.resumen(),
                     "degraded": self.degraded,
                 },
             )
@@ -191,6 +204,7 @@ class CourierService:
                 "safety_violations": 0,
             }
             self.log.append(event)
+            self.estrategia.detener()
             return event
 
     def status(self) -> dict[str, Any]:
@@ -412,6 +426,20 @@ class CourierService:
         if destination.tipo == "pickup":
             arrival = max(arrival, destination.listo_en)
         self.state.arrival_minute = arrival
+
+    def _contexto_modelo(self) -> dict[str, Any]:
+        return strategy.contexto_del_turno(self.state, ZONE_NAMES)
+
+    def _log_strategy(self, propuesta: Estrategia, degraded: bool) -> None:
+        """Lo llama el hilo de la capa lenta, nunca /decide.
+
+        No toma el lock del turno a proposito: si lo tomara, un ping que llegue justo
+        en ese instante esperaria al hilo del modelo, que es exactamente lo que el
+        presupuesto de 50 ms prohibe. El EventLog ya trae su propio lock.
+        """
+        evento = strategy.evento_actualizacion(self.state, propuesta, degraded)
+        if evento is not None:
+            self.log.append(evento)
 
     def _current_zone_id(self) -> int:
         assert self.state is not None
