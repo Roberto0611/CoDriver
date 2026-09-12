@@ -21,31 +21,39 @@ from mundo import RIESGO_BASE, UMBRAL_RIESGO, ZONAS, es_segura, riesgo  # noqa: 
 AQUI = Path(__file__).parent
 PUBLIC = AQUI.parent / "frontend" / "public"
 
-LADOS = 64   # un circulo de 64 lados se ve redondo a cualquier zoom del demo
-
-
-def circulo(lat, lon, radio_m, lados=LADOS):
-    """Poligono GeoJSON aproximando el radio de la zona.
-
-    Un grado de latitud son ~111 km; uno de longitud se encoge con cos(lat),
-    si no se corrige el circulo sale ovalado.
-    """
-    dlat = radio_m / 111_320
-    dlon = radio_m / (111_320 * math.cos(math.radians(lat)))
-    anillo = [
-        [round(lon + dlon * math.cos(2 * math.pi * i / lados), 5),
-         round(lat + dlat * math.sin(2 * math.pi * i / lados), 5)]
-        for i in range(lados + 1)   # el ultimo punto cierra el anillo
-    ]
-    return {"type": "Polygon", "coordinates": [anillo]}
-
+import pickle
+from shapely.geometry import MultiPoint
 
 def zonas_geojson():
+    # Leer los puntos del simulador para saber exactamente dónde ocurren las cosas
+    datos = pickle.loads((AQUI / "matriz.pkl").read_bytes())
+    
+    # Agrupar coordenadas (lon, lat) por cada zona
+    puntos_por_zona = {}
+    for zona, node, lat, lon in datos["puntos"]:
+        if zona not in puntos_por_zona:
+            puntos_por_zona[zona] = []
+        puntos_por_zona[zona].append((lon, lat))
+
     feats = []
     for zona, (lat, lon, radio) in ZONAS.items():
+        puntos = puntos_por_zona.get(zona, [])
+        
+        # Si la zona tiene al menos 3 puntos, le ponemos nuestra "liga elástica" (Convex Hull)
+        if len(puntos) >= 3:
+            # 1. Envuelve los puntos matemáticamente
+            # 2. Le da un "buffer" (margen) de ~300 metros (0.003 grados) para que no quede puntiagudo
+            poly = MultiPoint(puntos).convex_hull.buffer(0.003, resolution=4)
+            geom = poly.__geo_interface__
+        else:
+            # Fallback a un cuadrito simple si por alguna razón no hay puntos
+            d = 0.01
+            anillo = [[lon-d, lat-d], [lon+d, lat-d], [lon+d, lat+d], [lon-d, lat+d], [lon-d, lat-d]]
+            geom = {"type": "Polygon", "coordinates": [anillo]}
+            
         feats.append({
             "type": "Feature",
-            "geometry": circulo(lat, lon, radio),
+            "geometry": geom,
             "properties": {
                 "zona": zona,
                 "centro": [round(lon, 5), round(lat, 5)],

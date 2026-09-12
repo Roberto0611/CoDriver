@@ -9,16 +9,15 @@ maplibregl.setWorkerUrl(maplibreWorkerUrl)
 const MTY_CENTER: [number, number] = [-100.3161, 25.6866]
 const MTY_ZOOM = 14
 
-// Colores por tipo de vía (coherente con el CSS)
-const ROAD_COLORS: Record<string, string> = {
-  highway: '#fbbf24',
-  primary: '#94a3b8',
-  secondary: '#64748b',
-  tertiary: '#475569',
-  local: '#334155',
-}
+
 
 const ROUTE_COLOR = '#ff3b30'
+
+const ZONAS_LIST = [
+  "Centro", "Obispado", "Valle", "Contry", "Tec", "Fundidora", 
+  "Guadalupe", "LindaVista", "SanNicolas", "Cumbres", "Mitras", 
+  "Escobedo", "SantaCatarina", "Apodaca"
+]
 
 interface GraphStats {
   edges: number
@@ -36,9 +35,14 @@ interface RouteInfo {
 function App() {
   const mapContainer = useRef<HTMLDivElement>(null)
   const mapRef = useRef<maplibregl.Map | null>(null)
+  const originMarkerRef = useRef<maplibregl.Marker | null>(null)
+  const destMarkerRef = useRef<maplibregl.Marker | null>(null)
   const [loading, setLoading] = useState(true)
+  const [loadingRoute, setLoadingRoute] = useState(false)
   const [stats, setStats] = useState<GraphStats | null>(null)
   const [route, setRoute] = useState<RouteInfo | null>(null)
+  const [origin, setOrigin] = useState<string>("Centro")
+  const [destination, setDestination] = useState<string>("Valle")
 
   const initMap = useCallback(async () => {
     if (!mapContainer.current || mapRef.current) return
@@ -74,33 +78,72 @@ function App() {
 
     map.on('load', async () => {
       try {
-        // Cargar red vial
-        const edgesRes = await fetch('/mty_edges.json')
-        const edgesData = await edgesRes.json()
-
-        setStats({
-          edges: edgesData.features.length,
-          nodes: 0, // Se calcula abajo
-        })
-
-        // Contar nodos únicos (aproximado por coordenadas)
-        const nodeSet = new Set<string>()
-        for (const f of edgesData.features) {
-          const coords = f.geometry.coordinates
-          if (coords.length > 0) {
-            nodeSet.add(`${coords[0][0]},${coords[0][1]}`)
-            nodeSet.add(`${coords[coords.length - 1][0]},${coords[coords.length - 1][1]}`)
-          }
-        }
-        setStats({ edges: edgesData.features.length, nodes: nodeSet.size })
-
-        // Source de la red vial
+        // Source de la red vial vacío inicialmente
         map.addSource('road-network', {
           type: 'geojson',
-          data: edgesData,
+          data: { type: 'FeatureCollection', features: [] },
         })
 
-        console.log(`[Copiloto] Grafo cargado: ${edgesData.features.length} aristas`)
+        // Variables capturadas en el closure para el lazy loading
+        const loadedZones = new Set<string>()
+        let allRoadFeatures: any[] = []
+        let loadingZones = false
+
+        const loadNearbyZones = async (center: [number, number], count: number) => {
+          if (loadingZones) return
+          loadingZones = true
+          try {
+            // Obtenemos centros de zonas
+            const zonasRes = await fetch('/zonas.json')
+            const zonasData = await zonasRes.json()
+            
+            const dists = zonasData.features.map((f: any) => {
+              const c = f.properties.centro
+              const dist = Math.pow(c[0] - center[0], 2) + Math.pow(c[1] - center[1], 2)
+              return { zona: f.properties.zona, dist }
+            })
+            
+            dists.sort((a: any, b: any) => a.dist - b.dist)
+            
+            let newFeatures = false
+            for (const { zona } of dists) {
+              if (loadedZones.has(zona)) continue
+              if (count <= 0) break
+              count--
+              
+              console.log(`[Copiloto] Descargando calles para zona: ${zona}`)
+              loadedZones.add(zona)
+              const res = await fetch(`/mty_edges_${zona}.json`)
+              if (res.ok) {
+                const data = await res.json()
+                allRoadFeatures = allRoadFeatures.concat(data.features)
+                newFeatures = true
+              }
+            }
+            
+            if (newFeatures && map.getSource('road-network')) {
+              const source = map.getSource('road-network') as maplibregl.GeoJSONSource
+              source.setData({
+                type: 'FeatureCollection',
+                features: allRoadFeatures
+              })
+              setStats({ edges: allRoadFeatures.length, nodes: 0 }) // Opcional: calcular nodos
+            }
+          } catch (e) {
+            console.error("Error lazy loading", e)
+          } finally {
+            loadingZones = false
+          }
+        }
+
+        // Carga inicial
+        await loadNearbyZones(MTY_CENTER, 5)
+
+        // Escuchar cuando el usuario mueve el mapa para cargar más
+        map.on('moveend', () => {
+          const c = map.getCenter()
+          loadNearbyZones([c.lng, c.lat], 2)
+        })
 
         // ── Capas por tipo de vía ────────────────────────────────────────
         // Autopistas/troncales
@@ -173,90 +216,108 @@ function App() {
           layout: { 'line-cap': 'round', 'line-join': 'round' },
         })
 
-        // Cargar ruta de ejemplo
-        const routeRes = await fetch('/mty_route.json')
-        const routeData = await routeRes.json()
+        // Cargar ruta de ejemplo inicial vacía o default
+        const routeData = { type: 'FeatureCollection', features: [] }
+        map.addSource('route', { type: 'geojson', data: routeData as any })
 
-        if (routeData.features.length > 0) {
-          const props = routeData.features[0].properties
-          setRoute({
-            from: props.from,
-            to: props.to,
-            lengthKm: props.length_km,
-            timeMin: props.time_min,
-            nodes: props.nodes,
-          })
+        map.addLayer({
+          id: 'route-glow',
+          type: 'line',
+          source: 'route',
+          paint: {
+            'line-color': ROUTE_COLOR,
+            'line-width': [
+              'interpolate', ['linear'], ['zoom'],
+              9, 4,
+              14, 12,
+            ],
+            'line-opacity': 0.25,
+            'line-blur': 6,
+          },
+          layout: { 'line-cap': 'round', 'line-join': 'round' },
+        })
 
-          // Glow de la ruta (ancho, difuso)
-          map.addSource('route', { type: 'geojson', data: routeData })
+        map.addLayer({
+          id: 'route-line',
+          type: 'line',
+          source: 'route',
+          paint: {
+            'line-color': ROUTE_COLOR,
+            'line-width': [
+              'interpolate', ['linear'], ['zoom'],
+              9, 2,
+              14, 5,
+            ],
+            'line-opacity': 0.9,
+          },
+          layout: { 'line-cap': 'round', 'line-join': 'round' },
+        })
 
-          map.addLayer({
-            id: 'route-glow',
-            type: 'line',
-            source: 'route',
-            paint: {
-              'line-color': ROUTE_COLOR,
-              'line-width': [
-                'interpolate', ['linear'], ['zoom'],
-                9, 4,
-                14, 12,
-              ],
-              'line-opacity': 0.25,
-              'line-blur': 6,
-            },
-            layout: { 'line-cap': 'round', 'line-join': 'round' },
-          })
+        // Cargar zonas
+        const zonasRes = await fetch('/zonas.json')
+        const zonasData = await zonasRes.json()
 
-          // Línea principal de la ruta
-          map.addLayer({
-            id: 'route-line',
-            type: 'line',
-            source: 'route',
-            paint: {
-              'line-color': ROUTE_COLOR,
-              'line-width': [
-                'interpolate', ['linear'], ['zoom'],
-                9, 2,
-                14, 5,
-              ],
-              'line-opacity': 0.9,
-            },
-            layout: { 'line-cap': 'round', 'line-join': 'round' },
-          })
+        map.addSource('zonas', { type: 'geojson', data: zonasData })
 
-          // Marcadores de origen y destino
-          const routeCoords = routeData.features[0].geometry.coordinates
-          const origin = routeCoords[0]
-          const destination = routeCoords[routeCoords.length - 1]
+        // Usar una expresión match para asignar colores únicos a cada zona
+        const zonaColors = [
+          'match', ['get', 'zona'],
+          'Centro', '#3b82f6',
+          'Obispado', '#10b981',
+          'Valle', '#8b5cf6',
+          'Contry', '#f59e0b',
+          'Tec', '#ec4899',
+          'Fundidora', '#ef4444',
+          'Guadalupe', '#14b8a6',
+          'LindaVista', '#f97316',
+          'SanNicolas', '#06b6d4',
+          'Cumbres', '#6366f1',
+          'Mitras', '#d946ef',
+          'Escobedo', '#84cc16',
+          'SantaCatarina', '#0ea5e9',
+          'Apodaca', '#f43f5e',
+          '#64748b' // default
+        ]
 
-          // Origen
-          const originEl = document.createElement('div')
-          originEl.style.cssText = `
-            width: 14px; height: 14px; border-radius: 50%;
-            background: ${ROUTE_COLOR}; border: 2px solid #fff;
-            box-shadow: 0 0 12px ${ROUTE_COLOR}88;
-          `
-          new maplibregl.Marker({ element: originEl })
-            .setLngLat(origin as [number, number])
-            .setPopup(new maplibregl.Popup({ offset: 12 }).setHTML(
-              `<strong>📍 Macroplaza</strong><br><span style="color:#8a8a9a">Origen</span>`
-            ))
-            .addTo(map)
+        map.addLayer({
+          id: 'zonas-fill',
+          type: 'fill',
+          source: 'zonas',
+          paint: {
+            'fill-color': zonaColors as any,
+            'fill-opacity': 0.15
+          }
+        }) // Renderizar arriba de las calles para no perder el hover
 
-          // Destino
-          const destEl = document.createElement('div')
-          destEl.style.cssText = `
-            width: 14px; height: 14px; border-radius: 50%;
-            background: transparent; border: 3px solid ${ROUTE_COLOR};
-            box-shadow: 0 0 12px ${ROUTE_COLOR}88;
-          `
-          new maplibregl.Marker({ element: destEl })
-            .setLngLat(destination as [number, number])
-            .setPopup(new maplibregl.Popup({ offset: 12 }).setHTML(
-              `<strong>📍 Valle, San Pedro</strong><br><span style="color:#8a8a9a">Destino</span>`
-            ))
-            .addTo(map)
-        }
+        map.addLayer({
+          id: 'zonas-line',
+          type: 'line',
+          source: 'zonas',
+          paint: {
+            'line-color': zonaColors as any,
+            'line-width': 2,
+            'line-opacity': 0.8
+          }
+        })
+
+        // Cargar puntos
+        const puntosRes = await fetch('/puntos.json')
+        const puntosData = await puntosRes.json()
+
+        map.addSource('puntos', { type: 'geojson', data: puntosData })
+
+        map.addLayer({
+          id: 'puntos-circle',
+          type: 'circle',
+          source: 'puntos',
+          paint: {
+            'circle-color': '#ffffff',
+            'circle-radius': 3,
+            'circle-opacity': 0.6,
+            'circle-stroke-width': 1,
+            'circle-stroke-color': '#000000'
+          }
+        })
 
         // Hover interactivo en carreteras
         const popup = new maplibregl.Popup({
@@ -293,6 +354,28 @@ function App() {
           })
         }
 
+        // Hover interactivo para zonas
+        map.on('mouseenter', 'zonas-fill', (e) => {
+          map.getCanvas().style.cursor = 'pointer'
+          const props = e.features?.[0]?.properties
+          if (!props) return
+
+          popup
+            .setLngLat(e.lngLat)
+            .setHTML(`
+              <strong>Zona: ${props.zona}</strong><br>
+              <span style="color:#8a8a9a">Riesgo Día:</span> ${props.riesgo_dia}<br>
+              <span style="color:#8a8a9a">Riesgo Noche:</span> ${props.riesgo_noche}<br>
+              <span style="color:#8a8a9a">Bloqueada Noche:</span> ${props.bloqueada_noche ? 'Sí' : 'No'}
+            `)
+            .addTo(map)
+        })
+
+        map.on('mouseleave', 'zonas-fill', () => {
+          map.getCanvas().style.cursor = ''
+          popup.remove()
+        })
+
         setLoading(false)
       } catch (err) {
         console.error('Error cargando datos del grafo:', err)
@@ -308,6 +391,71 @@ function App() {
       mapRef.current = null
     }
   }, [initMap])
+
+  const fetchDynamicRoute = async () => {
+    if (!mapRef.current) return
+    setLoadingRoute(true)
+    try {
+      const res = await fetch(`http://127.0.0.1:8000/api/route?origen=${origin}&destino=${destination}`)
+      if (!res.ok) throw new Error("Error fetching route")
+      const routeData = await res.json()
+
+      if (routeData.features.length > 0) {
+        const props = routeData.features[0].properties
+        setRoute({
+          from: props.from,
+          to: props.to,
+          lengthKm: props.length_km,
+          timeMin: props.time_min,
+          nodes: props.nodes,
+        })
+
+        const map = mapRef.current
+        const source = map.getSource('route') as maplibregl.GeoJSONSource
+        if (source) {
+          source.setData(routeData)
+        }
+
+        const routeCoords = routeData.features[0].geometry.coordinates
+        const originCoord = routeCoords[0]
+        const destinationCoord = routeCoords[routeCoords.length - 1]
+
+        if (originMarkerRef.current) originMarkerRef.current.remove()
+        if (destMarkerRef.current) destMarkerRef.current.remove()
+
+        const originEl = document.createElement('div')
+        originEl.style.cssText = `
+          width: 14px; height: 14px; border-radius: 50%;
+          background: ${ROUTE_COLOR}; border: 2px solid #fff;
+          box-shadow: 0 0 12px ${ROUTE_COLOR}88;
+        `
+        originMarkerRef.current = new maplibregl.Marker({ element: originEl })
+          .setLngLat(originCoord as [number, number])
+          .setPopup(new maplibregl.Popup({ offset: 12 }).setHTML(`<strong>📍 ${origin}</strong><br><span style="color:#8a8a9a">Origen</span>`))
+          .addTo(map)
+
+        const destEl = document.createElement('div')
+        destEl.style.cssText = `
+          width: 14px; height: 14px; border-radius: 50%;
+          background: transparent; border: 3px solid ${ROUTE_COLOR};
+          box-shadow: 0 0 12px ${ROUTE_COLOR}88;
+        `
+        destMarkerRef.current = new maplibregl.Marker({ element: destEl })
+          .setLngLat(destinationCoord as [number, number])
+          .setPopup(new maplibregl.Popup({ offset: 12 }).setHTML(`<strong>📍 ${destination}</strong><br><span style="color:#8a8a9a">Destino</span>`))
+          .addTo(map)
+
+        // Fit bounds
+        const bounds = new maplibregl.LngLatBounds()
+        routeCoords.forEach((c: any) => bounds.extend(c))
+        map.fitBounds(bounds, { padding: 50, duration: 1000 })
+      }
+    } catch (e) {
+      console.error(e)
+    } finally {
+      setLoadingRoute(false)
+    }
+  }
 
   const formatNumber = (n: number) => n.toLocaleString('es-MX')
 
@@ -358,6 +506,47 @@ function App() {
             </div>
           </div>
         )}
+
+        {/* Buscador de rutas */}
+        <div className="glass-card">
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+            <div style={{ fontSize: '14px', fontWeight: 'bold' }}>Trazar Ruta</div>
+            
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
+              <label style={{ fontSize: '12px', color: '#a1a1aa' }}>Origen:</label>
+              <select 
+                value={origin} 
+                onChange={(e) => setOrigin(e.target.value)}
+                style={{ background: '#18181b', color: 'white', border: '1px solid #3f3f46', padding: '6px', borderRadius: '4px' }}
+              >
+                {ZONAS_LIST.map(z => <option key={z} value={z}>{z}</option>)}
+              </select>
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
+              <label style={{ fontSize: '12px', color: '#a1a1aa' }}>Destino:</label>
+              <select 
+                value={destination} 
+                onChange={(e) => setDestination(e.target.value)}
+                style={{ background: '#18181b', color: 'white', border: '1px solid #3f3f46', padding: '6px', borderRadius: '4px' }}
+              >
+                {ZONAS_LIST.map(z => <option key={z} value={z}>{z}</option>)}
+              </select>
+            </div>
+
+            <button 
+              onClick={fetchDynamicRoute}
+              disabled={loadingRoute}
+              style={{
+                background: '#3b82f6', color: 'white', border: 'none', padding: '8px', 
+                borderRadius: '4px', cursor: loadingRoute ? 'not-allowed' : 'pointer',
+                marginTop: '5px', fontWeight: 'bold'
+              }}
+            >
+              {loadingRoute ? 'Calculando...' : 'Trazar Ruta'}
+            </button>
+          </div>
+        </div>
 
         {/* Ruta */}
         {route && (

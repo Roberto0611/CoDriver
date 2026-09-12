@@ -2,3 +2,6 @@ osmnx
 scikit-learn
 matplotlib
 numpy
+fastapi
+uvicorn[standard]
+websockets

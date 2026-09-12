@@ -13,8 +13,12 @@ from pathlib import Path
 
 import networkx as nx
 import osmnx as ox
+import sys
 
 AQUI = Path(__file__).parent
+sys.path.insert(0, str(AQUI.parent))
+from mundo import ZONAS
+
 FRONTEND_PUBLIC = AQUI.parent / "frontend" / "public"
 
 # Puntos de ejemplo para la ruta demo
@@ -45,11 +49,13 @@ def classify_highway(highway):
     return "local"
 
 
-def edges_to_geojson(G):
-    """Convierte aristas del grafo a GeoJSON FeatureCollection."""
+def edges_to_geojson_chunked(G):
+    """Convierte aristas del grafo a múltiples GeoJSON agrupados por zona más cercana."""
     _, edges = ox.graph_to_gdfs(G)
 
-    features = []
+    zonas_centers = {name: (lat, lon) for name, (lat, lon, _) in ZONAS.items()}
+    chunks = {name: [] for name in ZONAS}
+
     omitidas = 0
     for _, row in edges.iterrows():
         geom = row.geometry
@@ -59,8 +65,17 @@ def edges_to_geojson(G):
             omitidas += 1
             continue
 
-        # Solo incluir coordenadas (lon, lat) de la geometría
         coords = list(geom.coords)
+        centroid = geom.centroid
+        c_lon, c_lat = centroid.x, centroid.y
+
+        nearest_zona = None
+        min_dist = float('inf')
+        for name, (z_lat, z_lon) in zonas_centers.items():
+            dist = (c_lat - z_lat)**2 + (c_lon - z_lon)**2
+            if dist < min_dist:
+                min_dist = dist
+                nearest_zona = name
 
         feature = {
             "type": "Feature",
@@ -75,11 +90,12 @@ def edges_to_geojson(G):
                 "name": row.get("name", "") if isinstance(row.get("name", ""), str) else "",
             },
         }
-        features.append(feature)
+        chunks[nearest_zona].append(feature)
 
     if omitidas:
         print(f"  calles locales omitidas: {omitidas:,} (INCLUIR_LOCALES=False)")
-    return {"type": "FeatureCollection", "features": features}
+        
+    return {name: {"type": "FeatureCollection", "features": feats} for name, feats in chunks.items()}
 
 
 def route_to_geojson(G, origen, destino):
@@ -119,11 +135,14 @@ def main():
     FRONTEND_PUBLIC.mkdir(parents=True, exist_ok=True)
 
     # 1. Red vial completa
-    print(f"Convirtiendo {G.number_of_edges():,} aristas a GeoJSON...")
-    edges_gj = edges_to_geojson(G)
-    out_edges = FRONTEND_PUBLIC / "mty_edges.json"
-    out_edges.write_text(json.dumps(edges_gj), encoding="utf-8")
-    print(f"  -> {out_edges.name} ({out_edges.stat().st_size / 1e6:.1f} MB, {len(edges_gj['features']):,} features)")
+    print("Convirtiendo 268,318 aristas a GeoJSON por zonas...")
+    chunks = edges_to_geojson_chunked(G)
+    
+    for zona, geojson_data in chunks.items():
+        out_path = FRONTEND_PUBLIC / f"mty_edges_{zona}.json"
+        out_path.write_text(json.dumps(geojson_data), encoding="utf-8")
+        size_mb = out_path.stat().st_size / (1024 * 1024)
+        print(f"  -> {out_path.name} ({size_mb:.1f} MB, {len(geojson_data['features']):,} features)")
 
     # 2. Ruta de ejemplo
     print("Calculando ruta Macroplaza -> Valle...")
