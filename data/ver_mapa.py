@@ -12,7 +12,7 @@ import osmnx as ox
 
 matplotlib.use("Agg")
 
-ORIGEN = (25.6714, -100.3090)   # Macroplaza
+ORIGEN = (25.6714, -100.3090)  # Macroplaza
 DESTINO = (25.6510, -100.3590)  # Valle, San Pedro
 
 AQUI = Path(__file__).parent
@@ -27,9 +27,17 @@ def main():
         weight="travel_time",
     )
     fig, _ = ox.plot_graph_route(
-        G, ruta, node_size=0, edge_linewidth=0.12, edge_color="#3a3a3a",
-        route_color="#ff3b30", route_linewidth=3, bgcolor="#0b0b0b",
-        show=False, close=True, figsize=(12, 12),
+        G,
+        ruta,
+        node_size=0,
+        edge_linewidth=0.12,
+        edge_color="#3a3a3a",
+        route_color="#ff3b30",
+        route_linewidth=3,
+        bgcolor="#0b0b0b",
+        show=False,
+        close=True,
+        figsize=(12, 12),
     )
     salida = AQUI / "mapa_mty.png"
     fig.savefig(salida, dpi=110, facecolor="#0b0b0b", bbox_inches="tight")

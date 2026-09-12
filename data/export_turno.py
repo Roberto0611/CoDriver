@@ -15,6 +15,7 @@ import pickle
 import sys
 from dataclasses import asdict
 from pathlib import Path
+from typing import Any
 
 import networkx as nx
 
@@ -53,33 +54,43 @@ def geometria_de_tramos(tramos):
 
 def main():
     tec = rutas.COORD_DE[rutas.puntos_de("Tec")[0]]
-    cfg = ConfigTurno(duracion_min=120, ancla=Punto("Tec", *tec), margen_min=10,
-                      vehiculo="moto", seed=SEED, hora_inicio=14)
+    cfg = ConfigTurno(
+        duracion_min=120,
+        ancla=Punto("Tec", *tec),
+        margen_min=10,
+        vehiculo="moto",
+        seed=SEED,
+        hora_inicio=14,
+    )
     res = simular(cfg, politica_greedy)
 
     # Un frame por minuto: el front hace replay con frames[t] y ya.
     llegadas = {t: (p, tipo) for t, p, tipo in res.trayecto}
-    por_minuto = {}
+    por_minuto: dict[int, list[dict]] = {}
     for d in res.decisiones:
         por_minuto.setdefault(d.t, []).append(asdict(d))
-    ofertas_min = {}
+    ofertas_min: dict[int, list[dict]] = {}
     for o in res.ofertas:
         ofertas_min.setdefault(o.t_aparece, []).append(asdict(o))
 
     # El contador sube al ENTREGAR, no al aceptar. Es lo que ve el juez subir.
     por_entrega = res.ganado / max(res.entregas, 1)
-    acumulado, frames = 0.0, []
+    acumulado = 0.0
+    frames: list[dict[str, Any]] = []
     for t in range(cfg.duracion_min):
         if t in llegadas and llegadas[t][1] == "dropoff":
             acumulado += por_entrega
-        frames.append({
-            "t": t,
-            "ofertas": ofertas_min.get(t, []),
-            "decisiones": por_minuto.get(t, []),
-            "llegada": ({"punto": llegadas[t][0], "tipo": llegadas[t][1]}
-                        if t in llegadas else None),
-            "ganado": round(acumulado, 2),
-        })
+        frames.append(
+            {
+                "t": t,
+                "ofertas": ofertas_min.get(t, []),
+                "decisiones": por_minuto.get(t, []),
+                "llegada": (
+                    {"punto": llegadas[t][0], "tipo": llegadas[t][1]} if t in llegadas else None
+                ),
+                "ganado": round(acumulado, 2),
+            }
+        )
 
     salida = {
         "meta": {
@@ -92,8 +103,10 @@ def main():
             "ofertas_totales": len(res.ofertas),
         },
         "config": asdict(cfg),
-        "tramos": [{"t_salida": a, "t_llegada": round(b, 2), "desde": c, "hasta": d,
-                    "clave": f"{c}-{d}"} for a, b, c, d in res.tramos],
+        "tramos": [
+            {"t_salida": a, "t_llegada": round(b, 2), "desde": c, "hasta": d, "clave": f"{c}-{d}"}
+            for a, b, c, d in res.tramos
+        ],
         "geometria": geometria_de_tramos(res.tramos),
         "frames": frames,
     }
@@ -107,8 +120,10 @@ def main():
     assert all(f"{t['desde']}-{t['hasta']}" in salida["geometria"] for t in salida["tramos"])
 
     print(f"\n{ruta.name}  ({ruta.stat().st_size / 1e3:.0f} KB)")
-    print(f"  {len(frames)} frames, {len(res.tramos)} tramos, ${res.ganado:.0f}, "
-          f"{res.entregas} entregas")
+    print(
+        f"  {len(frames)} frames, {len(res.tramos)} tramos, ${res.ganado:.0f}, "
+        f"{res.entregas} entregas"
+    )
 
 
 if __name__ == "__main__":

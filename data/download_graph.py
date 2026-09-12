@@ -21,7 +21,9 @@ SALIDA = Path(__file__).parent / "mty_graph.pkl"
 
 def main():
     if SALIDA.exists() and "--force" not in sys.argv:
-        print(f"Ya existe {SALIDA.name} ({SALIDA.stat().st_size / 1e6:.0f} MB). --force para rehacer.")
+        print(
+            f"Ya existe {SALIDA.name} ({SALIDA.stat().st_size / 1e6:.0f} MB). --force para rehacer."
+        )
         return
 
     print(f"Descargando red vial: {RADIO_M / 1000:.0f} km alrededor de {CENTRO}...")

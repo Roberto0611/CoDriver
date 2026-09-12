@@ -1,14 +1,15 @@
+import json
 import pickle
 from pathlib import Path
-import json
-from shapely.geometry import MultiPoint, Polygon
+
+from shapely.geometry import MultiPoint
 
 AQUI = Path(__file__).parent
 datos = pickle.loads((AQUI / "data" / "matriz.pkl").read_bytes())
 nodos = datos["nodos"]
 
-puntos_por_zona = {}
-for i, lat, lon, id, zona in nodos:
+puntos_por_zona: dict[str, list[tuple[float, float]]] = {}
+for _i, lat, lon, _id, zona in nodos:
     if zona not in puntos_por_zona:
         puntos_por_zona[zona] = []
     puntos_por_zona[zona].append((lon, lat))  # X, Y para shapely

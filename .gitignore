@@ -9,3 +9,8 @@ tiger-cloud-db-hackmty-credentials.env
 frontend/public/mty_*.json
 cache/
 frontend/node_modules/
+
+# Herramientas
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/

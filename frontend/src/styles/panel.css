@@ -1,0 +1,461 @@
+/* Panel izquierdo, tarjetas, controles, barra inferior. Tokens en tokens.css. */
+
+/* ─── Overlay Panel ─── */
+.overlay-panel {
+  position: absolute;
+  top: 20px;
+  left: 20px;
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 320px;
+  max-width: calc(100vw - 40px);
+  pointer-events: none;
+}
+
+.overlay-panel > * {
+  pointer-events: auto;
+}
+
+/* ─── Card ───
+   Blanco sobre el canvas, hairline, sombra suave. Sin hover: una
+   tarjeta no es un botón. Solo la tarjeta de cabecera flota (vidrio),
+   porque se sobrepone al mapa. */
+.glass-card {
+  background: var(--card);
+  border: 1px solid var(--hairline);
+  border-radius: var(--r-lg);
+  padding: 16px;
+  box-shadow: var(--shadow-card);
+}
+
+.glass-card.is-floating {
+  background: var(--glass);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border-color: rgba(104, 73, 89, 0.15);
+  box-shadow: var(--shadow-float);
+}
+
+/* ─── Logo ───
+   Solo la marca, en círculo, flotando sobre el mapa. Sin texto. */
+.logo {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: var(--plum);
+  color: var(--canvas);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: var(--shadow-float);
+}
+
+.logo svg {
+  width: 26px;
+  height: 26px;
+}
+
+/* ─── Stats Grid ───
+   Sin cajas dentro de la caja: dos columnas separadas por hairlines. */
+.stats-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+}
+
+.stat-item {
+  padding: 10px 12px;
+}
+
+.stat-item:nth-child(odd) {
+  border-right: 1px solid var(--surface-high);
+}
+
+.stat-item:nth-child(n + 3) {
+  border-top: 1px solid var(--surface-high);
+}
+
+.stat-value {
+  font-size: 22px;
+  font-weight: 600;
+  line-height: 28px;
+  letter-spacing: -0.02em;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum' 1;
+}
+
+.stat-value small {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--ink-3);
+  margin-left: 3px;
+  letter-spacing: 0;
+}
+
+.stat-label {
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 14px;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--ink-2);
+  margin-top: 2px;
+}
+
+/* ─── Route finder ─── */
+.finder {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.finder-title {
+  font-size: 16px;
+  font-weight: 600;
+  line-height: 22px;
+  letter-spacing: -0.01em;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.field label {
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 14px;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--ink-2);
+}
+
+.select {
+  position: relative;
+}
+
+.select select {
+  width: 100%;
+  height: 44px;
+  padding: 0 40px 0 14px;
+  background: var(--card);
+  border: 1px solid var(--hairline);
+  border-radius: var(--r-md);
+  appearance: none;
+  -webkit-appearance: none;
+  font-weight: 500;
+  cursor: pointer;
+  transition:
+    border-color 150ms var(--ease),
+    box-shadow 150ms var(--ease);
+}
+
+.select select:hover {
+  border-color: var(--hairline-strong);
+}
+
+.select select:focus {
+  outline: none;
+  border-color: var(--plum);
+  box-shadow: var(--focus-ring);
+}
+
+.select svg {
+  position: absolute;
+  right: 14px;
+  top: 50%;
+  width: 16px;
+  height: 16px;
+  transform: translateY(-50%);
+  pointer-events: none;
+  color: var(--ink-3);
+}
+
+.btn-primary {
+  height: 44px;
+  padding: 0 20px;
+  border: none;
+  border-radius: var(--r-pill);
+  background: var(--plum);
+  color: var(--canvas);
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  cursor: pointer;
+  box-shadow: var(--shadow-button);
+  transition:
+    transform 150ms ease-out,
+    background 150ms var(--ease),
+    box-shadow 150ms var(--ease);
+}
+
+.btn-primary svg {
+  width: 16px;
+  height: 16px;
+}
+
+.btn-primary:hover {
+  background: var(--plum-deep);
+}
+
+.btn-primary:active {
+  transform: scale(0.96);
+}
+
+.btn-primary:focus-visible {
+  outline: none;
+  box-shadow: var(--shadow-button), var(--focus-ring);
+}
+
+.btn-primary:disabled {
+  background: var(--surface-high);
+  color: var(--ink-3);
+  box-shadow: none;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* ─── Route Info ─── */
+.route-info {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.route-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 14px;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--indigo-ink);
+}
+
+.route-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--indigo);
+}
+
+.route-endpoints {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.route-endpoint {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--ink);
+}
+
+.route-endpoint-marker {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  border: 2px solid var(--indigo);
+  flex-shrink: 0;
+}
+
+.route-endpoint-marker.origin {
+  background: var(--indigo);
+}
+
+.route-endpoint-marker.destination {
+  background: var(--card);
+}
+
+.route-connector {
+  width: 2px;
+  height: 10px;
+  background: var(--hairline);
+  margin-left: 4px;
+}
+
+.route-stats {
+  display: flex;
+  gap: 18px;
+  padding-top: 10px;
+  border-top: 1px solid var(--surface-high);
+}
+
+.route-stat {
+  font-size: 18px;
+  font-weight: 600;
+  line-height: 24px;
+  letter-spacing: -0.02em;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum' 1;
+}
+
+.route-stat span {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--ink-3);
+  margin-left: 3px;
+  letter-spacing: 0;
+}
+
+/* ─── Legend ─── */
+.legend {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.legend-title {
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 14px;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--ink-2);
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+  color: var(--ink-2);
+}
+
+.legend-line {
+  width: 28px;
+  height: 3px;
+  border-radius: 2px;
+  flex-shrink: 0;
+}
+
+/* En un mapa claro las calles son blancas sobre el canvas; en la
+   leyenda se muestran sobre una franja del color del mapa. */
+.legend-line.highway {
+  background: #f3dfa2;
+}
+.legend-line.primary {
+  background: #ffffff;
+  box-shadow: 0 0 0 1px var(--hairline);
+}
+.legend-line.secondary {
+  background: #ffffff;
+  box-shadow: 0 0 0 1px var(--surface-high);
+  height: 2px;
+}
+.legend-line.local {
+  background: #f7f3f0;
+  box-shadow: 0 0 0 1px var(--surface-high);
+  height: 2px;
+}
+.legend-line.route {
+  background: var(--indigo);
+}
+
+/* ─── Loading ─── */
+.loading-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: var(--canvas);
+  z-index: 100;
+  gap: 16px;
+  animation: fade-out 0.5s var(--ease) 0.2s forwards;
+  pointer-events: none;
+}
+
+.loading-overlay.active {
+  animation: none;
+  pointer-events: auto;
+}
+
+@keyframes fade-out {
+  to {
+    opacity: 0;
+    visibility: hidden;
+  }
+}
+
+.loading-spinner {
+  width: 36px;
+  height: 36px;
+  border: 3px solid var(--surface-high);
+  border-top-color: var(--plum);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.loading-text {
+  font-size: 14px;
+  color: var(--ink-3);
+}
+
+/* ─── Bottom bar ─── */
+.bottom-bar {
+  position: absolute;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 10;
+  display: flex;
+  gap: 8px;
+}
+
+.bottom-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 36px;
+  padding: 0 14px;
+  background: var(--glass);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(104, 73, 89, 0.15);
+  border-radius: var(--r-pill);
+  box-shadow: var(--shadow-float);
+  font-size: 12px;
+  color: var(--ink-2);
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum' 1;
+}
+
+.bottom-pill svg {
+  width: 14px;
+  height: 14px;
+  color: var(--ink-3);
+  flex-shrink: 0;
+}
+
+.bottom-pill strong {
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.bottom-pill.is-route {
+  border-color: rgba(79, 70, 229, 0.3);
+}
+
+.bottom-pill.is-route svg {
+  color: var(--indigo);
+}
