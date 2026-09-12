@@ -3,8 +3,9 @@
 import pytest
 
 import rutas
+import seguridad
 from contrato import ConfigTurno, Punto
-from sim import CAPACIDAD, generar_ofertas, politica_greedy, simular
+from sim import generar_ofertas, politica_greedy, simular
 
 TEC = rutas.COORD_DE[rutas.puntos_de("Tec")[0]]
 
@@ -81,14 +82,61 @@ def test_el_greedy_gana_dinero_y_llega_a_clase():
 @pytest.mark.parametrize("seed", range(10))
 def test_el_greedy_respeta_la_capacidad_de_la_mochila(seed):
     res = simular(cfg(seed), politica_greedy)
-    llenas = [d for d in res.decisiones if d.restriccion == "mochila_llena"]
-    # Si rechazo por mochila llena, es porque de verdad traia CAPACIDAD pedidos.
+    llenas = [d for d in res.decisiones if d.restriccion == "vehicle_capacity"]
     assert all(d.accion == "saltar" for d in llenas)
-    assert CAPACIDAD == 3
+    assert seguridad.VEHICULOS["moto"].pedidos == 3
 
 
 def test_de_noche_el_greedy_no_entra_a_zonas_inseguras():
     res = simular(cfg(4, hora_inicio=23), politica_greedy)
-    inseguras = [d for d in res.decisiones if d.restriccion == "zona_insegura"]
+    inseguras = [d for d in res.decisiones if d.restriccion == "flagged_zone_night"]
     assert inseguras, "a las 11 PM alguna oferta debe caer en zona bloqueada"
     assert all(d.accion == "saltar" for d in inseguras)
+
+
+# --- el protocolo pide dos cosas del sistema completo, no de una funcion -----
+
+
+@pytest.mark.parametrize("hora", (8, 14, 21))
+def test_cero_violaciones_de_fin_de_turno(hora):
+    """ "Safety violations must be zero". Las DOS politicas, no solo la nuestra."""
+    import seeds
+    from nuez import politica_nuez
+
+    for pol in (politica_greedy, politica_nuez):
+        tarde = sum(
+            simular(cfg(s, hora_inicio=hora), pol).llego_tarde for s in seeds.de_reporte(30)
+        )
+        assert tarde == 0, f"{pol.__name__} llego tarde {tarde} veces empezando a las {hora}"
+
+
+def test_las_cinco_restricciones_se_disparan_de_verdad():
+    """ "A constraint that exists in code but is never demonstrated scores low".
+
+    Cada una necesita su escenario: el calor solo entre 12 y 4, el descanso solo
+    en turnos largos, la zona marcada solo de noche. Si alguna deja de aparecer es
+    que quedo inalcanzable, que es igual de malo que no tenerla.
+    """
+    import seeds
+    from nuez import politica_nuez
+
+    vistas = set()
+    escenarios = (
+        dict(hora_inicio=14, duracion_min=120),  # calor, capacidad, fin de turno
+        dict(hora_inicio=21, duracion_min=120),  # zona marcada despues de las 22
+        # 8 horas arrancando a las 6: cruza el calor Y junta 4 h seguidas despues.
+        dict(hora_inicio=6, duracion_min=480),
+    )
+    for extra in escenarios:
+        for s in seeds.de_reporte(10):
+            res = simular(cfg(s, **extra), politica_nuez)
+            vistas |= {d.restriccion for d in res.decisiones if d.restriccion}
+
+    assert vistas == {
+        "flagged_zone_night",
+        "mandatory_break",
+        "heat_rule",
+        "shift_end_infeasible",
+        "vehicle_capacity",
+        "reservation_wage",
+    }, f"faltaron por dispararse: {vistas}"

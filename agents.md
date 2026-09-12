@@ -4,37 +4,166 @@ Documento de contexto del proyecto. Lo que decidimos, por qué, y cómo se traba
 
 ---
 
-## 0. Roadmap — qué se hace y en qué orden
+## 0. Estado actual — leer esto primero
 
-**El proyecto en tres renglones:** un estudiante tiene 2 horas libres entre clases y quiere
-sacar dinero repartiendo. Nuestro agente decide qué aceptar y qué no, le gana a un repartidor
-normal por un margen claro, y explica cada decisión en voz alta.
+**Última actualización: 12 de septiembre de 2026.** Rama de trabajo: `feature/turnos-grabados`.
 
-**La única pregunta que importa:** ¿por cuánto le gana Nuez al greedy? Los seis tracks valen
-cero si ese número es malo. Por eso la Fase 1 bloquea todo lo demás.
+**El proyecto en tres renglones:** un estudiante tiene una ventana libre entre clases y quiere
+sacar dinero repartiendo comida. Nuestro agente decide qué aceptar y qué no, le gana a un
+repartidor normal por un margen claro, y explica cada decisión en voz alta.
 
-| Fase | Qué | Listo cuando |
+### El número, hoy
+
+```
+python comparar.py 200
+
+200 turnos, seeds de REPORTE 2000-2199
+                  greedy      NUEZ
+  ganancia media   $200      $259
+  entregas          3.2       5.1
+  llegaron tarde      0         0
+  DELTA: +29.2%   gana en 150/200
+```
+
+**El asterisco, y hay que decirlo en el pitch:** la trayectoria fue −1.0% → +1.8% (tráfico
+direccional) → +9.0% (batching) → +11.1% (descuento de tiempo parado) → **+29.2%**. Ese último
+salto **no es que Nuez mejorara** ($257 → $259, o sea nada): es que el greedy bajó de $233 a $200
+al dejar de aceptar viajes que no alcanzaba a terminar. La corrección se aplicó idéntica a las dos
+políticas, así que la comparación es limpia — pero el número honesto es *"el baseline ingenuo se
+ve mejor en papel porque se pasa del turno; corregido eso, la diferencia real es 29%"*.
+
+### Qué existe y qué falta
+
+| Fase | Qué | Estado |
 |---|---|---|
-| **0** ✅ | El mundo y el rival | Baseline greedy: **mediana $251, 4 entregas** |
-| **1** 🔴 | **EL NÚMERO** — tabla de valor + política de Nuez | Nuez vs greedy en 50 seeds no vistos. **Hoy: −1.0%** (`python comparar.py 50`, seeds 1000–1049). Faltan B2 (batching / costo marginal) y B3 |
-| **2** | Hacerlo visible — replay y pantalla partida | Dos turnos corriendo lado a lado con contadores |
-| **3** | Hacerlo hablar — Gemini + ElevenLabs | Nuez explica en voz alta por qué rechazó |
-| **4** | Tracks baratos y ensayo | Vultr, Tiger, Solana. Pitch ensayado 8 veces |
+| **0** | El mundo y el rival | ✅ |
+| **1** | **EL NÚMERO** — tabla de valor + política de Nuez | ✅ **+29.2% en seeds no vistos** |
+| **1b** | Conformidad con el spec oficial de Infosys | 🔴 **aquí vamos** — ver §0b |
+| **2** | Hacerlo visible — replay y pantalla partida | parcial: turnos grabados ✅, panel de decisión ❌ |
+| **3** | Hacerlo hablar — Gemini + ElevenLabs | el equipo lo trae aparte |
+| **4** | Tracks baratos y ensayo | sin empezar |
 
-### La puerta de la Fase 1
+---
 
-Nada de la Fase 2 en adelante arranca hasta que exista el número. Y el número decide el plan:
+## 0b. Handoff — cómo continuar
 
-| Resultado | Qué significa |
+Esta sección es para quien retome el proyecto sin haber estado en la conversación.
+
+### Reglas de la casa
+
+- **Los commits los hace el usuario, no la IA.** Se dejan los cambios en el working tree y se
+  reporta qué quedó listo. Nunca `git commit` ni `git push`.
+- **Explicar en palabras simples.** El usuario pide contexto antes y después de escribir código.
+- **Nada se mergea con CI en rojo.** Ver §13.
+
+### El mapa de archivos
+
+| Archivo | Qué es |
 |---|---|
-| **+20% o más** | Hay hackathon. Todo lo demás es presentación |
-| **+8 a 15%** | Sirve, pero hay que exprimir el motor antes de adornar |
-| **menos de 5%** | La premisa está mal. Pivotear **temprano**, no la última noche |
+| `mundo.py` | Zonas de MTY, curvas de tráfico por corredor, riesgo por zona-hora. **Los números son inventados a ojo** — perilla de calibración, los locales del equipo deberían ajustarlos |
+| `rutas.py` | La única puerta a preguntas de viaje. `minutos(i,j,hora)` y `km(i,j)`. Lee `data/matriz.pkl` (210 puntos) |
+| `seguridad.py` | **Las cinco restricciones del spec.** El archivo que el juez va a pedir abrir |
+| `seeds.py` | Los dos conjuntos de seeds, disjuntos y con nombre |
+| `contrato.py` | El formato de todo lo que viaja entre piezas. No cambia en silencio (§13) |
+| `sim.py` | Generador de ofertas + reloj del turno + **política greedy (el baseline)** |
+| `ruteo.py` | Orden óptimo de paradas por enumeración exacta + costo marginal |
+| `valor.py` | La tabla de valor: cuánto rinden los minutos que quedan. Escribe `V.json` |
+| `nuez.py` | **La política del agente.** Costo de oportunidad en vez de umbral fijo |
+| `comparar.py` | El arnés de medición. **Aquí sale EL NÚMERO** |
+| `courier/` | El spec oficial que mandó Infosys. Material ajeno: se lee, no se toca (excluido de ruff/mypy) |
 
-### Lo congelado hasta que pase la puerta
+### Comandos
 
-Tiger, Gemini, ElevenLabs, Solana, Snowflake, Vultr, la mascota, el `turno.json` y el batching.
-Congelado no es cancelado. El mapa del frontend sigue, no estorba y va a hacer falta.
+```bash
+python comparar.py 200
+```
+
+```bash
+python valor.py
+```
+
+```bash
+python -m pytest
+```
+
+Los demás, cuando toquen: `python seguridad.py` corre las cinco restricciones;
+`python scripts/engine_baseline.py --write` mueve el ratchet a propósito;
+`python scripts/contract_codegen.py --write` tras tocar `contrato.py`;
+`python data/export_turno.py` regraba los turnos que reproduce el front;
+`python "courier/validate_format (2).py" --event-log mi_turno.jsonl` valida el formato.
+
+### Lo que ya se midió y NO funcionó — no repetirlo
+
+Estos tres se probaron con medición pareada, no con intuición. Volver a intentarlos es tiempo
+tirado salvo que el mundo cambie mucho:
+
+- **Iteración de política** (construir V jugando como Nuez en vez de como el greedy): **−3.0%**.
+- **Tabla de valor por zona, `V[t][zona]`**: +7.5% en unos casos, −5.9% en otros. La causa es
+  **sesgo de selección**: `V[Tec]` sale inflado porque los repartidores que siguen en Tec son
+  justamente los que están teniendo un buen turno. Además no hay datos suficientes en zonas raras.
+- **Descuento global al costo de oportunidad**: peor en todos los niveles probados.
+
+Lo que **sí** funcionó en su lugar: `nuez.DESCUENTO_PARADO = 0.5`. Cuando la ruta está vacía un
+minuto rinde exactamente cero, así que el costo de oportunidad se parte a la mitad. Medido en 300
+seeds: +$8.9 por turno ±$2.6 (3.4σ), cambia 112 de 300 turnos. Si se recalibra el mundo, hay que
+volver a barrer ese parámetro **en seeds de TUNEO**.
+
+### El bug de la hora — no revertirlo
+
+El regreso al ancla se estimaba con la hora actual aunque se recorriera una hora después, con
+otro tráfico. Por eso había turnos que llegaban tarde con la cuenta cuadrada. La corrección está
+en `ruteo.duracion` y en `sim.politica_greedy`: **cada tramo se estima a SU hora**, calculada
+desde el minuto absoluto del turno. El greedy además ya cuenta la espera del restaurante.
+
+Resultado: **0 violaciones de fin de turno en 300 seeds × 3 horas de arranque, en las dos políticas.**
+
+`ponytail:` pendiente — el ruteo corrige la hora tramo por tramo dentro de `duracion`, que era
+donde mordía; si algún día hace falta más precisión, el siguiente paso es que la hora viaje
+también por `mejor_ruta` y `costo_marginal`.
+
+### Qué sigue, en orden
+
+El spec de Infosys (`courier/`) es prescriptivo y **cumplir el formato vale más ahorita que subir
+el porcentaje**: un agente brillante que no cumple el esquema pierde puntos por mecánica.
+
+| # | Qué | Por qué |
+|---|---|---|
+| 1 ✅ | Separar seeds de tuneo y reporte | Sin esto, Results se topa en 3 |
+| 2 ✅ | Las cinco restricciones + capacidades por vehículo | Es la mitad de Judgment |
+| 3 | **Turnos de 8 horas y duración variable** | El spec corre `shift_hours: 8.0`; todo está calibrado a 120 min. Incluye conectar `seguridad.VEHICULOS[v].velocidad` a `rutas.minutos` (hoy el campo existe pero nadie lo lee) |
+| 4 | **Endpoint `/decide` + log de eventos en su JSONL** | `validate_format.py` es un portero objetivo: pasa o no pasa. Campos: `decision` (ACCEPT/SKIP), `reason`, `binding_constraint`, `latency_ms`, `tier`, `degraded`. `sim_time` es fecha ISO, no minutos. Las zonas son enteros, no nombres |
+| 5 | **Los cinco baselines + el Oracle** | `results_table_template.csv` pide `AcceptAll`, `HighestPay`, `NearestFirst`, `GreedyRate`, `OurAgent` y un `Oracle` offline que conoce el stream completo. Tenemos uno de seis |
+| 6 | `explain_decision` + modo degradado | Los jueces van a invalidar la credencial del modelo a media corrida. Hay que seguir decidiendo con la última estrategia y **señalar `degraded: true`**. Un fallback silencioso es crédito parcial; un crash es reprobado |
+| 7 | Shocks en vivo (`surge`, `closure`, `rain`, `delay`) | El brief exige al menos uno durante el demo |
+| 8 | Panel de decisión en el front | Judgment sigue en cero del lado visual |
+
+### Detalles del spec que se olvidan fácil
+
+- **50 ms de presupuesto** en la ruta rápida. Nuestro motor tarda microsegundos, así que esto
+  juega a favor — pero **ningún código que llame a un modelo puede estar dentro de la ventana de
+  decisión**, o reprueba Feasibility. Varios equipos van a caer ahí.
+- **`courier_state_overrides`**: los jueces inyectan estado antes de un ping (minutos manejando,
+  horas de turno transcurridas, pedidos en vuelo, hora de fin). Hay que respetarlo, no ignorarlo.
+- **Replay determinista**: graban un turno, lo reproducen y comparan decisión por decisión.
+- **Razón bajo 40 palabras** que nombre la restricción que de verdad mandó. Una decisión correcta
+  con razón genérica **no** gana el crédito de Judgment.
+- **"Una restricción que existe en el código pero nunca se ve activarse califica bajo — ensaya al
+  menos dos como momentos en vivo."** O sea: hay que *provocar* la regla del calor y la del
+  descanso frente al juez, no solo tenerlas.
+- **Responder desde el log en menos de 10 segundos** es en sí mismo parte del puntaje. Re-derivarlo
+  en vivo es la respuesta equivocada aunque salga bien.
+
+### Pendientes chicos pero que se notan
+
+- **El turno grabado del seed 1 quedó feo**: el greedy hace $66 y 1 entrega. Es el golden de
+  regresión, por eso no se cambió, pero **para el demo hay que escoger otros seeds, y de REPORTE**.
+  Se regraban con `python data/export_turno.py <seeds>`.
+- **La varianza por turno es enorme** (desviación ~56 puntos porcentuales; el peor turno −83%, el
+  mejor +252%). **Un turno animado no es evidencia.** Hay que mostrar la distribución de 50 turnos
+  al lado del turno bonito, o el juez tiene razón en no creernos.
+- **El front come ~3 GB de RAM.** Causas: inflado del parse de JSON, el patrón O(n²) de
+  `_roadFeatures.concat` + `setData`, y `INCLUIR_LOCALES = True` en `data/export_geojson.py`. La
+  palanca más barata es esa bandera de una línea.
 
 ---
 
@@ -100,7 +229,7 @@ Y el demo le pega mucho más a jueces que están parados en un campus.
 | Ventana horaria (ej. hoy 14:00–16:00) | Duración del turno → `V[t]` arranca en t=120, no 480 |
 | Ancla (campus, biblioteca, casa) | Restricción de regreso factible |
 | Margen de seguridad (default 10 min) | Colchón antes de que empiece la clase |
-| Vehículo (moto / bici / scooter / a pie) | Velocidades y costo de combustible |
+| Vehículo (`moto` / `car` / `bike`) | Velocidad, gasolina y **límites de peso, volumen y nº de pedidos** (`seguridad.VEHICULOS`). Los tres los exige el spec |
 
 ### La restricción de distancia NO es un radio
 
@@ -384,6 +513,42 @@ Monterrey. Construimos una capa de riesgo curada (iluminación, tipo de vialidad
 y **lo decimos en el pitch**: *"esta capa es sintética; en producción se alimenta de X e Y."*
 Los jueces castigan el dato inventado y premian la honestidad metodológica.
 
+### Las cinco restricciones del spec — `seguridad.py`
+
+El protocolo oficial (`courier/evaluation_protocol.md`) no deja las restricciones a criterio: son
+cinco, con nombre, y **tienen que estar en código, no en el prompt de un modelo**. El juez va a
+pedir abrir el archivo donde está cada límite. Ese archivo es `seguridad.py`, y las dos políticas
+(baseline y Nuez) entran por la misma función `revisar()` — un baseline que atropella
+restricciones no sería comparable.
+
+| `binding_constraint` | Límite | Dónde muerde |
+|---|---|---|
+| `flagged_zone_night` | zona marcada después de las 22:00 | `mundo.es_segura` — línea de reloj, no de promedio |
+| `mandatory_break` | 20 min de descanso tras 4 h continuas | turnos largos |
+| `heat_rule` | máx 90 min continuos entre 12:00 y 16:00 | el turno de la tarde, casi siempre |
+| `shift_end_infeasible` | no aceptar lo que no se termina a tiempo | el final del turno |
+| `vehicle_capacity` | peso, volumen y pedidos por vehículo | los paquetes en bici |
+
+`reservation_wage` es el sexto valor del enum y **no** es de seguridad: es el costo de oportunidad,
+lo único que sí se compra con dinero.
+
+**El descanso no es una máquina de estados.** El simulador lleva un contador de minutos continuos
+con trabajo encima; 20 minutos parado lo resetean. Como la política rechaza todo mientras el límite
+esté alcanzado, el repartidor se queda quieto y el descanso se toma solo.
+
+**Se tienen que ver disparándose.** El spec es explícito: *"a constraint that exists in code but is
+never demonstrated triggering scores low"*. `tests/test_sim.py` falla si alguna de las seis deja de
+aparecer en corridas reales — si una se vuelve inalcanzable es tan malo como no tenerla.
+
+### Seeds de tuneo y de reporte — `seeds.py`
+
+*"If your reported numbers come from the seeds you tuned on, Results caps at 3."* Los dos conjuntos
+son disjuntos y tienen nombre: **TUNEO 0–1999** (tabla de valor, barridos de parámetros) y
+**REPORTE 2000+** (el único número que se dice en voz alta). `comparar.py` revienta con un assert
+si alguien reporta sobre un seed de tuneo.
+
+---
+
 ### Clima y eventos
 
 Un evento masivo **no es solo más demanda, es una trampa**: sube el pago y te deja atorado 40
@@ -655,19 +820,24 @@ Hitos que no se mueven:
 | A2 | ~~Factor de tráfico por hora del día~~ | ✅ perilla en `mundo.TRAFICO_POR_HORA` |
 | A3 | ~~Generador de ofertas con `seed`~~ | ✅ 94 ofertas/turno, reproducible |
 | A4 | ~~Reloj de turno + estado del repartidor~~ | ✅ 5.3 ms por turno de 120 min |
-| A5 | Eventos del mundo: surge por zona/hora, cierre vial, lluvia | Se disparan por config y sí afectan tiempos y pagos |
-| A6 | ~~Capa de riesgo zona-hora~~ | ✅ `mundo.es_segura()` — **los números hay que ajustarlos** |
+| A5 | Shocks: `surge`, `closure`, `rain`, `delay` | **Con los nombres del spec.** El brief exige al menos uno en vivo durante el demo |
+| A6 | ~~Capa de riesgo zona-hora~~ | ✅ `mundo.es_segura()` es la línea de las 22:00; `riesgo()` pinta el mapa. **Los números hay que ajustarlos** |
+| A7 | Peso y volumen de los pedidos | ✅ `sim.py` genera comida chica y un 10% de paquetes que no caben en bici |
 
 ### Carril B — Motor de decisión
 
 | # | Tarea | Listo cuando |
 |---|---|---|
 | B1 | ~~**Baseline greedy**~~ | ✅ **mediana $251 / 4 entregas / 1 de 50 llega tarde** |
-| B2 | Ruta exacta por enumeración + costo marginal en minutos | Responde "¿cuántos minutos extra me cuesta este pedido?" |
-| B3 | Restricciones duras: regreso factible al ancla + seguridad | Rechaza y dice cuál restricción mandó |
-| B4 | Correr 300 turnos → log de decisiones → TigerData | Tabla `decisiones` poblada |
-| B5 | Query de la tabla de valor → `V.json` | Archivo en disco, ~32 números por zona |
-| B6 | Política de costo de oportunidad leyendo `V.json` | **Gana ≥20% al baseline en 50 seeds no vistos** |
+| B2 | ~~Ruta exacta por enumeración + costo marginal~~ | ✅ `ruteo.py`. Hasta 6 paradas permuta exacto, arriba inserta |
+| B3 | ~~Restricciones duras~~ | ✅ `seguridad.py`, las **cinco** del spec, con su `binding_constraint` |
+| B4 | Correr 300 turnos → log de decisiones → TigerData | Tabla `decisiones` poblada. **Hacerlo ya en el JSONL del spec**, no en formato propio |
+| B5 | ~~Tabla de valor → `V.json`~~ | ✅ `valor.py`, Monte Carlo tabular sobre seeds de TUNEO |
+| B6 | ~~Política de costo de oportunidad~~ | ✅ `nuez.py`. **+29.2% en 200 seeds de REPORTE** |
+| B8 | **Turnos de 8 h + los tres vehículos con su velocidad** | El spec corre `shift_hours: 8.0`; hoy todo está calibrado a 120 min |
+| B9 | **Endpoint `/decide` + log JSONL del spec** | `validate_format.py` en verde |
+| B10 | **Los cinco baselines + el Oracle** | `results_table_template.csv` lleno, 6 renglones |
+| B11 | **`explain_decision` + modo degradado** | Responde por `order_id` en <10 s y marca `degraded: true` |
 | B7 | Contrafactual: qué habría pasado aceptando lo rechazado | Un número y una lista al cierre del turno |
 
 ### Carril C — Front y demo
@@ -724,6 +894,16 @@ son cuatro inputs, no una app.
 - **Simulador bonito, agente mediocre** → el 60% de los equipos se queda sin tiempo para el agente. **Baseline corriendo en la hora 10, sin excepciones.**
 - **Solana como NFT decorativo** → se nota y resta credibilidad.
 - **Sin baseline visible** → "ganó $840" no significa nada para un juez sin comparación.
+- **Reportar sobre los seeds que tuneaste** → el protocolo topa Results en 3 sin importar el
+  margen. Los dos conjuntos están en `seeds.py` y `comparar.py` revienta si se cruzan.
+- **Un turno animado como evidencia** → la varianza por turno es enorme. El turno bonito va al
+  lado de la distribución de 50, nunca solo.
+- **Estimar un tramo con la hora de ahora** → el regreso se recorre 40 minutos después, con otro
+  tráfico, y llegas tarde con la cuenta cuadrada. Cada tramo a SU hora.
+- **Un baseline que atropella restricciones** → deja de ser comparable. El greedy entra por la
+  misma `seguridad.revisar()` que Nuez; lo único en lo que es tonto es en el dinero.
+- **Tener una restricción sin enseñarla** → *"a constraint that exists in code but is never
+  demonstrated triggering scores low"*. Hay que provocar dos en vivo.
 - **OSRM/OSMnx en vivo durante el demo** → precachear grafo, matrices de tiempo, clima y respuestas de Gemini del guion. El wifi del hackathon falla exactamente durante el pitch, siempre.
 
 ---
@@ -733,6 +913,12 @@ son cuatro inputs, no una app.
 - **Python 3.11+.** Simulador y agente en un solo proceso, sin servicios extra.
 - **Todo turno es reproducible por `seed`.** Si un resultado no se reproduce con su seed, es un bug.
 - **El motor no llama a red.** Ninguna decisión de dinero depende de una API externa en vivo.
+  El spec lo vuelve regla: *"any code path that calls a model inside the decision window fails
+  Feasibility"*. Presupuesto de la ruta rápida: **50 ms**.
+- **Las restricciones duras viven en `seguridad.py`, todas, y ninguna otra parte las evalúa.**
+  El juez va a pedir abrir el archivo donde está cada límite. Las dos políticas entran por
+  `revisar()`; si alguien mete un `if` de seguridad en otro lado, se rompe esa promesa.
+- **Nunca se tunea ni se mide fuera de `seeds.py`.** TUNEO para calibrar, REPORTE para el número.
 - **Cada decisión se registra** con sus términos (pago, costo de tiempo, costo de oportunidad,
   restricciones evaluadas). Ese log alimenta el contrafactual y lo que dice la voz.
 - **Precachear a disco** todo lo externo: grafo, matrices, clima, eventos, respuestas de Gemini.

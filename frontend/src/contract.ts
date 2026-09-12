@@ -4,8 +4,8 @@
 // El tiempo SIEMPRE es minutos desde que empezo el turno (entero). Nunca fechas.
 
 export type Accion = 'aceptar' | 'saltar'
-export type Vehiculo = 'moto' | 'bici' | 'scooter' | 'pie'
-export type Restriccion = 'regreso_infactible' | 'zona_insegura' | 'mochila_llena'
+export type Vehiculo = 'moto' | 'car' | 'bike'
+export type Restriccion = 'flagged_zone_night' | 'mandatory_break' | 'heat_rule' | 'shift_end_infeasible' | 'vehicle_capacity' | 'reservation_wage'
 
 export interface Punto {
   nombre: string
@@ -33,6 +33,8 @@ export interface Oferta {
   t_prep: number
   pickup: Punto
   dropoff: Punto
+  peso_kg: number
+  volumen_l: number
 }
 
 /** Dónde va y cómo va. Lo lee el front para pintar, y el motor para decidir. */
@@ -43,6 +45,7 @@ export interface EstadoRepartidor {
   mochila: string[]
   ganado: number
   fatiga: number
+  minutos_manejando: number
 }
 
 /** Por qué el motor hizo lo que hizo. Alimenta el front, la voz y el contrafactual. */

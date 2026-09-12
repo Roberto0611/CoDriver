@@ -39,9 +39,16 @@ def _valida(orden: tuple[Parada, ...]) -> bool:
 
 
 def duracion(pos: int, orden, hora: int, t0: float = 0.0) -> float:
+    """Minutos que toma la ruta. `hora` es la hora en t0; cada tramo usa la SUYA.
+
+    Una ruta de 70 minutos que empieza a las 14:50 termina a las 16:00, y el ultimo
+    tramo es el que se come la hora pico. Estimarla toda a las 14 es como se llega
+    tarde con la cuenta cuadrada.
+    """
     t, desde = t0, pos
     for p in orden:
-        t += rutas.minutos(desde, p.punto, hora)
+        # `hora` ya incluye los minutos de t0, asi que se resta su hora y se suma la de t.
+        t += rutas.minutos(desde, p.punto, hora + int(t) // 60 - int(t0) // 60)
         if p.tipo == "pickup":
             t = max(t, p.listo_en)  # esperando a que el restaurante termine
         desde = p.punto

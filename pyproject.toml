@@ -1,7 +1,7 @@
 [tool.ruff]
 line-length = 100
 target-version = "py311"
-extend-exclude = ["frontend", "cache", ".venv", "venv"]
+extend-exclude = ["frontend", "cache", ".venv", "venv", "courier"]
 
 [tool.ruff.lint]
 # E/W estilo, F errores reales, I imports ordenados, B bugs comunes, UP sintaxis moderna.
@@ -19,7 +19,8 @@ quote-style = "preserve"
 [tool.mypy]
 python_version = "3.11"
 files = ["."]
-exclude = "^(frontend|cache|\\.venv|venv|node_modules)/"
+# courier/ es el spec que mandó Infosys: material ajeno, se lee pero no se toca.
+exclude = "^(frontend|cache|courier|\\.venv|venv|node_modules)/"
 ignore_missing_imports = true
 warn_unused_ignores = true
 warn_redundant_casts = true

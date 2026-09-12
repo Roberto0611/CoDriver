@@ -12,12 +12,20 @@ alcanzar a volver al ancla antes de clase.
 
 import rutas
 import ruteo
+import seguridad
 import valor
 from contrato import ConfigTurno, Decision, EstadoRepartidor, Oferta
-from mundo import es_segura
-from sim import CAPACIDAD, COSTO_KM, Parada, indice_de
+from sim import Parada, indice_de
 
 MARGEN = 1.0  # el pedido debe rendir al menos esto por encima del costo de oportunidad
+
+# Cuando la ruta esta vacia, un minuto rinde EXACTAMENTE cero. La tabla de valor
+# dice lo que rinde un repartidor promedio, pero el promedio incluye a los que ya
+# traen trabajo encima; el que esta parado y lejos no puede aspirar a eso, y si se
+# lo cobra rechaza todo y termina el turno en ceros (era el caso del seed 1007).
+# ponytail: 0.5 salio de barrer el parametro; medido en 300 seeds contra x1.0 da
+# +$8.9 por turno, 3.4 veces el error. Si se recalibra el mundo, volver a barrerlo.
+DESCUENTO_PARADO = 0.5
 
 
 def politica_nuez(
@@ -32,14 +40,16 @@ def politica_nuez(
     # reordenadas de la mejor forma. Si va de paso, casi nada.
     nuevas = [
         Parada("pickup", i_pick, o.id, o.t_aparece + o.t_prep),
-        Parada("dropoff", i_drop, o.id),
+        Parada("dropoff", i_drop, o.id, peso_kg=o.peso_kg, volumen_l=o.volumen_l),
     ]
     nueva_ruta, propios = ruteo.costo_marginal(pos, ruta, nuevas, hora, est.t)
     _, cola = ruteo.mejor_ruta(pos, ruta, hora, est.t)
-    neto = o.pago * o.surge - rutas.km(i_pick, i_drop) * COSTO_KM[cfg.vehiculo]
+    neto = o.pago * o.surge - rutas.km(i_pick, i_drop) * seguridad.VEHICULOS[cfg.vehiculo].costo_km
 
     # El costo de oportunidad: lo que rinden esos minutos normalmente.
     precio = valor.precio_del_tiempo(est.t_restante - cola, propios)
+    if not ruta:
+        precio *= DESCUENTO_PARADO
 
     terminos = {
         "pago_neto": round(neto, 1),
@@ -47,28 +57,44 @@ def politica_nuez(
         "por_minuto": round(neto / max(propios, 1), 2),
         "precio_tiempo": round(precio, 1),
         "ventaja": round(neto - precio, 1),
+        "parado": float(not ruta),
     }
 
     def no(razon: str, restriccion=None):
         return None, Decision(est.t, o.id, "saltar", terminos, razon, restriccion)
 
-    # Un pedido ya recogido sigue ocupando lugar en la ruta hasta entregarlo.
-    en_vuelo = {p.oferta_id for p in ruta if p.oferta_id}
-    if len(en_vuelo) >= CAPACIDAD:
-        return no("Ya traigo la mochila llena.", "mochila_llena")
-    if not es_segura(rutas.ZONA_DE[i_drop], hora):
-        return no(f"No te mando a {rutas.ZONA_DE[i_drop]} a esta hora.", "zona_insegura")
-    # El regreso se mide desde la ULTIMA parada de la ruta reordenada, no desde
-    # este pedido: al agrupar, el destino de este puede quedar a media ruta.
-    if nueva_ruta:
-        regreso = rutas.minutos(nueva_ruta[-1].punto, ancla, hora)
-        if cola + propios + regreso > est.t_restante - cfg.margen_min:
-            return no("No alcanzas a volver a tiempo para tu clase.", "regreso_infactible")
+    # LAS CINCO RESTRICCIONES, todas en seguridad.py. Un pedido ya recogido sigue
+    # ocupando lugar en la ruta hasta entregarlo, por eso la carga se mide sobre
+    # los dropoff pendientes y no sobre la mochila. El regreso se mide desde la
+    # ULTIMA parada de la ruta reordenada: al agrupar, este destino puede quedar
+    # a media ruta y medirlo desde el suyo rechazaria pedidos que si se alcanzan.
+    fin = nueva_ruta[-1].punto if nueva_ruta else i_drop
+    # El regreso se recorre AL FINAL, no ahora: a las 14:00 el mapa miente sobre
+    # como estara a las 15:10. Medirlo con la hora actual es como llega tarde el
+    # repartidor con la cuenta cuadrada.
+    # ponytail: ruteo.duracion todavia usa una sola hora para toda la ruta; el
+    # tramo de regreso es el que de verdad muerde porque es el mas tardio.
+    hora_fin = (cfg.hora_inicio + int(est.t + cola + propios) // 60) % 24
+    bloqueo = seguridad.revisar(
+        vehiculo=cfg.vehiculo,
+        hora=hora,
+        zona_dropoff=rutas.ZONA_DE[i_drop],
+        minutos_manejando=est.minutos_manejando,
+        carga_kg=sum(p.peso_kg for p in ruta if p.tipo == "dropoff") + o.peso_kg,
+        carga_l=sum(p.volumen_l for p in ruta if p.tipo == "dropoff") + o.volumen_l,
+        pedidos_en_vuelo=len({p.oferta_id for p in ruta if p.oferta_id}) + 1,
+        minutos_para_terminar=cola + propios + rutas.minutos(fin, ancla, hora_fin),
+        minutos_de_turno=est.t_restante - cfg.margen_min,
+    )
+    if bloqueo:
+        return no(bloqueo[1], bloqueo[0])
 
-    # LA linea. Todo lo demas es igual al baseline.
+    # LA linea. Lo unico que se compra con dinero, y por eso lleva reservation_wage.
     if neto < precio + MARGEN:
         return no(
-            f"Esos {propios:.0f} minutos rinden ${precio:.0f} normalmente, y este paga ${neto:.0f}."
+            f"Esos {propios:.0f} minutos rinden ${precio:.0f} normalmente, "
+            f"y este paga ${neto:.0f}.",
+            "reservation_wage",
         )
 
     return nueva_ruta, Decision(

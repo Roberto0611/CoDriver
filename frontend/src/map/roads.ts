@@ -1,5 +1,5 @@
-import type { Feature, FeatureCollection } from 'geojson'
-import type { GeoJSONSource, Map as MLMap } from 'maplibre-gl'
+import type { FeatureCollection } from 'geojson'
+import type { Map as MLMap } from 'maplibre-gl'
 import { isJsonResponse, nearestZones, zonaCentrosFromGeoJSON, type LngLat } from '../lib/zones'
 
 import { addRoadLayers } from './layers'
@@ -25,10 +25,10 @@ export function createRoadLoader(map: MLMap, onCount: (edges: number) => void) {
         const res = await fetch(`/mty_edges_${zona}.json`)
         if (!isJsonResponse(res)) continue
         const data = (await res.json()) as FeatureCollection
-        
+
         // Agregar fuente y capas exclusivas para esta zona de forma independiente
         addRoadLayers(map, zona, data)
-        
+
         totalEdges += data.features.length
         onCount(totalEdges)
       }
