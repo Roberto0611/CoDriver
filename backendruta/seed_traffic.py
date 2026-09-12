@@ -2,17 +2,13 @@
 minuto a minuto para Monterrey entre las 14:00 y las 16:00, incluyendo el incidente
 crítico a las 14:35 para la demostración del agente.
 """
-import random
-from datetime import datetime, date, time
-import logging
-from typing import List, Dict, Any
 
-from backendruta.database import (
-    init_db,
-    save_traffic_batch,
-    save_incident,
-    is_connected
-)
+import logging
+import random
+from datetime import date, datetime, time
+from typing import Any
+
+from backendruta.database import init_db, save_traffic_batch
 
 logger = logging.getLogger("seed_traffic")
 logging.basicConfig(level=logging.INFO)
@@ -61,7 +57,7 @@ AVENIDAS_MTY = {
 def generar_datos_simulacion():
     """Genera 120 minutos de tráfico (14:00 - 16:00) con fluctuaciones aleatorias leves."""
     hoy = date.today()
-    registros: List[Dict[str, Any]] = []
+    registros: list[dict[str, Any]] = []
 
     # Iterar cada minuto de 14:00 a 16:00 (121 minutos)
     for total_minutos in range(14 * 60, 16 * 60 + 1):
@@ -73,11 +69,11 @@ def generar_datos_simulacion():
         for calle, coords in AVENIDAS_MTY.items():
             # Tráfico base fluido a moderado
             base_retraso = 1.0 if "Gonzalitos" not in calle else 1.3
-            
+
             # Ruido aleatorio (baja sensibilidad)
             ruido = random.uniform(0.0, 0.4)
             factor_retraso = round(base_retraso + ruido, 2)
-            
+
             # Velocidad y delay en base al factor
             velocidad = int(50 / factor_retraso)
             delay = int((factor_retraso - 1.0) * 120)  # Delay base
@@ -86,23 +82,27 @@ def generar_datos_simulacion():
             if factor_retraso > 1.5:
                 motivo = "Tráfico pesado"
 
-            registros.append({
-                "tiempo": dt,
-                "hora": hora_str,
-                "calle_nombre": calle,
-                "factor_retraso": factor_retraso,
-                "delay_segundos": delay,
-                "velocidad_kmh": velocidad,
-                "motivo": motivo,
-                "coords": coords
-            })
+            registros.append(
+                {
+                    "tiempo": dt,
+                    "hora": hora_str,
+                    "calle_nombre": calle,
+                    "factor_retraso": factor_retraso,
+                    "delay_segundos": delay,
+                    "velocidad_kmh": velocidad,
+                    "motivo": motivo,
+                    "coords": coords,
+                }
+            )
 
     # Guardar en lotes de 100 registros
     logger.info(f"Guardando {len(registros)} registros de tráfico base (random)...")
     for i in range(0, len(registros), 100):
-        save_traffic_batch(registros[i:i + 100])
+        save_traffic_batch(registros[i : i + 100])
 
-    logger.info("Población de datos base completada exitosamente. (Incidentes se inyectarán vía API).")
+    logger.info(
+        "Población de datos base completada exitosamente. (Incidentes se inyectarán vía API)."
+    )
 
 
 def seed_all():

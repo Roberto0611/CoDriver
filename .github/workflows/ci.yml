@@ -76,6 +76,14 @@ jobs:
         working-directory: frontend
         run: npm test
 
+  contract:
+    name: Contract Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: contract_snapshot.json y contract.ts al dia con contrato.py
+        run: python3 scripts/contract_codegen.py --check
+
   lines:
     name: File Length Check
     runs-on: ubuntu-latest
