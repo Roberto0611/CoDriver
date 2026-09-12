@@ -1,6 +1,6 @@
 import type { FeatureCollection } from 'geojson'
 import type { ExpressionSpecification, Map as MLMap } from 'maplibre-gl'
-import { ROAD, ROUND, ROUTE_CASING, ROUTE_COLOR } from './style'
+import { ROAD, ROUND } from './style'
 
 const EMPTY = { type: 'FeatureCollection' as const, features: [] }
 
@@ -108,6 +108,28 @@ export function addRouteLayers(map: MLMap) {
     source: 'route',
     filter: ['==', ['get', 'agent'], 'ai'],
     paint: { 'line-color': '#f5d0fe', 'line-width': zoomWidth(9, 2.5, 14, 5) },
+    layout: ROUND,
+  })
+
+  // Agente Oráculo (Distancia más corta) - Línea Dorada/Amarilla con Dash
+  map.addLayer({
+    id: 'route-oracle-glow',
+    type: 'line',
+    source: 'route',
+    filter: ['==', ['get', 'agent'], 'oracle'],
+    paint: { 'line-color': '#ca8a04', 'line-width': zoomWidth(9, 5, 14, 10), 'line-opacity': 0.3 },
+    layout: ROUND,
+  })
+  map.addLayer({
+    id: 'route-oracle-line',
+    type: 'line',
+    source: 'route',
+    filter: ['==', ['get', 'agent'], 'oracle'],
+    paint: { 
+      'line-color': '#fef08a', 
+      'line-width': zoomWidth(9, 2, 14, 4),
+      'line-dasharray': [2, 2]
+    },
     layout: ROUND,
   })
 }

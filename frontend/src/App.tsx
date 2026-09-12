@@ -38,7 +38,10 @@ function App() {
   const markersRef = useRef<{
     origin: maplibregl.Marker | null
     destination: maplibregl.Marker | null
-  }>({ origin: null, destination: null })
+    classicCar: maplibregl.Marker | null
+    aiCar: maplibregl.Marker | null
+    oracleCar?: maplibregl.Marker | null
+  }>({ origin: null, destination: null, classicCar: null, aiCar: null, oracleCar: null })
   const [loading, setLoading] = useState(true)
   const [loadingRoute, setLoadingRoute] = useState(false)
   const [stats, setStats] = useState<GraphStats | null>(null)
@@ -317,6 +320,29 @@ function App() {
                         ? `[${currentTime}] ⚠️ Traffic ahead. Rerouting via optimal path.` 
                         : `[${currentTime}] Analyzing traffic... Current path is optimal.`}
                     </code>
+                  </div>
+                </div>
+              )}
+
+              {/* Oracle Agent Card */}
+              {route.oracle && (
+                <div className="glass-card agent-card oracle-agent">
+                  <div className="agent-header">
+                    <span className="agent-icon">👁️</span>
+                    <span className="agent-name">Oracle Algorithm</span>
+                  </div>
+                  <div className="agent-stats">
+                    <div className="stat-box">
+                      <span className="stat-value">{route.oracle.timeMin}</span>
+                      <span className="stat-label">mins</span>
+                    </div>
+                    <div className="stat-box">
+                      <span className="stat-value">{route.oracle.lengthKm}</span>
+                      <span className="stat-label">km</span>
+                    </div>
+                  </div>
+                  <div className="agent-log">
+                    <code>[{currentTime}] Absolute shortest distance found.</code>
                   </div>
                 </div>
               )}

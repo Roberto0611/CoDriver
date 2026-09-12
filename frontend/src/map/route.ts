@@ -13,10 +13,20 @@ export interface RouteInfo {
 export interface VSInfo {
   classic: RouteInfo | null
   ai: RouteInfo | null
+  oracle: RouteInfo | null
+}
+
+interface RouteProperties {
+  agent: string
+  from: string
+  to: string
+  length_km: number
+  time_min: number
+  nodes: number
 }
 
 interface RouteFeature {
-  properties: RouteInfo
+  properties: RouteProperties
   geometry: { coordinates: [number, number][] }
 }
 
@@ -42,6 +52,7 @@ export async function fetchRoute(
 export function routeInfoOf(data: RouteGeoJSON): VSInfo {
   const classicFeature = data.features.find(f => f.properties.agent === 'classic')
   const aiFeature = data.features.find(f => f.properties.agent === 'ai')
+  const oracleFeature = data.features.find(f => f.properties.agent === 'oracle')
 
   const toInfo = (f: RouteFeature | undefined): RouteInfo | null => {
     if (!f) return null
@@ -49,19 +60,20 @@ export function routeInfoOf(data: RouteGeoJSON): VSInfo {
       agent: f.properties.agent,
       from: f.properties.from,
       to: f.properties.to,
-      lengthKm: f.properties.length_km || f.properties.lengthKm,
-      timeMin: f.properties.time_min || f.properties.timeMin,
+      lengthKm: f.properties.length_km,
+      timeMin: f.properties.time_min,
       nodes: f.properties.nodes
     }
   }
 
   return {
     classic: toInfo(classicFeature),
-    ai: toInfo(aiFeature)
+    ai: toInfo(aiFeature),
+    oracle: toInfo(oracleFeature)
   }
 }
 
-function marker(kind: 'origin' | 'destination' | 'classic' | 'ai', label: string) {
+function marker(kind: 'origin' | 'destination' | 'classic' | 'ai' | 'oracle', label: string) {
   const el = document.createElement('div')
   if (kind === 'origin') {
     el.className = 'marker'
@@ -73,6 +85,9 @@ function marker(kind: 'origin' | 'destination' | 'classic' | 'ai', label: string
   } else if (kind === 'ai') {
     el.className = 'marker is-ai-car'
     el.innerHTML = '🧠' // AI Agent
+  } else if (kind === 'oracle') {
+    el.className = 'marker is-oracle-car'
+    el.innerHTML = '👁️' // Oracle Agent
   }
 
   return new maplibregl.Marker({ element: el }).setPopup(
@@ -85,7 +100,7 @@ export function drawRoute(
   map: maplibregl.Map,
   data: RouteGeoJSON,
   info: VSInfo,
-  markers: { origin: maplibregl.Marker | null; destination: maplibregl.Marker | null; classicCar: maplibregl.Marker | null; aiCar: maplibregl.Marker | null }
+  markers: { origin: maplibregl.Marker | null; destination: maplibregl.Marker | null; classicCar: maplibregl.Marker | null; aiCar: maplibregl.Marker | null; oracleCar?: maplibregl.Marker | null }
 ) {
   const source = map.getSource('route') as maplibregl.GeoJSONSource | undefined
   source?.setData(data as unknown as GeoJSON)
@@ -94,17 +109,19 @@ export function drawRoute(
   markers.destination?.remove()
   markers.classicCar?.remove()
   markers.aiCar?.remove()
+  if (markers.oracleCar) markers.oracleCar.remove()
 
   const bounds = new maplibregl.LngLatBounds()
 
   const classicFeature = data.features.find(f => f.properties.agent === 'classic')
   const aiFeature = data.features.find(f => f.properties.agent === 'ai')
+  const oracleFeature = data.features.find(f => f.properties.agent === 'oracle')
 
   if (classicFeature && info.classic) {
     const coords = classicFeature.geometry.coordinates
     markers.origin = marker('origin', info.classic.from).setLngLat(coords[0]).addTo(map)
     markers.destination = marker('destination', info.classic.to).setLngLat(coords[coords.length - 1]).addTo(map)
-    // Place classic car somewhere on the route or at origin
+    // Place classic car
     markers.classicCar = marker('classic', 'Agente Clásico').setLngLat(coords[0]).addTo(map)
     coords.forEach((c) => bounds.extend(c))
   }
@@ -113,6 +130,13 @@ export function drawRoute(
     const coords = aiFeature.geometry.coordinates
     // Place AI car
     markers.aiCar = marker('ai', 'Nuez IA').setLngLat(coords[0]).addTo(map)
+    coords.forEach((c) => bounds.extend(c))
+  }
+
+  if (oracleFeature && info.oracle) {
+    const coords = oracleFeature.geometry.coordinates
+    // Place Oracle car
+    markers.oracleCar = marker('oracle', 'Oráculo').setLngLat(coords[0]).addTo(map)
     coords.forEach((c) => bounds.extend(c))
   }
 
