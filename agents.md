@@ -59,6 +59,41 @@ Gemini **no elige la orden**. Gemini decide cosas como *"cerraron Constitución 
 penalización de cruce de río durante 20 min"* y emite el JSON con el que el motor recalcula.
 Determinista, auditable, sin alucinación de dinero.
 
+### Diagrama
+
+```mermaid
+flowchart TB
+    subgraph OFF["OFFLINE — antes del demo"]
+        SIM["Simulador de turnos<br/>seeds 1..300"] --> LOG[("TigerData<br/>tabla decisiones")]
+        LOG --> AGG["time_bucket 15 min<br/>AVG ganancia futura"]
+        AGG --> V[["V.json<br/>tabla de valor"]]
+    end
+
+    subgraph LIVE["EN VIVO — el turno"]
+        STREAM["Stream de ofertas<br/>seed del juez"] --> ENG
+        GRAFO[("Grafo OSMnx + matrices<br/>precacheadas a disco")] --> ENG
+        ENG{{"MOTOR<br/>costo de oportunidad<br/>+ batching exacto"}} --> DEC["Aceptar / Saltar / Agrupar"]
+        DEC --> UI["UI side-by-side<br/>MapLibre + contadores"]
+        DEC --> VOZ["ElevenLabs<br/>voz bidireccional"]
+        VOZ -.->|preferencias del repartidor| ENG
+        DEC --> TEL[("TigerData<br/>telemetría del turno")]
+    end
+
+    subgraph JUI["CAPA DE JUICIO — Gemini"]
+        MUNDO["Clima, eventos masivos,<br/>cierres viales"] --> GEM["Gemini Flash<br/>salida estructurada"]
+        GEM -.->|JSON de pesos y multiplicadores| ENG
+        TEL --> REP["Reporte contrafactual<br/>al cierre del turno"]
+        GEM --> REP
+    end
+
+    V ==> ENG
+    REP --> SOL["Solana devnet<br/>reputación portable"]
+```
+
+**Lo que el diagrama tiene que dejar claro:** la flecha gruesa (`V.json → MOTOR`) es de disco, no
+de red. Gemini y el mundo exterior solo entran por líneas punteadas — **ajustan pesos, nunca
+deciden dinero**. Si Gemini se cae a media demo, el agente sigue corriendo.
+
 ---
 
 ## 4. El motor: costo de oportunidad
@@ -100,6 +135,27 @@ Quedan 480 min. Pedido: paga $120, cuesta 60 min.
 Mismo momento. Pedido: paga $90, cuesta 60 min.
   $90 < $110  ->  SALTAR
 ```
+
+### El flujo completo de una oferta
+
+```mermaid
+flowchart TD
+    A["Llega una oferta"] --> B{"¿zona segura<br/>a esta hora?"}
+    B -->|no| R["SALTAR<br/>restricción dura, no se negocia"]
+    B -->|si| C["Costo marginal en minutos:<br/>ruta CON el pedido − ruta SIN él"]
+    C --> D["Precio de esos minutos:<br/>V(restante) − V(restante − costo)"]
+    D --> E["Pago neto:<br/>pago × surge − gasolina − fatiga"]
+    E --> F{"¿pago neto ><br/>precio del tiempo?"}
+    F -->|si| G["ACEPTAR<br/>y recalcular la ruta"]
+    F -->|no| H["SALTAR<br/>esos minutos rinden más esperando"]
+    G --> L[("log de la decisión<br/>con todos sus términos")]
+    H --> L
+    R --> L
+```
+
+El log de cada decisión guarda **todos los términos**, no solo el resultado. De ahí salen las
+tres cosas que importan: lo que dice la voz, el reporte contrafactual, y la respuesta cuando un
+juez pregunta "¿por qué?".
 
 ### La parte bonita (va en el demo)
 
@@ -250,6 +306,88 @@ preferencia y la mete en la función objetivo. Voz como canal de **entrada**, no
 Streaming de baja latencia para que se sienta vivo. Que suene a norteño, no a locutor de
 aeropuerto.
 
+### TigerData (Timescale) — el store operacional
+
+Postgres con series de tiempo. El proyecto **es** una serie de tiempo: eventos del turno,
+decisiones, ganancia acumulada, surge por hora y zona. `time_bucket('15 minutes')` es
+literalmente la cubeta que ya diseñamos — el fit no está forzado.
+
+```sql
+-- La tabla de valor, mantenida sola conforme corre el simulador.
+CREATE MATERIALIZED VIEW valor_por_cubeta
+WITH (timescaledb.continuous) AS
+SELECT time_bucket('15 minutes', t_restante) AS cubeta,
+       zona,
+       AVG(ganancia_futura) AS valor_esperado
+FROM decisiones
+GROUP BY 1, 2;
+```
+
+**Base única del proyecto.** Es Postgres: ya la necesitamos para el estado del demo, no es una
+pieza añadida. Corre local en Docker, latencia de milisegundos, sin cuenta ni red.
+Costo: ~2h.
+
+**Relación con Snowflake:** hacen el mismo trabajo. Montar las dos es dos bases para una sola
+tarea. Si se quieren ambos tracks, el único reparto honesto es:
+
+| | Rol |
+|---|---|
+| **TigerData** | Operacional / en vivo — telemetría del turno, contadores del demo, agregados incrementales |
+| **Snowflake** | Batch / offline — corpus de 300+ corridas, barridos de parámetros, contrafactual |
+
+Cuesta ~3h extra. Solo si alguien queda libre después de la hora 24.
+
+### Vultr — deploy y control de la caja del demo
+
+Un VM + `docker compose` (app + Timescale). **~1 hora**, y resuelve un problema que ya
+teníamos: control total del entorno del demo, todo precacheado, sin depender del wifi.
+
+Si se toma Vultr, **Cloud Run sale del stack**. Una sola caja. Y siempre con el fallback de
+correr todo en localhost por si el server falla a media presentación.
+
+No pelea con el track de Gemini (ese es por uso de la API, no por hosting).
+**No usar Vultr Cloud Inference** — competiría contra nuestro propio track de Gemini.
+
+### Snowflake — la función de valor ES una query
+
+No es analítica de adorno: **la tabla de valor del agente es un `GROUP BY`.**
+
+```sql
+-- Esto es el cerebro del agente, calculado en Snowflake.
+SELECT
+    FLOOR(minutos_restantes / 15) * 15  AS cubeta,
+    zona,
+    AVG(ganancia_futura)                AS valor_esperado,
+    COUNT(*)                            AS n
+FROM decisiones
+GROUP BY 1, 2
+```
+
+300 corridas × ~200 decisiones = ~60k filas; con barrido de parámetros (umbral de riesgo, peso
+de fatiga, tamaño de mochila) llega a millones. Eso ya es un dataset analítico real.
+
+**Pitch del track:** *"Snowflake no guarda nuestros logs — Snowflake calcula la política.
+La función de valor del agente es una consulta."*
+
+Usos adicionales, gratis:
+- **Barrido de parámetros:** "¿qué umbral de riesgo maximiza ingreso sin cruzar zona roja?"
+  → una query con `GROUP BY parametro`, no 40 corridas manuales.
+- **Contrafactual del cierre:** las órdenes rechazadas y cuánto habrían rendido → query, y su
+  resultado es lo que narra Gemini.
+- **Marketplace:** revisar listings gratuitos de clima antes de casarse con Open-Meteo.
+
+**Regla que no se rompe: Snowflake nunca toca el loop de decisión en vivo.** Un round-trip de
+300 ms en el momento del ping arruina el demo y mete un punto de falla con el wifi.
+
+```
+Offline (antes del demo):  simulador -> Snowflake -> query -> V.json
+En vivo:                   el agente lee V.json de disco
+```
+
+Es honesto y es como se hace en producción: entrenamiento en Snowflake, inferencia local.
+**Costo: ~3 horas** (`write_pandas`, una query, exportar JSON). **No usar Cortex** — compite con
+nuestro propio track de Gemini y diluye los dos.
+
 ### Solana — reputación portable
 
 Ángulo honesto que resuelve un dolor real: un repartidor con 3,000 entregas en Rappi vale **cero**
@@ -260,27 +398,44 @@ el día que se cambia a DiDi — arranca de nuevo. Registro on-chain de entregas
 Encaja con el "fair, driver-side optimization" que el reto plantea.
 **Devnet, ~150 líneas, timeboxed.** Si Solana se come el sábado, perdimos el track principal.
 
+### Prioridad entre tracks
+
+Perseguir los cuatro es como se pierde el principal. Orden por retorno:
+
+| | Track | Costo | Veredicto |
+|---|---|---|---|
+| 1 | **Gemini** | — | Carga producto: juicio + contrafactual |
+| 2 | **ElevenLabs** | — | Carga producto: es la UI |
+| 3 | **Vultr** | ~1h | Tomarlo. Es el deploy que ya íbamos a hacer |
+| 4 | **TigerData** | ~2h | Tomarlo. Es la base que ya íbamos a necesitar |
+| 5 | **Snowflake** | ~3h | Solo si sobra gente. Duplica a TigerData |
+| 6 | **Solana** | ~4h | El más pegado con cinta. Primero que se corta |
+
+Vultr + TigerData no son add-ons: **son nuestra infraestructura**. Salen más baratos que
+Snowflake + Solana juntos y se ven menos oportunistas ante un juez — huele a cazador de tracks
+y eso sí resta.
+
 ---
 
 ## 8. Stack
 
 ```
 Simulador + Agente   ->  Python, un solo proceso
+Store                ->  TigerData / TimescaleDB (Postgres) en Docker
 API / eventos vivos  ->  FastAPI + WebSocket
 Front del demo       ->  HTML + MapLibre GL (vanilla JS, sin build step)
-Deploy               ->  Google Cloud Run
+Deploy               ->  Vultr: un VM + docker compose (fallback: localhost)
 ```
 
 **Laravel queda fuera.** Es nuestra zona de confort y por eso es la trampa: no hay CRUD, no hay
 auth, no hay admin. Meter PHP obliga a un puente PHP↔Python para las matemáticas. Si alguien
 insiste, que haga la landing del proyecto.
 
-**Por qué Cloud Run y no funciones serverless:** el simulador tiene **estado y un reloj
-corriendo** — un turno es una máquina de estados de 8 horas simuladas. Partirlo en funciones sin
-estado cuesta un Redis, un orquestador y seis horas de debugging por un cold start que arruina el
-demo en vivo. Cloud Run da lo que de verdad queremos de serverless (contenedor, escala a cero,
-`gcloud run deploy`, HTTPS gratis) conservando un proceso con memoria. Y es Google → redondea el
-pitch del track de Gemini.
+**Por qué NO funciones serverless:** el simulador tiene **estado y un reloj corriendo** — un
+turno es una máquina de estados de 8 horas simuladas. Partirlo en funciones sin estado cuesta un
+Redis, un orquestador y seis horas de debugging por un cold start que arruina el demo en vivo.
+Queremos un contenedor con un proceso que recuerda. Cloud Run servía; un VM de Vultr sirve igual,
+cuesta lo mismo de montar y además gana track y da control total de la caja del demo.
 
 **Dependencias (mínimas):**
 
@@ -289,6 +444,8 @@ pitch del track de Gemini.
 | `osmnx` | Grafo de Monterrey + tiempos de viaje |
 | `fastapi` + `websockets` | Stream al front |
 | `ortools` | Solo el fallback de ruteo con >10 paradas |
+| `psycopg` | TigerData/Timescale — store operacional y agregados |
+| `snowflake-connector-python[pandas]` | Opcional: batch offline si se toma también ese track |
 | `google-genai` | Capa de juicio |
 | `elevenlabs` | Voz bidireccional |
 | `solders` / `solana-py` | Devnet |
@@ -317,7 +474,7 @@ El reto dicta el formato. Obedecerlo al pie de la letra y subirle:
 |---|---|
 | 0–6h | Simulador: grafo OSMnx de MTY, stream de órdenes con seed, surge, reloj de turno |
 | 6–10h | Baseline greedy + métrica. **Ya hay un número que batir.** |
-| 10–18h | Tabla de valor + costo de oportunidad + batching. Aquí nacen los Results. |
+| 10–18h | Tabla de valor + costo de oportunidad + batching. Aquí nacen los Results. (Logs a Snowflake y la query de la tabla de valor caen aquí, ~3h del bloque.) |
 | 18–24h | Capa Gemini: eventos + explicaciones estructuradas |
 | 24–30h | Voz ElevenLabs + UI side-by-side |
 | 30–33h | Solana devnet (timeboxed; se corta sin piedad) |
