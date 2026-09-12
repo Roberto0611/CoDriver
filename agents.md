@@ -6,7 +6,7 @@ Documento de contexto del proyecto. Lo que decidimos, por qué, y cómo se traba
 
 ## 0. Estado actual — leer esto primero
 
-**Última actualización: 12 de septiembre de 2026.** Rama de trabajo: `feature/turnos-grabados`.
+**Última actualización: 12 de septiembre de 2026 (tarde).** Rama de trabajo: `main`.
 
 **El proyecto en tres renglones:** un estudiante tiene una ventana libre entre clases y quiere
 sacar dinero repartiendo comida. Nuestro agente decide qué aceptar y qué no, le gana a un
@@ -48,10 +48,11 @@ python comparar.py 200 --duracion 480
 
 Son resultados del mundo sintético con esa configuración, no una promesa para cualquier
 vehículo u horario. Las pruebas cubren además ventanas de 65 y 137 min, tres vehículos y
-turnos de 8 horas desde las 8, 14 y 21 h. Verificación local: 166 tests Python pasan (1 de voz
+turnos de 8 horas desde las 8, 14 y 21 h. Verificación local: 177 tests Python pasan (1 de voz
 en vivo omitido), 11 tests de front pasan, lint/formato/tipos/contrato/límite de líneas y build
-en verde. El endpoint y el JSONL oficial también pasan su validador. Ya corren los
-cinco agentes online y el `Oracle` offline con los mismos seeds de REPORTE.
+en verde. El endpoint y el JSONL oficial también pasan su validador, incluido el log con los
+campos de `explain_decision`. Ya corren los cinco agentes online y el `Oracle` offline con los
+mismos seeds de REPORTE.
 
 ### Qué existe y qué falta
 
@@ -59,8 +60,8 @@ cinco agentes online y el `Oracle` offline con los mismos seeds de REPORTE.
 |---|---|---|
 | **0** | El mundo y el rival | ✅ |
 | **1** | **EL NÚMERO** — tabla de valor + política de Nuez | ✅ **+29.2% en seeds no vistos** |
-| **1b** | Conformidad con el spec oficial de Infosys | 🟡 duración, restricciones, `/decide` + JSONL, cinco agentes online y Oracle ✅; faltan modo degradado y shocks |
-| **2** | Hacerlo visible — replay y pantalla partida | parcial: turnos grabados ✅, panel de decisión ❌ |
+| **1b** | Conformidad con el spec oficial de Infosys | 🟡 duración, restricciones, `/decide` + JSONL, cinco agentes online, Oracle y `explain_decision` ✅; faltan modo degradado y shocks |
+| **2** | Hacerlo visible — replay y pantalla partida | 🟡 los JSON grabados existen, pero **el front todavía no los reproduce** (hoy hace una carrera de rutas A→B). Brief listo en [`docs/front-turno-grabado.md`](docs/front-turno-grabado.md) |
 | **3** | Hacerlo hablar — Gemini + ElevenLabs | el equipo lo trae aparte |
 | **4** | Tracks baratos y ensayo | sin empezar |
 
@@ -92,7 +93,10 @@ Esta sección es para quien retome el proyecto sin haber estado en la conversaci
 | `nuez.py` | **La política del agente.** Costo de oportunidad en vez de umbral fijo |
 | `comparar.py` | El arnés de medición. **Aquí sale EL NÚMERO** |
 | `backendruta/courier_api.py` | Adaptador del protocolo: sesión, `/decide`, overrides, fechas ISO y zonas enteras |
+| `backendruta/courier_format.py` | Traduce una `Decision` del motor a la respuesta del spec: razón en inglés bajo 40 palabras, `economics` y eventos del JSONL |
+| `backendruta/explain.py` | **`explain_decision`.** Arma `inputs` + `alternatives_considered` al decidir, los guarda en el evento `decision` y los busca por `order_id` (en memoria o leyendo el JSONL) |
 | `backendruta/event_log.py` | Escritura local del JSONL cronológico; no depende de red ni TigerData |
+| `docs/front-turno-grabado.md` | Brief para el front: formato de los turnos grabados y qué construir en el mapa |
 | `courier/` | El spec oficial que mandó Infosys. Material ajeno: se lee, no se toca (excluido de ruff/mypy) |
 
 ### Comandos
@@ -133,7 +137,9 @@ Los demás, cuando toquen: `python seguridad.py` corre las cinco restricciones;
 `python scripts/engine_baseline.py --write` mueve el ratchet a propósito;
 `python scripts/contract_codegen.py --write` tras tocar `contrato.py`;
 `python data/export_turno.py` regraba los turnos que reproduce el front;
-`python "courier/validate_format (2).py" --event-log mi_turno.jsonl` valida el formato.
+`python "courier/validate_format (2).py" --event-log mi_turno.jsonl` valida el formato;
+`python -m backendruta.explain ORD-0042 --log mi_turno.jsonl` explica una decisión sin nada
+corriendo (con el servidor arriba: `GET /explain/{order_id}`).
 
 ### Lo que ya se midió y NO funcionó — no repetirlo
 
@@ -177,9 +183,60 @@ el porcentaje**: un agente brillante que no cumple el esquema pierde puntos por 
 | 3 ✅ | **Turnos de 8 horas y duración variable** | Tabla larga offline, CLI configurable, velocidad por vehículo y conversión de `shift_hours` en `/shift/start` |
 | 4 ✅ | **Endpoint `/decide` + log de eventos en su JSONL** | Adaptador separado, overrides aplicados, razones inglesas bajo 40 palabras y JSONL local. Validador oficial en verde para endpoint y log |
 | 5 ✅ | **Los cinco baselines + el Oracle** | `oracle.py` conoce el stream completo offline, explora agendas sin apilar y escoge el mejor resultado reproducible frente a los cinco agentes online |
-| 6 🟡 | `explain_decision` ✅ + modo degradado ❌ | `GET /explain/{order_id}` y `python -m backendruta.explain ORD --log x.jsonl` leen del JSONL, no re-deciden. Falta el degradado, que necesita primero una capa de estrategia con modelo. Los jueces van a invalidar la credencial del modelo a media corrida. Hay que seguir decidiendo con la última estrategia y **señalar `degraded: true`**. Un fallback silencioso es crédito parcial; un crash es reprobado |
-| 7 | Shocks en vivo (`surge`, `closure`, `rain`, `delay`) | El brief exige al menos uno durante el demo |
-| 8 | Panel de decisión en el front | Judgment sigue en cero del lado visual |
+| 6a ✅ | **`explain_decision`** | `GET /explain/{order_id}` (alias `/explain_decision/{order_id}`) responde en ms desde el registro; si el proceso se reinició, lee el JSONL. Nunca re-decide |
+| 6b | **Modo degradado** | Los jueces van a invalidar la credencial del modelo a media corrida. Hay que seguir decidiendo con la última estrategia y **señalar `degraded: true`**. Un fallback silencioso es crédito parcial; un crash es reprobado. **Bloqueado por una decisión del equipo**, ver "Modo degradado: diseño propuesto" abajo |
+| 7 | Shocks en vivo (`surge`, `closure`, `rain`, `delay`) | El brief exige al menos uno durante el demo. `closure` no aparece hoy en ningún `.py` |
+| 8 | Reproducir el turno en el front + contadores + panel de decisión | Judgment sigue en cero del lado visual. Es trabajo solo de front, sobre los JSON grabados: [`docs/front-turno-grabado.md`](docs/front-turno-grabado.md) |
+
+### `explain_decision`: qué quedó
+
+- **Se arma al decidir, no al preguntar.** `explain.build` usa los números que el motor ya tenía y
+  los guarda en el evento `decision` del JSONL: `inputs` (posición, tiempo restante, minutos para
+  terminar, oferta, límites del vehículo, estrategia activa) y `alternatives_considered`.
+- **Una alternativa con números por cada tipo de decisión.** Aceptada: "SKIP and keep waiting" y
+  por qué perdió. Saltada por dinero: "ACCEPT" con cuánto le faltó. Saltada por seguridad: la
+  restricción con sus números (p. ej. *95 min contra el límite de 90*) **y** lo que habría dicho la
+  cuenta de dinero sola: *"Pay math alone says ACCEPT, but safety constraints… cannot be bought
+  with money."* Esa segunda línea es la que conviene enseñar al juez.
+- **`nuez.py` guarda tres términos más** (`minutos_ruta_actual`, `minutos_para_terminar`,
+  `minutos_de_turno`) para mostrar la cuenta del fin de turno. No cambian ninguna decisión: el
+  ratchet sigue igual.
+- **Razón de `/decide` sin contradicciones al redondear.** Antes decía *"MXN 26 net is below the
+  MXN 26…"*, y a veces el pedido pagaba **más** que el costo: lo rechazaba el margen mínimo
+  `nuez.MARGEN` ($1), que la frase no mencionaba. Ahora va con un decimal y nombra ese margen.
+- **Tests:** `tests/test_explain.py`.
+
+### Modo degradado: diseño propuesto (falta decidir)
+
+**El hueco:** en el backend no existe ningún modelo. `CourierService.degraded` existe pero nunca
+cambia, porque no hay nada que se pueda caer. Si hoy el juez invalida la credencial, no pasa nada
+y no hay forma de demostrar la recuperación.
+
+**El diseño:**
+
+1. **Un objeto `Estrategia`** con lo que el modelo sí puede mover (`reservation_wage_mxn_hr`,
+   `target_zone`, multiplicadores por zona, `DESCUENTO_PARADO`). Arranca con los valores de hoy,
+   así que el +29.2% no cambia mientras nadie la actualice.
+2. **La ruta rápida solo lee** `self.strategy`. Nunca espera ni llama a red. Todo sigue en `tier1`.
+3. **Un hilo en segundo plano la actualiza** con timeout corto.
+   - Si el modelo responde: reemplaza la estrategia, `degraded = False` y escribe
+     `strategy_update` al JSONL.
+   - Si falla: conserva la anterior, `degraded = True` y escribe `strategy_update` solo al cambiar
+     de estado.
+   - Se recupera solo.
+4. **Leer la credencial de `os.environ` en cada llamada.** Los jueces la invalidan en el entorno
+   del proceso; un cliente creado al arrancar con la llave guardada nunca se enteraría.
+5. **Replay:** las estrategias salen de los `strategy_update` del log, no del modelo.
+6. **Tests con un modelo falso:** uno que tarda 5 s no frena `/decide` (<50 ms); borrar la variable
+   de entorno da `degraded: true` en respuesta y `/shift/status`; restaurarla vuelve a `false`.
+
+**La decisión pendiente:** qué modelo y qué parámetros mueve la capa de estrategia (Gemini lo trae
+el equipo aparte). Tres caminos:
+
+- **Definir la interfaz con un modelo falso** y que el equipo conecte Gemini después. Es el
+  recomendado: el degradado queda demostrable aunque Gemini llegue tarde.
+- **Conectar Gemini ya** con un prompt mínimo.
+- **Esperar** lo que traiga el equipo.
 
 ### Detalles del spec que se olvidan fácil
 
@@ -195,19 +252,22 @@ el porcentaje**: un agente brillante que no cumple el esquema pierde puntos por 
   menos dos como momentos en vivo."** O sea: hay que *provocar* la regla del calor y la del
   descanso frente al juez, no solo tenerlas.
 - **Responder desde el log en menos de 10 segundos** es en sí mismo parte del puntaje. Re-derivarlo
-  en vivo es la respuesta equivocada aunque salga bien.
+  en vivo es la respuesta equivocada aunque salga bien. Ya cubierto por `backendruta/explain.py`.
 
 ### Pendientes chicos pero que se notan
 
-- **El turno grabado del seed 1 quedó feo**: el greedy hace $66 y 1 entrega. Es el golden de
-  regresión, por eso no se cambió, pero **para el demo hay que escoger otros seeds, y de REPORTE**.
-  Se regraban con `python data/export_turno.py <seeds>`.
+- **Los turnos grabados son de TUNEO** (1, 7 y 42), y el del seed 1 quedó feo: el greedy hace $66
+  y 1 entrega. Es el golden de regresión, por eso no se cambió, pero **para el demo hay que
+  escoger otros seeds, y de REPORTE**. Se regraban con `python data/export_turno.py 1 2000 2001 2002`.
+  Incluir el `1`: `turnos.json` se reescribe solo con los seeds que se pasen.
 - **La varianza por turno es enorme** (desviación ~56 puntos porcentuales; el peor turno −83%, el
   mejor +252%). **Un turno animado no es evidencia.** Hay que mostrar la distribución de 50 turnos
   al lado del turno bonito, o el juez tiene razón en no creernos.
-- **El front come ~3 GB de RAM.** Causas: inflado del parse de JSON, el patrón O(n²) de
-  `_roadFeatures.concat` + `setData`, y `INCLUIR_LOCALES = True` en `data/export_geojson.py`. La
-  palanca más barata es esa bandera de una línea.
+- **El front comía ~3 GB de RAM.** La medición es anterior a la carga de calles por zona
+  (`frontend/src/map/roads.ts`): el patrón `_roadFeatures.concat` que se citaba como causa ya no
+  aparece en `src/`. **Medir de nuevo antes de invertirle tiempo.** Si sigue alto, la palanca más
+  barata es `INCLUIR_LOCALES = False` en `data/export_geojson.py`.
+- **La UI actual usa emoji como íconos** (🤖 🧠 ⚔️ 📍 👁️), que `docs/ui-style-guide.md` prohíbe.
 
 ---
 
@@ -883,7 +943,8 @@ Hitos que no se mueven:
 | B8 | ~~**Turnos de 8 h + los tres vehículos con su velocidad**~~ | ✅ `V_480.json`, duración/hora/vehículo por CLI, velocidad aplicada en planificación y recorrido |
 | B9 | ~~**Endpoint `/decide` + log JSONL del spec**~~ | ✅ `/shift/start`, `/decide`, `/shift/status`, `/shift/end`, `/zones`; ambos modos del validador oficial en verde |
 | B10 | ~~**Los cinco baselines + el Oracle**~~ | ✅ `baselines.py` aporta los tres rivales y `oracle.py` el sexto renglón offline. En 200 REPORTE: Nuez $259, Oracle $275, 0 llegadas tarde; `python comparar.py 200 --rivales` los mide |
-| B11 | **`explain_decision`** ✅ + **modo degradado** ❌ | `backendruta/explain.py`: `inputs` + `alternatives_considered` en cada evento `decision`, respuesta en ms. Falta marcar `degraded: true` |
+| B11 | ~~**`explain_decision`**~~ | ✅ `backendruta/explain.py`: `inputs` + `alternatives_considered` en cada evento `decision`, respuesta en ms, también desde un JSONL cerrado |
+| B12 | **Capa de estrategia + modo degradado** | Nunca frena `/decide`, marca `degraded: true` al perder el modelo y se recupera solo. Diseño en §0b |
 | B7 | Contrafactual: qué habría pasado aceptando lo rechazado | Un número y una lista al cierre del turno |
 
 ### Carril C — Front y demo
@@ -892,8 +953,8 @@ Hitos que no se mueven:
 |---|---|---|
 | C1 | **Contrato de eventos WebSocket** | Congelado en la hora 1 |
 | C2 | Pantalla de configuración (ventana, ancla, vehículo, margen) | Cuatro inputs, no una app |
-| C3 | Mapa MapLibre con los dos agentes y sus rutas | Dos motos moviéndose sobre calles reales |
-| C4 | Contadores + panel de decisión con los términos visibles | Al señalar una decisión se ve por qué |
+| C3 | Mapa MapLibre con los dos agentes y sus rutas | Dos motos moviéndose sobre calles reales. **Mapa y calles ✅; falta reproducir `turno_*.json`**, ver [`docs/front-turno-grabado.md`](docs/front-turno-grabado.md) |
+| C4 | Contadores + panel de decisión con los términos visibles | Al señalar una decisión se ve por qué. Los datos ya están en `frames[t].decisiones`; el backend ya expone `GET /explain/{order_id}` |
 | C5 | Botón de seed del juez + botón de evento (surge / cierre) | El juez puede apretarlos él mismo |
 | C6 | Branding Nuez: nombre, SVG, paleta, prompt de personalidad | **3h máximo, en paralelo.** Paleta y tokens ✅ (sección 8b); falta el SVG de la ardilla (Eli) |
 
