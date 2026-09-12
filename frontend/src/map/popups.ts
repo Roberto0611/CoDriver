@@ -12,8 +12,10 @@ export function attachHoverPopups(map: maplibregl.Map) {
 
   map.on('mousemove', (e) => {
     const features = map.queryRenderedFeatures(e.point)
-    const road = features.find(f => f.layer.id.startsWith('roads-') && !f.layer.id.includes('-casing'))
-    
+    const road = features.find(
+      (f) => f.layer.id.startsWith('roads-') && !f.layer.id.includes('-casing')
+    )
+
     if (!road) {
       if (popup.isOpen()) leave()
       return
