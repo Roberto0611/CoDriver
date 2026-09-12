@@ -6,7 +6,8 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from backendruta import courier_api, explain
+from backendruta import courier_api, courier_format, explain
+from contrato import Decision
 from tests.test_courier_api import order, start
 
 
@@ -124,6 +125,24 @@ def test_fin_de_turno_muestra_la_cuenta():
     assert "48.5 min" in alts[0]["rejected_because"]
     assert "10.0 min remain" in alts[0]["rejected_because"]
     assert "says ACCEPT" in alts[1]["rejected_because"]
+
+
+@pytest.mark.parametrize(
+    "accion,pago,precio,esperado",
+    [
+        ("saltar", 26.3, 25.9, "only MXN 0.4 above the MXN 25.9"),
+        ("saltar", 20.0, 25.9, "MXN 20.0 net is below the MXN 25.9"),
+        ("aceptar", 75.1, 3.5, "MXN 75.1 net exceeds the MXN 3.5"),
+    ],
+)
+def test_la_razon_de_decide_no_se_contradice_al_redondear(accion, pago, precio, esperado):
+    terms = {"pago_neto": pago, "precio_tiempo": precio, "minutos": 22.0}
+    decision = Decision(
+        0, "o", accion, terms, "", None if accion == "aceptar" else "reservation_wage"
+    )
+    reason = courier_format.english_reason(decision)
+    assert esperado in reason
+    assert len(reason.split()) <= 40
 
 
 def test_ventaja_bajo_el_minimo_no_dice_cero_abajo():
