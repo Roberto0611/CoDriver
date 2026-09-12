@@ -27,21 +27,25 @@ const zoomWidth = (...stops: number[]): ExpressionSpecification => [
 export function addRoadLayers(map: MLMap) {
   map.addSource('road-network', { type: 'geojson', data: EMPTY })
 
-  const road = (id: string, cls: string, color: string, width: ExpressionSpecification) =>
-    map.addLayer({
+  const road = (id: string, cls: string, color: string, width: ExpressionSpecification, minzoom?: number) => {
+    const layer: any = {
       id,
       type: 'line',
       source: 'road-network',
       filter: ['==', ['get', 'class'], cls],
       paint: { 'line-color': color, 'line-width': width },
       layout: ROUND,
-    })
+    }
+    if (minzoom !== undefined) layer.minzoom = minzoom
+    map.addLayer(layer)
+  }
 
   // Locales/residenciales (224K features — 83% del grafo)
   map.addLayer({
     id: 'roads-local',
     type: 'line',
     source: 'road-network',
+    minzoom: 13.5,
     filter: ['==', ['get', 'class'], 'local'],
     paint: {
       'line-color': ROAD.local,
@@ -50,10 +54,10 @@ export function addRoadLayers(map: MLMap) {
     },
     layout: ROUND,
   })
-  road('roads-tertiary', 'tertiary', ROAD.tertiary, zoomWidth(13, 0.8, 15, 2.2, 17, 4.5))
-  road('roads-secondary', 'secondary', ROAD.secondary, zoomWidth(11, 0.8, 13, 2.2, 17, 5.5))
-  road('roads-primary-casing', 'primary', ROAD.primaryCasing, zoomWidth(9, 1.6, 13, 4.4, 17, 8.4))
-  road('roads-primary', 'primary', ROAD.primary, zoomWidth(9, 1, 13, 3, 17, 6.4))
+  road('roads-tertiary', 'tertiary', ROAD.tertiary, zoomWidth(13, 0.8, 15, 2.2, 17, 4.5), 12.5)
+  road('roads-secondary', 'secondary', ROAD.secondary, zoomWidth(11, 0.8, 13, 2.2, 17, 5.5), 11)
+  road('roads-primary-casing', 'primary', ROAD.primaryCasing, zoomWidth(9, 1.6, 13, 4.4, 17, 8.4), 8)
+  road('roads-primary', 'primary', ROAD.primary, zoomWidth(9, 1, 13, 3, 17, 6.4), 8)
   road('roads-highway-casing', 'highway', ROAD.highwayCasing, zoomWidth(9, 2.4, 13, 5.6, 17, 10.4))
   road('roads-highway', 'highway', ROAD.highway, zoomWidth(9, 1.5, 13, 4, 17, 8))
 }
@@ -100,7 +104,18 @@ const TRAFFIC_COLOR: ExpressionSpecification = [
     100,
     '#7f1d1d', // rojo oscuro — cierre/incidente
   ] as unknown as ExpressionSpecification,
-  ['get', 'base_color'], // fallback: color original de la calle
+  // Fallback: el color propio de la calle segun su clase. Se resuelve dentro de
+  // la expresion de MapLibre en vez de escribir una propiedad en cada feature,
+  // que con 268k features es memoria que no hace falta gastar.
+  [
+    'match',
+    ['get', 'class'],
+    'highway', ROAD.highway,
+    'primary', ROAD.primary,
+    'secondary', ROAD.secondary,
+    'tertiary', ROAD.tertiary,
+    ROAD.local,
+  ],
 ]
 
 // Colores base por clase de vía (para restaurar al apagar tráfico)
@@ -141,7 +156,6 @@ export function toggleTrafficLayer(
     for (const f of features) {
       if (f.properties) {
         delete f.properties.traffic_factor
-        delete f.properties.base_color
       }
     }
     source.setData({ type: 'FeatureCollection', features })
@@ -170,8 +184,6 @@ export function toggleTrafficLayer(
         for (const f of features) {
           if (!f.properties) continue
 
-          // Guardar color base original en TODOS los features (incluso sin nombre)
-          f.properties.base_color = BASE_COLORS[f.properties.class as string] ?? ROAD.local
 
           const name: string = f.properties.name ?? ''
           if (!name) continue
