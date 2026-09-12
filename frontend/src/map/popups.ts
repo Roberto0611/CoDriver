@@ -33,20 +33,4 @@ export function attachHoverPopups(map: maplibregl.Map) {
     map.on('mouseleave', layerId, leave)
   }
 
-  map.on('mouseenter', 'zonas-fill', (e) => {
-    const props = e.features?.[0]?.properties
-    if (!props) return
-    canvas.style.cursor = 'pointer'
-
-    popup
-      .setLngLat(e.lngLat)
-      .setHTML(
-        `<strong>${props.zona}</strong><br>` +
-          `<span class="muted">Risk by day</span> ${props.riesgo_dia} · ` +
-          `<span class="muted">by night</span> ${props.riesgo_noche}<br>` +
-          (props.bloqueada_noche ? 'Off limits after dark' : 'Open all day')
-      )
-      .addTo(map)
-  })
-  map.on('mouseleave', 'zonas-fill', leave)
 }

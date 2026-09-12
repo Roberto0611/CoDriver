@@ -6,10 +6,8 @@ import { Icon } from './ui/icons'
 import { formatNumber, ZONAS_LIST } from './lib/zones'
 import { baseStyle, MTY_CENTER, MTY_ZOOM } from './map/style'
 import {
-  addPuntosLayer,
   addRoadLayers,
   addRouteLayers,
-  addZonaLayers,
   toggleTrafficLayer,
 } from './map/layers'
 import { attachHoverPopups } from './map/popups'
@@ -80,8 +78,6 @@ function App() {
         })
 
         addRouteLayers(map)
-        addZonaLayers(map, await (await fetch('/zonas.json')).json())
-        addPuntosLayer(map, await (await fetch('/puntos.json')).json())
         attachHoverPopups(map)
       } catch (err) {
         console.error('Error cargando datos del grafo:', err)

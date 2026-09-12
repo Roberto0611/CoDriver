@@ -78,51 +78,6 @@ export function addRouteLayers(map: MLMap) {
   })
 }
 
-/**
- * Zonas. El color significa algo: ciruela = zona normal, ámbar = riesgosa de
- * noche. Un solo tono, no catorce. Van arriba de las calles para no perder
- * el hover.
- */
-export function addZonaLayers(map: MLMap, data: GeoJSON) {
-  const blocked: ExpressionSpecification = ['==', ['get', 'bloqueada_noche'], true]
-  const color: ExpressionSpecification = ['case', blocked, AMBER, PLUM]
-
-  map.addSource('zonas', { type: 'geojson', data })
-  map.addLayer({
-    id: 'zonas-fill',
-    type: 'fill',
-    source: 'zonas',
-    paint: { 'fill-color': color, 'fill-opacity': ['case', blocked, 0.1, 0.05] },
-  })
-  map.addLayer({
-    id: 'zonas-line',
-    type: 'line',
-    source: 'zonas',
-    paint: {
-      'line-color': color,
-      'line-width': 1.5,
-      'line-opacity': 0.45,
-      'line-dasharray': [3, 3],
-    },
-  })
-}
-
-/** Los 210 puntos de interés del simulador: puntos discretos en ciruela. */
-export function addPuntosLayer(map: MLMap, data: GeoJSON) {
-  map.addSource('puntos', { type: 'geojson', data })
-  map.addLayer({
-    id: 'puntos-circle',
-    type: 'circle',
-    source: 'puntos',
-    paint: {
-      'circle-color': PLUM,
-      'circle-radius': zoomWidth(10, 1.5, 14, 3),
-      'circle-opacity': 0.55,
-      'circle-stroke-width': 1,
-      'circle-stroke-color': '#FFFFFF',
-    },
-  })
-}
 
 // ── Tráfico ──────────────────────────────────────────────────────────────
 
