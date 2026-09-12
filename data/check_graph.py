@@ -34,7 +34,9 @@ def main():
             print(f"{a:>16} -> {b:<16} {km:5.1f} km {minutos:5.1f} min")
 
             esperado = ESPERADO_KM.get((a, b))
-            assert esperado is None or abs(km - esperado) < 3, f"{a}->{b}: {km:.1f} km, esperaba ~{esperado}"
+            assert esperado is None or abs(km - esperado) < 3, (
+                f"{a}->{b}: {km:.1f} km, esperaba ~{esperado}"
+            )
 
     assert nx.is_strongly_connected(G.subgraph(max(nx.strongly_connected_components(G), key=len)))
     print("\nOK: grafo conectado y distancias coherentes.")

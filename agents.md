@@ -16,7 +16,7 @@ cero si ese número es malo. Por eso la Fase 1 bloquea todo lo demás.
 | Fase | Qué | Listo cuando |
 |---|---|---|
 | **0** ✅ | El mundo y el rival | Baseline greedy: **mediana $251, 4 entregas** |
-| **1** 🔴 | **EL NÚMERO** — tabla de valor + política de Nuez | Nuez vs greedy en 50 seeds no vistos |
+| **1** 🔴 | **EL NÚMERO** — tabla de valor + política de Nuez | Nuez vs greedy en 50 seeds no vistos. **Hoy: −1.0%** (`python comparar.py 50`, seeds 1000–1049). Faltan B2 (batching / costo marginal) y B3 |
 | **2** | Hacerlo visible — replay y pantalla partida | Dos turnos corriendo lado a lado con contadores |
 | **3** | Hacerlo hablar — Gemini + ElevenLabs | Nuez explica en voz alta por qué rechazó |
 | **4** | Tracks baratos y ensayo | Vultr, Tiger, Solana. Pitch ensayado 8 veces |
@@ -63,7 +63,11 @@ corriendo, y un **surge o un cierre vial** a mitad del turno al que deben reacci
 ## 2. La idea
 
 **Nuez** — el copiloto del repartidor estudiante. Un agente que corre tu ventana libre entre
-clases y te dice al oído, en voz alta y en español regio, qué aceptar y por qué.
+clases y te dice al oído, en voz alta, qué aceptar y por qué.
+
+**Idioma (decidido):** la UI y la voz van en **inglés**. Es la condición del reto extra de
+ElevenLabs (voces en inglés, después comandos de voz para no tocar la pantalla caliente).
+El código, los comentarios y este documento siguen en español.
 
 ```
 [ping] "Rappi, Contry a San Pedro, $48."
@@ -317,6 +321,7 @@ milisegundos, y es **óptimo exacto**, no heurístico.
 ```python
 from itertools import permutations
 
+
 def mejor_ruta(paradas, t):
     def valida(orden):
         vistos = set()
@@ -325,8 +330,8 @@ def mejor_ruta(paradas, t):
                 return False
             vistos.add(oid)
         return True
-    return min((p for p in permutations(paradas) if valida(p)),
-               key=lambda p: duracion(p, t))
+
+    return min((p for p in permutations(paradas) if valida(p)), key=lambda p: duracion(p, t))
 ```
 
 **Rol acotado de OR-Tools:** solver de respaldo cuando la mochila pasa de 5 pedidos (>10
@@ -538,7 +543,7 @@ y eso sí resta.
 Simulador + Agente   ->  Python, un solo proceso
 Store                ->  TigerData / TimescaleDB (Postgres) en Docker
 API / eventos vivos  ->  FastAPI + WebSocket
-Front del demo       ->  HTML + MapLibre GL (vanilla JS, sin build step)
+Front del demo       ->  React 19 + Vite + TypeScript + MapLibre GL (frontend/)
 Deploy               ->  Vultr: un VM + docker compose (fallback: localhost)
 ```
 
@@ -564,6 +569,33 @@ cuesta lo mismo de montar y además gana track y da control total de la caja del
 | `google-genai` | Capa de juicio |
 | `elevenlabs` | Voz bidireccional |
 | `solders` / `solana-py` | Devnet |
+
+---
+
+## 8b. Sistema visual del front
+
+Tokens en `frontend/src/index.css` (`:root`). Vienen de `DESIGN.md` (paleta "Cupertino
+Telemetry"). **El layout existente no se rediseña**: se restyla lo que ya hay.
+
+| Token | Valor | Para qué |
+|---|---|---|
+| Canvas | `#FAF6F3` | Fondo de la app, cálido y mate. Tema claro, no oscuro |
+| Tinta | `#18151A` / `#3E3D41` / `#807479` | Texto en tres niveles |
+| Ciruela | `#684959` | **La marca.** Botón primario, marcador del repartidor, acentos |
+| Esmeralda | `#10B981` | **Solo dinero y turno activo**: contador de ganancias, entregas |
+| Ámbar | `#F59E0B` | **Solo urgencia**: surge, zona congestionada, tiempo por vencer |
+| Índigo | `#4F46E5` | **Solo el algoritmo**: ruta, geocerca de regreso factible, decisión |
+| Hairline | `#D8CCCA` | Bordes de 1px. Sombras teñidas de ciruela, nunca negro puro |
+
+- **Tipografía:** Outfit (Google Fonts), una sola familia. Números que cambian en vivo con
+  cifras tabulares (`.num`). Etiquetas pequeñas en mayúsculas con tracking 0.15em (`.caps`).
+- **Forma:** tarjetas 16px, paneles 24px, botones y chips píldora. Botones de 44px mínimo.
+- **Mapa:** claro. Calles blancas sobre canvas, autopistas en amarillo suave con borde. Las
+  zonas llevan **un** tono (ciruela) y ámbar solo si son inseguras de noche: el color significa
+  algo o no se usa. Ruta en índigo con borde blanco, sin glow.
+
+**La guía completa, con lo prohibido y el checklist antes de cerrar un cambio de UI, está en
+[`docs/ui-style-guide.md`](docs/ui-style-guide.md). Se lee antes de tocar `frontend/`.**
 
 ---
 
@@ -639,7 +671,7 @@ Hitos que no se mueven:
 | C3 | Mapa MapLibre con los dos agentes y sus rutas | Dos motos moviéndose sobre calles reales |
 | C4 | Contadores + panel de decisión con los términos visibles | Al señalar una decisión se ve por qué |
 | C5 | Botón de seed del juez + botón de evento (surge / cierre) | El juez puede apretarlos él mismo |
-| C6 | Branding Nuez: nombre, SVG, paleta, prompt de personalidad | **3h máximo, en paralelo** |
+| C6 | Branding Nuez: nombre, SVG, paleta, prompt de personalidad | **3h máximo, en paralelo.** Paleta y tokens ✅ (sección 8b); falta el SVG de la ardilla (Eli) |
 
 ### Carril D — Integraciones
 
@@ -698,3 +730,12 @@ son cuatro inputs, no una app.
 - **Precachear a disco** todo lo externo: grafo, matrices, clima, eventos, respuestas de Gemini.
 - **Antes de agregar una dependencia:** ¿lo resuelve la stdlib en menos de 20 líneas? Entonces stdlib.
 - Comentarios y docs en español; nombres de código en inglés.
+- **Nada se mergea a `main` con CI en rojo.** El workflow (`.github/workflows/ci.yml`) corre en
+  cada push y PR: Python (`ruff check`, `ruff format --check`, `mypy`, `pytest`, `pip check`,
+  `pip-audit`) y front (`npm ci`, `npm audit`, oxlint, prettier, `tsc`, vitest, build).
+  Localmente, antes de subir: `python -m ruff check . && python -m ruff format . && python -m mypy && python -m pytest`
+  y en `frontend/`: `npm run check`.
+- **Ningún archivo de código pasa de 500 líneas** (`python scripts/max_lines.py .`). Un archivo
+  largo hace demasiado: se parte por responsabilidad, no por la mitad.
+- **Toda función pura nueva trae su test.** Python en `tests/`, front en `src/**/*.test.ts`.
+  El simulador es determinista por seed: si un test necesita un turno, usa un seed fijo.

@@ -14,7 +14,7 @@ import statistics
 from pathlib import Path
 
 ARCHIVO = Path(__file__).parent / "V.json"
-CUBETA = 10   # minutos por cubeta: 120 min -> 12 cubetas
+CUBETA = 10  # minutos por cubeta: 120 min -> 12 cubetas
 
 
 def construir(n: int = 300, duracion: int = 120, hora_inicio: int = 14) -> dict[int, float]:
@@ -27,8 +27,9 @@ def construir(n: int = 300, duracion: int = 120, hora_inicio: int = 14) -> dict[
     muestras: dict[int, list[float]] = {}
 
     for seed in range(n):
-        cfg = ConfigTurno(duracion_min=duracion, ancla=Punto("Tec", *tec),
-                          seed=seed, hora_inicio=hora_inicio)
+        cfg = ConfigTurno(
+            duracion_min=duracion, ancla=Punto("Tec", *tec), seed=seed, hora_inicio=hora_inicio
+        )
         res = simular(cfg, politica_greedy)
 
         for t in range(0, duracion + 1, CUBETA):
@@ -79,8 +80,7 @@ def main():
     assert V[0] == 0, "con cero minutos no se gana nada"
     assert V[max(V)] > V[60] > V[20], "menos tiempo tiene que valer menos"
     print(f"\n  {ARCHIVO.name} escrito.")
-    print(f"  ejemplo: gastar 25 min cuando quedan 90 cuesta "
-          f"${precio_del_tiempo(90, 25):.0f}")
+    print(f"  ejemplo: gastar 25 min cuando quedan 90 cuesta ${precio_del_tiempo(90, 25):.0f}")
 
 
 if __name__ == "__main__":

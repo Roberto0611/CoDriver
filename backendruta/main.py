@@ -12,11 +12,13 @@ from fastapi.middleware.cors import CORSMiddleware
 BASE_DIR = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(BASE_DIR))
 
-import contrato
-from mundo import ZONAS
-from data.export_geojson import route_to_geojson
+import contrato  # noqa: E402
+from data.export_geojson import route_to_geojson  # noqa: E402
+from mundo import ZONAS  # noqa: E402
 
-app = FastAPI(title="Nuez Copiloto API", description="API para el simulador y motor del repartidor Nuez")
+app = FastAPI(
+    title="Nuez Copiloto API", description="API para el simulador y motor del repartidor Nuez"
+)
 
 app.add_middleware(
     CORSMiddleware,
@@ -45,14 +47,14 @@ def read_root():
 def get_route(origen: str, destino: str):
     if not G:
         raise HTTPException(status_code=500, detail="Grafo no cargado en el backend")
-    
+
     if origen not in ZONAS or destino not in ZONAS:
         raise HTTPException(status_code=400, detail="Zona de origen o destino inválida")
-        
+
     # mundo.ZONAS tiene el formato (lat, lon, radio)
     coord_origen = (ZONAS[origen][0], ZONAS[origen][1])
     coord_destino = (ZONAS[destino][0], ZONAS[destino][1])
-    
+
     # route_to_geojson usa origen y destino como (lat, lon)
     try:
         geojson_data = route_to_geojson(G, coord_origen, coord_destino)
@@ -61,16 +63,16 @@ def get_route(origen: str, destino: str):
         geojson_data["features"][0]["properties"]["to"] = destino
         return geojson_data
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
     await websocket.accept()
-    
+
     try:
-        t_actual = 14 * 60  
-        
+        t_actual = 14 * 60
+
         while True:
             estado = contrato.EstadoRepartidor(
                 t=t_actual,
@@ -78,13 +80,10 @@ async def websocket_endpoint(websocket: WebSocket):
                 pos=contrato.Punto("Tec", 25.651, -100.289),
                 mochila=[],
                 ganado=120.5,
-                fatiga=0.1
+                fatiga=0.1,
             )
-            await websocket.send_text(json.dumps({
-                "type": "estado",
-                "data": asdict(estado)
-            }))
-            
+            await websocket.send_text(json.dumps({"type": "estado", "data": asdict(estado)}))
+
             if t_actual % 10 == 0:
                 oferta = contrato.Oferta(
                     id=f"o_{t_actual}",
@@ -94,30 +93,29 @@ async def websocket_endpoint(websocket: WebSocket):
                     t_aparece=t_actual,
                     t_prep=5,
                     pickup=contrato.Punto("Contry", 25.66, -100.28),
-                    dropoff=contrato.Punto("Valle", 25.65, -100.36)
+                    dropoff=contrato.Punto("Valle", 25.65, -100.36),
                 )
-                await websocket.send_text(json.dumps({
-                    "type": "oferta",
-                    "data": asdict(oferta)
-                }))
-                
+                await websocket.send_text(json.dumps({"type": "oferta", "data": asdict(oferta)}))
+
                 decision = contrato.Decision(
                     t=t_actual,
                     oferta_id=oferta.id,
                     accion="saltar",
                     terminos={"pago_neto": 50.0, "minutos": 40, "precio_tiempo": 70.0},
-                    razon="Saltar. Son muchos minutos de tráfico hacia Valle y no paga lo suficiente a esta hora.",
+                    razon=(
+                        "Saltar. Son muchos minutos de tráfico hacia Valle "
+                        "y no paga lo suficiente a esta hora."
+                    ),
                 )
-                
+
                 await asyncio.sleep(1)
-                
-                await websocket.send_text(json.dumps({
-                    "type": "decision",
-                    "data": asdict(decision)
-                }))
+
+                await websocket.send_text(
+                    json.dumps({"type": "decision", "data": asdict(decision)})
+                )
 
             t_actual += 1
             await asyncio.sleep(2)
-            
+
     except WebSocketDisconnect:
         print("Cliente desconectado")

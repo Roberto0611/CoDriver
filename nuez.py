@@ -13,11 +13,12 @@ from contrato import ConfigTurno, Decision, EstadoRepartidor, Oferta
 from mundo import es_segura
 from sim import CAPACIDAD, COSTO_KM, Parada, indice_de
 
-MARGEN = 1.0   # el pedido debe rendir al menos esto por encima del costo de oportunidad
+MARGEN = 1.0  # el pedido debe rendir al menos esto por encima del costo de oportunidad
 
 
-def politica_nuez(o: Oferta, est: EstadoRepartidor, ruta: list[Parada],
-                  cfg: ConfigTurno) -> tuple[list[Parada] | None, Decision]:
+def politica_nuez(
+    o: Oferta, est: EstadoRepartidor, ruta: list[Parada], cfg: ConfigTurno
+) -> tuple[list[Parada] | None, Decision]:
     hora = (cfg.hora_inicio + est.t // 60) % 24
     i_pick, i_drop = indice_de(o.pickup), indice_de(o.dropoff)
     pos = indice_de(est.pos)
@@ -36,10 +37,13 @@ def politica_nuez(o: Oferta, est: EstadoRepartidor, ruta: list[Parada],
     # El costo de oportunidad: lo que rinden esos minutos normalmente.
     precio = valor.precio_del_tiempo(est.t_restante - cola, propios)
 
-    terminos = {"pago_neto": round(neto, 1), "minutos": round(propios, 1),
-                "por_minuto": round(neto / max(propios, 1), 2),
-                "precio_tiempo": round(precio, 1),
-                "ventaja": round(neto - precio, 1)}
+    terminos = {
+        "pago_neto": round(neto, 1),
+        "minutos": round(propios, 1),
+        "por_minuto": round(neto / max(propios, 1), 2),
+        "precio_tiempo": round(precio, 1),
+        "ventaja": round(neto - precio, 1),
+    }
 
     def no(razon: str, restriccion=None):
         return None, Decision(est.t, o.id, "saltar", terminos, razon, restriccion)
@@ -53,9 +57,11 @@ def politica_nuez(o: Oferta, est: EstadoRepartidor, ruta: list[Parada],
 
     # LA linea. Todo lo demas es igual al baseline.
     if neto < precio + MARGEN:
-        return no(f"Esos {propios:.0f} minutos rinden ${precio:.0f} normalmente, "
-                  f"y este paga ${neto:.0f}.")
+        return no(
+            f"Esos {propios:.0f} minutos rinden ${precio:.0f} normalmente, y este paga ${neto:.0f}."
+        )
 
     nueva = ruta + [Parada("pickup", i_pick, o.id), Parada("dropoff", i_drop, o.id)]
-    return nueva, Decision(est.t, o.id, "aceptar", terminos,
-                           f"Te deja ${neto - precio:.0f} por encima de lo normal.")
+    return nueva, Decision(
+        est.t, o.id, "aceptar", terminos, f"Te deja ${neto - precio:.0f} por encima de lo normal."
+    )

@@ -8,15 +8,15 @@ No toca el grafo ni la red: lee matriz.pkl (183 KB) y multiplica.
 """
 
 import pickle
-from functools import lru_cache
+from functools import cache
 from pathlib import Path
 
 from mundo import factor_trafico
 
 _datos = pickle.loads((Path(__file__).parent / "data" / "matriz.pkl").read_bytes())
 
-PUNTOS = _datos["puntos"]            # [(zona, node_id, lat, lon), ...]
-_M = _datos["matriz"]                # minutos de flujo libre, float32
+PUNTOS = _datos["puntos"]  # [(zona, node_id, lat, lon), ...]
+_M = _datos["matriz"]  # minutos de flujo libre, float32
 
 ZONA_DE = [z for z, _, _, _ in PUNTOS]
 COORD_DE = [(lat, lon) for _, _, lat, lon in PUNTOS]
@@ -34,10 +34,10 @@ def km(i: int, j: int) -> float:
     calculara desde minutos(i, j, hora) la gasolina y el pago se inflarian
     solos en hora pico.
     """
-    return float(_M[i, j]) / 60 * 30   # ~30 km/h promedio a flujo libre
+    return float(_M[i, j]) / 60 * 30  # ~30 km/h promedio a flujo libre
 
 
-@lru_cache(maxsize=None)
+@cache
 def puntos_de(zona: str) -> tuple[int, ...]:
     """Indices de los puntos de interes que caen en una zona."""
     return tuple(i for i, z in enumerate(ZONA_DE) if z == zona)
@@ -45,8 +45,10 @@ def puntos_de(zona: str) -> tuple[int, ...]:
 
 def indice_mas_cercano(lat: float, lon: float) -> int:
     """El punto de interes mas cercano a una coordenada. Para resolver el ancla."""
-    return min(range(len(COORD_DE)),
-               key=lambda i: (COORD_DE[i][0] - lat) ** 2 + (COORD_DE[i][1] - lon) ** 2)
+    return min(
+        range(len(COORD_DE)),
+        key=lambda i: (COORD_DE[i][0] - lat) ** 2 + (COORD_DE[i][1] - lon) ** 2,
+    )
 
 
 def demo():
