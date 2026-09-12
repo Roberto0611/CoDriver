@@ -38,9 +38,14 @@ def ts_type(tp: Any) -> str:
         return " | ".join(json.dumps(v) for v in get_args(tp))
     if origin in (types.UnionType, typing.Union):
         return " | ".join(ts_type(a) for a in get_args(tp))
-    if origin in (list, tuple):
-        (inner, *_rest) = get_args(tp) or (Any,)
+    if origin is list:
+        (inner,) = get_args(tp) or (Any,)
         return f"{ts_type(inner)}[]"
+    if origin is tuple:
+        args = get_args(tp)
+        if len(args) == 2 and args[1] is Ellipsis:
+            return f"{ts_type(args[0])}[]"
+        return "[" + ", ".join(ts_type(a) for a in args) + "]"
     if origin is dict:
         k, v = get_args(tp)
         return f"Record<{ts_type(k)}, {ts_type(v)}>"
@@ -51,13 +56,23 @@ def ts_type(tp: Any) -> str:
     raise TypeError(f"no se como traducir {tp!r}")
 
 
-def aliases() -> dict[str, str]:
-    """Los Literal de nivel de modulo: Accion, Vehiculo, Restriccion."""
+def aliases() -> dict[str, Any]:
+    """Los Literal de nivel de modulo (Accion, Vehiculo, Restriccion), como objetos."""
     return {
-        name: ts_type(val)
+        name: val
         for name, val in vars(contrato).items()
         if not name.startswith("_") and get_origin(val) is Literal
     }
+
+
+def ts_type_con_alias(tp: Any, alias: dict[str, Any]) -> str:
+    """Como ts_type, pero un tipo que ES un alias se nombra, tambien dentro de una union."""
+    for name, val in alias.items():
+        if tp == val:
+            return name
+    if get_origin(tp) in (types.UnionType, typing.Union):
+        return " | ".join(ts_type_con_alias(a, alias) for a in get_args(tp))
+    return ts_type(tp)
 
 
 def clases() -> list[type]:
@@ -69,24 +84,15 @@ def clases() -> list[type]:
 def esquema() -> dict[str, Any]:
     """La foto completa: aliases y cada dataclass con sus campos en orden."""
     alias = aliases()
-
-    def con_alias(t: str) -> str:
-        # Un campo tipado con un alias se reporta con el nombre del alias, no expandido,
-        # tambien dentro de una union (`Restriccion | null`).
-        for name, val in sorted(alias.items(), key=lambda kv: -len(kv[1])):
-            t = t.replace(val, name)
-        return t
-
-    out: dict[str, Any] = {"aliases": alias, "classes": {}}
+    out: dict[str, Any] = {"aliases": {n: ts_type(v) for n, v in alias.items()}, "classes": {}}
     for cls in clases():
         hints = get_type_hints(cls)
         campos = []
         for f in dataclasses.fields(cls):
-            t = ts_type(hints[f.name])
             campos.append(
                 {
                     "name": f.name,
-                    "type": con_alias(t),
+                    "type": ts_type_con_alias(hints[f.name], alias),
                     "required": f.default is dataclasses.MISSING
                     and f.default_factory is dataclasses.MISSING,
                 }
@@ -130,8 +136,8 @@ def generar() -> tuple[str, str]:
 def main(argv: list[str]) -> int:
     snap, ts = generar()
     if "--write" in argv:
-        SNAPSHOT.write_text(snap, encoding="utf-8")
-        TS.write_text(ts, encoding="utf-8")
+        SNAPSHOT.write_text(snap, encoding="utf-8", newline="\n")
+        TS.write_text(ts, encoding="utf-8", newline="\n")
         print(f"escritos {SNAPSHOT.relative_to(RAIZ)} y {TS.relative_to(RAIZ)}")
         return 0
     if "--check" in argv:

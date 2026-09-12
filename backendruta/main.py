@@ -76,7 +76,7 @@ def read_root():
 @app.get("/api/traffic")
 def get_traffic(hora: str | None = "14:00"):
     """Devuelve las calles congestionadas y los incidentes activos en una hora dada."""
-    hora = hora or "14:00"
+    hora = hora if hora is not None else "14:00"
     traffic_records = database.get_traffic_at_time(hora)
     incidents = database.get_active_incidents(hora)
 

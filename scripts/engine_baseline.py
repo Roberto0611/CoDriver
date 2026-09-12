@@ -58,7 +58,7 @@ def medir() -> dict:
 def main(argv: list[str]) -> int:
     actual = medir()
     if "--write" in argv:
-        ARCHIVO.write_text(json.dumps(actual, indent=2) + "\n", encoding="utf-8")
+        ARCHIVO.write_text(json.dumps(actual, indent=2) + "\n", encoding="utf-8", newline="\n")
         print(
             f"referencia escrita en {ARCHIVO.relative_to(RAIZ)}: delta {actual['delta_pct']:+.2f}%"
         )
