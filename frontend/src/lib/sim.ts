@@ -28,10 +28,7 @@ export function distanciaAcumulada(coords: [number, number][]): number[] {
 
 /** Interpola por distancia acumulada sobre una polilínea.
  *  `frac` va de 0 (inicio) a 1 (fin). */
-export function interpolarSobreLinea(
-  coords: [number, number][],
-  frac: number
-): [number, number] {
+export function interpolarSobreLinea(coords: [number, number][], frac: number): [number, number] {
   if (coords.length === 0) return [0, 0]
   if (coords.length === 1 || frac <= 0) return coords[0]
   if (frac >= 1) return coords[coords.length - 1]
@@ -62,10 +59,7 @@ export function interpolarSobreLinea(
 
 /** Coordenadas [lon, lat] de un punto del mapa por índice.
  *  `puntos` es el GeoJSON de puntos.json (FeatureCollection). */
-export function coordsDePunto(
-  puntos: GeoJSON.FeatureCollection,
-  idx: number
-): [number, number] {
+export function coordsDePunto(puntos: GeoJSON.FeatureCollection, idx: number): [number, number] {
   const f = puntos.features[idx]
   if (!f) return [0, 0]
   const c = (f.geometry as GeoJSON.Point).coordinates

@@ -7,8 +7,7 @@ import * as maplibregl from 'maplibre-gl'
 import maplibreWorkerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?url'
 
 import { Icon } from './ui/icons'
-import { baseStyle, MTY_CENTER, MTY_ZOOM, ROUTE_COLOR } from './map/style'
-import { addRouteLayers } from './map/layers'
+import { baseStyle, MTY_CENTER, MTY_ZOOM } from './map/style'
 import { createRoadLoader } from './map/roads'
 
 import { cargarTurnosPorSeed, cargarIndiceTurnos, cargarPuntos } from './lib/loader'
@@ -23,8 +22,8 @@ const SPEEDS = [1, 2, 4] as const
 const MS_PER_STEP_BASE = 500 // 1 min simulado cada 0.5s a velocidad ×1
 
 // Colores de las estelas (constantes de mapa, MapLibre no lee CSS vars)
-const GREEDY_TRAIL = '#F59E0B'  // ámbar
-const NUEZ_TRAIL = '#4F46E5'    // índigo
+const GREEDY_TRAIL = '#F59E0B' // ámbar
+const NUEZ_TRAIL = '#4F46E5' // índigo
 
 export default function SimView() {
   const mapContainer = useRef<HTMLDivElement>(null)
@@ -159,9 +158,7 @@ export default function SimView() {
     const mkNuez = document.createElement('div')
     mkNuez.className = 'marker-moto is-nuez'
     mkNuez.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="5" cy="17" r="3"/><circle cx="19" cy="17" r="3"/><path d="M5 14l3-7h4l3 7"/><path d="M8 7h8l3 10"/></svg>`
-    nuezMarker.current = new maplibregl.Marker({ element: mkNuez })
-      .setLngLat(MTY_CENTER)
-      .addTo(map)
+    nuezMarker.current = new maplibregl.Marker({ element: mkNuez }).setLngLat(MTY_CENTER).addTo(map)
   }, [])
 
   useEffect(() => {
@@ -224,11 +221,13 @@ export default function SimView() {
     setIsPlaying((prev) => !prev)
   }
 
-  const greedyCounters = greedy ? contadoresEnT(greedy.frames, t) : { ganado: 0, entregas: 0, saltadas: 0 }
-  const nuezCounters = nuez ? contadoresEnT(nuez.frames, t) : { ganado: 0, entregas: 0, saltadas: 0 }
+  const greedyCounters = greedy
+    ? contadoresEnT(greedy.frames, t)
+    : { ganado: 0, entregas: 0, saltadas: 0 }
+  const nuezCounters = nuez
+    ? contadoresEnT(nuez.frames, t)
+    : { ganado: 0, entregas: 0, saltadas: 0 }
   const terminado = t >= maxT - 1
-
-  const currentEntry = indice?.turnos.find((e) => e.seed === seed)
 
   return (
     <div className="app">
@@ -249,11 +248,7 @@ export default function SimView() {
       {/* Timeline */}
       <div className="timeline-panel">
         <div className="timeline-controls">
-          <button
-            className="timeline-btn-round"
-            title="Back 1 min"
-            onClick={() => stepMinute(-1)}
-          >
+          <button className="timeline-btn-round" title="Back 1 min" onClick={() => stepMinute(-1)}>
             {Icon.stepBack}
           </button>
 
@@ -326,7 +321,8 @@ export default function SimView() {
                     <span
                       className={`seed-delta ${entry.delta_pct >= 0 ? 'is-positive' : 'is-negative'}`}
                     >
-                      {entry.delta_pct >= 0 ? '+' : ''}{entry.delta_pct.toFixed(0)}%
+                      {entry.delta_pct >= 0 ? '+' : ''}
+                      {entry.delta_pct.toFixed(0)}%
                     </span>
                   </button>
                 ))}
@@ -351,11 +347,7 @@ export default function SimView() {
         {/* Decisiones */}
         {nuez && (
           <div className="glass-card">
-            <Decisions
-              frames={nuez.frames}
-              t={t}
-              horaInicio={horaInicio}
-            />
+            <Decisions frames={nuez.frames} t={t} horaInicio={horaInicio} />
           </div>
         )}
       </div>

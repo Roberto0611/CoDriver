@@ -38,9 +38,7 @@ export function Decisions({ frames, t, horaInicio }: Props) {
     <div className="decisions">
       <div className="decisions-title">Nuez Decisions</div>
 
-      {decisiones.length === 0 && (
-        <div className="decision-text">No decisions yet…</div>
-      )}
+      {decisiones.length === 0 && <div className="decision-text">No decisions yet…</div>}
 
       {decisiones.map((d) => {
         const key = `${d.minuto}-${d.oferta_id}`
@@ -48,19 +46,13 @@ export function Decisions({ frames, t, horaInicio }: Props) {
         const isAccept = d.accion === 'aceptar'
 
         return (
-          <div
-            key={key}
-            className="decision-item"
-            onClick={() => toggle(key)}
-          >
+          <div key={key} className="decision-item" onClick={() => toggle(key)}>
             <div className="decision-header">
               <span className={`decision-icon ${isAccept ? 'is-accept' : 'is-skip'}`}>
                 {isAccept ? Icon.accept : Icon.skip}
               </span>
               <span className="decision-text">{textoDecisionCorto(d)}</span>
-              <span className="decision-time num">
-                {minutosAHora(horaInicio, d.minuto)}
-              </span>
+              <span className="decision-time num">{minutosAHora(horaInicio, d.minuto)}</span>
             </div>
 
             {d.restriccion && (
@@ -72,9 +64,7 @@ export function Decisions({ frames, t, horaInicio }: Props) {
               </span>
             )}
 
-            {isOpen && (
-              <div className="decision-detail">{textoDecisionDetalle(d)}</div>
-            )}
+            {isOpen && <div className="decision-detail">{textoDecisionDetalle(d)}</div>}
           </div>
         )
       })}
