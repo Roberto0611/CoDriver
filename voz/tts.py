@@ -80,9 +80,10 @@ def stream(
     body = {
         "text": texto,
         "model_id": cfg.tts_model,
-        "language_code": cfg.language,
         "voice_settings": cfg.voice_settings,
     }
+    if cfg.language:
+        body["language_code"] = cfg.language
     params = {"output_format": cfg.output_format}
 
     propio = client is None

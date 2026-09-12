@@ -145,7 +145,7 @@ hola          </p>
             }}
           >
             <Link
-              to="/map"
+              to="/app"
               style={{
                 backgroundColor: '#ffffff',
                 color: '#000000',
@@ -328,7 +328,7 @@ hola          </p>
             {/* El botón de acción */}
             <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', width: '100%', marginTop: '8px' }}>
               <Link
-                to="/map"
+                to="/sim"
                 style={{
                   display: 'inline-flex',
                   alignItems: 'center',
@@ -358,11 +358,11 @@ hola          </p>
                   e.currentTarget.style.boxShadow = '0 4px 14px rgba(15, 23, 42, 0.15)';
                 }}
               >
-                Habla con Cloudy en el mapa
+                Ver Simulación de Turnos
               </Link>
 
               <Link
-                to="/map"
+                to="/sim"
                 style={{
                   display: 'inline-flex',
                   alignItems: 'center',
