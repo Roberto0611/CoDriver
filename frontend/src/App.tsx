@@ -9,6 +9,7 @@ import { addRouteLayers, toggleTrafficLayer } from './map/layers'
 import { attachHoverPopups } from './map/popups'
 import { createRoadLoader } from './map/roads'
 import { drawRoute, fetchRoute, routeInfoOf, type VSInfo } from './map/route'
+import { NaviePlayground } from './navie'
 
 // Configurar worker de MapLibre para Vite
 maplibregl.setWorkerUrl(maplibreWorkerUrl)
@@ -246,7 +247,9 @@ function App() {
                 <div className="select">
                   <select id="origin" value={origin} onChange={(e) => setOrigin(e.target.value)}>
                     {ZONAS_LIST.map((z) => (
-                      <option key={z} value={z}>{z}</option>
+                      <option key={z} value={z}>
+                        {z}
+                      </option>
                     ))}
                   </select>
                   {Icon.chevron}
@@ -261,7 +264,9 @@ function App() {
                     onChange={(e) => setDestination(e.target.value)}
                   >
                     {ZONAS_LIST.map((z) => (
-                      <option key={z} value={z}>{z}</option>
+                      <option key={z} value={z}>
+                        {z}
+                      </option>
                     ))}
                   </select>
                   {Icon.chevron}
@@ -279,7 +284,7 @@ function App() {
         {route && (
           <div className="vs-dashboard">
             <div className="vs-header">⚔️ ALGORITHM SHOWDOWN</div>
-            
+
             <div className="vs-cards">
               {/* Classic Agent Card */}
               {route.classic && (
@@ -323,8 +328,8 @@ function App() {
                   </div>
                   <div className="agent-log brain-log">
                     <code>
-                      {route.ai.timeMin < (route.classic?.timeMin || 0) 
-                        ? `[${currentTime}] ⚠️ Traffic ahead. Rerouting via optimal path.` 
+                      {route.ai.timeMin < (route.classic?.timeMin || 0)
+                        ? `[${currentTime}] ⚠️ Traffic ahead. Rerouting via optimal path.`
                         : `[${currentTime}] Analyzing traffic... Current path is optimal.`}
                     </code>
                   </div>

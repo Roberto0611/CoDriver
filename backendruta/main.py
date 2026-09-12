@@ -211,10 +211,7 @@ def get_route(origen: str, destino: str, hora: str | None = None):
         feat_oracle["properties"]["to"] = destino
         feat_oracle["properties"]["hora"] = hora
 
-        return {
-            "type": "FeatureCollection",
-            "features": [feat_classic, feat_ai, feat_oracle]
-        }
+        return {"type": "FeatureCollection", "features": [feat_classic, feat_ai, feat_oracle]}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e)) from e
 
