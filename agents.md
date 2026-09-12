@@ -1,4 +1,4 @@
-# The Courier — HackMTY 2026 / Reto Infosys
+# Nuez — HackMTY 2026 / Reto Infosys "The Courier"
 
 Documento de contexto del proyecto. Lo que decidimos, por qué, y cómo se trabaja aquí.
 
@@ -28,13 +28,13 @@ corriendo, y un **surge o un cierre vial** a mitad del turno al que deben reacci
 
 ## 2. La idea
 
-**"El Copiloto del Repartidor"** — un agente que corre el turno y le dice al oído, en voz alta
-y en español regio, qué hacer y por qué.
+**Nuez** — el copiloto del repartidor estudiante. Un agente que corre tu ventana libre entre
+clases y te dice al oído, en voz alta y en español regio, qué aceptar y por qué.
 
 ```
 [ping] "Rappi, Contry a San Pedro, $48."
-Copiloto: "Salta. Son 22 minutos contra tráfico y te saca de la zona caliente.
-           En 6 minutos entra el surge en Valle. Aguanta ahí."
+Nuez: "Salta. Son 22 minutos contra tráfico y no alcanzas a volver
+       para tu clase de las 4. En 6 minutos entra el surge aquí cerca."
 ```
 
 Un repartidor en moto a 40°C **no lee una pantalla**. La voz no es un add-on para ganar un
@@ -42,6 +42,79 @@ track: es la única UI honesta para este caso de uso.
 
 **Frase de pitch:** *no optimizamos las entregas de la plataforma, optimizamos el ingreso del
 repartidor — y le explicamos cada decisión en voz alta, porque él es el que va manejando.*
+
+### Enfoque estudiantil (input de la sesión con Infosys)
+
+El usuario no es un repartidor de tiempo completo: es un universitario con **dos horas libres
+entre clases** que quiere sacar dinero sin alejarse del campus.
+
+**Esto no es solo narrativa — refuerza el motor.** Un turno de 8 horas perdona errores: aceptas
+una mala, pierdes 40 minutos, te recuperas. Dos horas no perdonan nada: un pedido malo se come
+el 30% de la ventana. **Mientras más corto el turno, más vale el costo de oportunidad** y más
+ridículo se ve el greedy. El delta contra el baseline se dispara.
+
+Y el demo le pega mucho más a jueces que están parados en un campus.
+
+### Configuración antes del turno
+
+| Input | Efecto |
+|---|---|
+| Ventana horaria (ej. hoy 14:00–16:00) | Duración del turno → `V[t]` arranca en t=120, no 480 |
+| Ancla (campus, biblioteca, casa) | Restricción de regreso factible |
+| Margen de seguridad (default 10 min) | Colchón antes de que empiece la clase |
+| Vehículo (moto / bici / scooter / a pie) | Velocidades y costo de combustible |
+
+### La restricción de distancia NO es un radio
+
+El instinto es "geocerca de 3 km alrededor de la uni". **Está mal:** un pedido que te aleja 3 km
+en el minuto 20 es perfecto; el mismo en el minuto 100 te deja sin llegar a clase.
+
+Lo correcto es **regreso factible**, como filtro duro junto al de seguridad:
+
+```
+aceptar  <=>  t_recoger + t_entregar + t_regreso_al_ancla(destino) <= t_restante − margen
+```
+
+**Comportamiento emergente:** conforme se acaba la ventana, el conjunto de pedidos válidos se
+encoge hacia el campus. El agente "se va regresando" solo, sin que nadie lo programe — igual que
+el pedido de $90 que cambia de malo a bueno. Dos emergencias explicables en una frase cada una,
+ambas en el mismo demo.
+
+No requiere motor nuevo: `V[tiempo][zona]` ya existe, esto es un filtro encima.
+
+### La mascota: Nuez, y no es decoración
+
+**El algoritmo ya es teoría de forrajeo óptimo.** El teorema del valor marginal de Charnov (1976)
+—cuándo abandonar un parche de comida— dice exactamente lo que dice nuestro motor: *te vas cuando
+el rendimiento local cae por debajo del promedio del ambiente*. Es la misma matemática, publicada
+estudiando animales que juntan comida.
+
+El animal del ejemplo clásico —el que junta, hace caché y **siempre regresa a su árbol**— es la
+ardilla. Que además es la mascota no oficial del campus del Tec.
+
+| | |
+|---|---|
+| **Nombre** | Nuez — es de aquí, es corta, es marca |
+| **Mascota** | Ardilla regia con casco de moto |
+| **Promesa** | "Junta más nueces entre clases" |
+| **La voz** | La mascota **es** ElevenLabs. Nuez es quien te habla |
+
+Eso amarra todo: mascota, voz y explicabilidad dejan de ser tres cosas y son una. Si un juez
+pregunta por qué una ardilla: *"porque el algoritmo es literalmente forrajeo óptimo, y las
+ardillas siempre vuelven a su árbol — como tú a tu clase de las 4."*
+
+**Timebox del branding: 3 horas, una persona, en paralelo.** Nombre, un SVG, paleta, y el prompt
+de personalidad de la voz. **NO:** personaje 3D, animaciones, landing, deck de 20 slides.
+Si a la hora 10 no corre el baseline, la ardilla no nos salva.
+
+### Encuadre de startup
+
+El lado del trabajador en la economía gig: las plataformas optimizan sus entregas, nadie optimiza
+tu ingreso por hora. Primer mercado: ~200k universitarios del área metropolitana que ya manejan
+para Uber/Rappi/DiDi entre clases.
+
+Con este encuadre **Solana deja de estar pegado con cinta**: la reputación portable entre
+plataformas es producto, no track.
 
 ---
 
@@ -69,12 +142,13 @@ flowchart TB
         AGG --> V[["V.json<br/>tabla de valor"]]
     end
 
-    subgraph LIVE["EN VIVO — el turno"]
+    subgraph LIVE["EN VIVO — la ventana entre clases"]
+        CFG["Config del turno:<br/>ventana, ancla, vehiculo, margen"] --> ENG
         STREAM["Stream de ofertas<br/>seed del juez"] --> ENG
         GRAFO[("Grafo OSMnx + matrices<br/>precacheadas a disco")] --> ENG
         ENG{{"MOTOR<br/>costo de oportunidad<br/>+ batching exacto"}} --> DEC["Aceptar / Saltar / Agrupar"]
         DEC --> UI["UI side-by-side<br/>MapLibre + contadores"]
-        DEC --> VOZ["ElevenLabs<br/>voz bidireccional"]
+        DEC --> VOZ["Nuez / ElevenLabs<br/>voz bidireccional"]
         VOZ -.->|preferencias del repartidor| ENG
         DEC --> TEL[("TigerData<br/>telemetría del turno")]
     end
@@ -140,7 +214,9 @@ Mismo momento. Pedido: paga $90, cuesta 60 min.
 
 ```mermaid
 flowchart TD
-    A["Llega una oferta"] --> B{"¿zona segura<br/>a esta hora?"}
+    A["Llega una oferta"] --> Z{"¿alcanzo a volver<br/>al ancla antes de clase?"}
+    Z -->|no| R
+    Z -->|si| B{"¿zona segura<br/>a esta hora?"}
     B -->|no| R["SALTAR<br/>restricción dura, no se negocia"]
     B -->|si| C["Costo marginal en minutos:<br/>ruta CON el pedido − ruta SIN él"]
     C --> D["Precio de esos minutos:<br/>V(restante) − V(restante − costo)"]
@@ -247,8 +323,13 @@ valor = pago × surge
       − fatiga(horas, calor)
       − costo_oportunidad(dónde te deja)
 
-sujeto a:   zona_riesgo(hora) < umbral      <- RESTRICCIÓN DURA, no término
+sujeto a:   zona_riesgo(hora) < umbral                    <- RESTRICCIÓN DURA
+            t_pedido + t_regreso_ancla <= t_restante − margen   <- RESTRICCIÓN DURA
 ```
+
+Las dos restricciones duras son del mismo tipo y por la misma razón: **no se compran con dinero.**
+Ninguna cantidad te manda a una zona insegura a las 11 PM, y ninguna cantidad te hace llegar
+tarde a tu clase.
 
 ### Seguridad = restricción, no precio
 
@@ -456,19 +537,91 @@ cuesta lo mismo de montar y además gana track y da control total de la caja del
 
 El reto dicta el formato. Obedecerlo al pie de la letra y subirle:
 
-1. Pantalla partida: **Baseline (greedy)** vs **Copiloto**. Mapa real de MTY, dos motos
+0. **Pantalla de configuración**: "tengo clase a las 4, estoy en el Tec, traigo moto."
+   Dos horas de ventana. Esto ancla todo el demo en una historia que los jueces viven.
+1. Pantalla partida: **Baseline (greedy)** vs **Nuez**. Mapa real de MTY, dos motos
    moviéndose, dos contadores corriendo.
-2. Min 4 — **cierre vial en Morones Prieto**. El baseline se mete. El Copiloto **habla**,
+2. Min 4 — **cierre vial en Morones Prieto**. El baseline se mete. Nuez **habla**,
    reencamina, y en pantalla aparece el porqué.
-3. Min 6 — **surge en San Pedro**. El baseline sigue tomando migajas. El Copiloto ya está
-   posicionado ahí **desde antes**, porque aprendió el ritmo del día.
-4. Cierre: reporte contrafactual + hash de Solana con las entregas del turno.
-5. **Dejar que un juez apriete el botón del seed.** *"Escoge un turno que nunca hemos visto."*
+3. Min 6 — **surge en San Pedro**. El baseline se va por el dinero fácil. Nuez lo rechaza
+   porque **no alcanza a volver a clase** — y lo dice con esas palabras.
+4. Últimos minutos: **el baseline no llega a clase**. Nuez sí, y además en el camino de
+   regreso agarra dos pedidos que le quedaban de paso.
+5. Cierre: reporte contrafactual + hash de Solana con las entregas del turno.
+6. **Dejar que un juez apriete el botón del seed.** *"Escoge un turno que nunca hemos visto."*
    Eso vale más que cualquier slide.
 
 ---
 
-## 10. Plan de 36h
+## 10. Tareas
+
+**Lo primero, en la hora 1, antes que nada: el contrato de eventos.** Un JSON con la forma de
+`oferta`, `decision`, `estado_repartidor` y `evento_mundo`. Sin eso los cuatro carriles se
+bloquean entre sí. Se define entre todos, se congela, y cada quien mockea lo que le falta.
+
+Hitos que no se mueven:
+
+| Hora | Hito |
+|---|---|
+| **1** | Contrato de eventos congelado |
+| **10** | **Baseline greedy corriendo con un número.** Sin esto no hay proyecto |
+| **18** | Motor le gana al baseline en seeds no vistos |
+| **24** | Gemini explicando decisiones |
+| **30** | Demo completo de punta a punta |
+| **33** | **Feature freeze.** Solo se ensaya y se arreglan bugs |
+
+---
+
+### Carril A — Simulador y datos
+
+| # | Tarea | Listo cuando |
+|---|---|---|
+| A0 | ~~Grafo de MTY descargado + sanity check~~ | ✅ hecho |
+| A1 | Matriz de tiempos precalculada entre los ~200 puntos de interés (restaurantes, zonas de entrega, anclas) | Consulta O(1), sin tocar el grafo en vivo |
+| A2 | Factor de tráfico por hora del día | Macroplaza→Valle da ~22 min en pico, ~8 en madrugada |
+| A3 | Generador de ofertas con `seed` | Mismo seed = mismo stream, byte por byte |
+| A4 | Reloj de turno + estado del repartidor (posición, mochila, fatiga) | Corre una ventana de 120 min de punta a punta |
+| A5 | Eventos del mundo: surge por zona/hora, cierre vial, lluvia | Se disparan por config y sí afectan tiempos y pagos |
+| A6 | Capa de riesgo zona-hora (sintética y curada, documentada como tal) | Devuelve riesgo dado (zona, hora) |
+
+### Carril B — Motor de decisión
+
+| # | Tarea | Listo cuando |
+|---|---|---|
+| B1 | **Baseline greedy** | Da un número de ganancia. **Hora 10.** |
+| B2 | Ruta exacta por enumeración + costo marginal en minutos | Responde "¿cuántos minutos extra me cuesta este pedido?" |
+| B3 | Restricciones duras: regreso factible al ancla + seguridad | Rechaza y dice cuál restricción mandó |
+| B4 | Correr 300 turnos → log de decisiones → TigerData | Tabla `decisiones` poblada |
+| B5 | Query de la tabla de valor → `V.json` | Archivo en disco, ~32 números por zona |
+| B6 | Política de costo de oportunidad leyendo `V.json` | **Gana ≥20% al baseline en 50 seeds no vistos** |
+| B7 | Contrafactual: qué habría pasado aceptando lo rechazado | Un número y una lista al cierre del turno |
+
+### Carril C — Front y demo
+
+| # | Tarea | Listo cuando |
+|---|---|---|
+| C1 | **Contrato de eventos WebSocket** | Congelado en la hora 1 |
+| C2 | Pantalla de configuración (ventana, ancla, vehículo, margen) | Cuatro inputs, no una app |
+| C3 | Mapa MapLibre con los dos agentes y sus rutas | Dos motos moviéndose sobre calles reales |
+| C4 | Contadores + panel de decisión con los términos visibles | Al señalar una decisión se ve por qué |
+| C5 | Botón de seed del juez + botón de evento (surge / cierre) | El juez puede apretarlos él mismo |
+| C6 | Branding Nuez: nombre, SVG, paleta, prompt de personalidad | **3h máximo, en paralelo** |
+
+### Carril D — Integraciones
+
+| # | Tarea | Listo cuando |
+|---|---|---|
+| D1 | `docker compose`: app + TigerData/Timescale | `docker compose up` y corre |
+| D2 | Gemini: clima + eventos masivos → JSON de pesos y multiplicadores | El motor consume el JSON y cambia de conducta |
+| D3 | Gemini: narración de decisiones + reporte contrafactual | Texto listo para la voz |
+| D4 | ElevenLabs TTS streaming con la personalidad de Nuez | Habla mientras el turno corre, sin cortar |
+| D5 | ElevenLabs STT: el repartidor contesta y ajusta preferencias | "esa colonia no" cambia la función objetivo |
+| D6 | Deploy en Vultr | URL pública + fallback localhost probado |
+| D7 | Solana devnet: reputación portable | **Recortable.** Primero que se corta |
+
+---
+
+## 11. Plan de 36h
 
 | Bloque | Qué |
 |---|---|
@@ -483,9 +636,15 @@ El reto dicta el formato. Obedecerlo al pie de la letra y subirle:
 Reparto sugerido (4 personas): simulador+grafo / motor de decisión / front+demo (es más trabajo
 del que parece — **el demo es el producto**) / Gemini+voz+Solana.
 
+**Branding de Nuez en paralelo, 3h máximo:** nombre, SVG de la ardilla, paleta, prompt de
+personalidad de la voz. Lo hace quien esté en el front, entre tareas. No es un bloque del plan.
+
+La pantalla de configuración (ventana, ancla, vehículo, margen) es parte del bloque de front:
+son cuatro inputs, no una app.
+
 ---
 
-## 11. Trampas que hunden este reto
+## 12. Trampas que hunden este reto
 
 - **LLM calculando dinero** → alucina, pierde contra greedy. Motor determinista; LLM solo explica y ajusta pesos.
 - **Simulador bonito, agente mediocre** → el 60% de los equipos se queda sin tiempo para el agente. **Baseline corriendo en la hora 10, sin excepciones.**
@@ -495,7 +654,7 @@ del que parece — **el demo es el producto**) / Gemini+voz+Solana.
 
 ---
 
-## 12. Convenciones para trabajar aquí
+## 13. Convenciones para trabajar aquí
 
 - **Python 3.11+.** Simulador y agente en un solo proceso, sin servicios extra.
 - **Todo turno es reproducible por `seed`.** Si un resultado no se reproduce con su seed, es un bug.
