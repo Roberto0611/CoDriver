@@ -19,6 +19,7 @@ import valor
 from baselines import POLITICAS
 from contrato import ConfigTurno, Punto
 from nuez import politica_nuez
+from oracle import simular_oracle
 from sim import Politica, politica_greedy, simular
 
 
@@ -32,7 +33,7 @@ def main():
     parser.add_argument(
         "--rivales",
         action="store_true",
-        help="mide los cinco agentes online; el Oracle se mide por separado",
+        help="mide cinco agentes online y el Oracle offline en los mismos turnos",
     )
     args = parser.parse_args()
     if args.n_turnos <= 0 or args.duracion <= 0:
@@ -67,6 +68,9 @@ def main():
             nombre: [simular(configuracion(semilla), rival) for semilla in reporte]
             for nombre, rival in politicas.items()
         }
+        resultados["Oracle"] = [
+            simular_oracle(configuracion(semilla), tabla=tabla) for semilla in reporte
+        ]
         assert not any(seeds.es_de_tuneo(s) for s in reporte), "reportando sobre seeds tuneados"
         print(f"{args.n_turnos} turnos frescos, seeds de REPORTE {reporte[0]}-{reporte[-1]}")
         print(f"duracion: {args.duracion} min; inicio: {args.hora_inicio}:00; {args.vehiculo}\n")
@@ -77,7 +81,6 @@ def main():
                 f"{statistics.mean(r.entregas for r in corridas):>10.1f} "
                 f"{sum(r.llego_tarde for r in corridas):>8}"
             )
-        print("\nOracle pendiente: conoce todo el stream y se mide offline.")
         return
 
     filas = []

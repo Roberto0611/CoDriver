@@ -19,8 +19,9 @@ python comparar.py 50 --rivales  # los cinco agentes online con los mismos turno
 `--rivales` mide reglas deliberadamente fijas: `AcceptAll` toma todo pedido
 factible; `HighestPay` exige pago neto de al menos $80; `NearestFirst` exige
 un pickup a 10 minutos o menos; `GreedyRate` y `OurAgent` son las políticas
-existentes. Las cinco pasan por `seguridad.revisar`; el Oracle offline queda
-pendiente porque conoce el stream completo.
+existentes. Las cinco pasan por `seguridad.revisar`. `Oracle` corre sólo offline:
+conoce el stream completo, explora agendas sin pedidos apilados y conserva el
+mejor resultado reproducible frente a las políticas online.
 
 ## Protocolo de Infosys
 
@@ -84,6 +85,7 @@ cd frontend && npm run check
 | `mundo.py`, `rutas.py` | Zonas, tráfico por hora, riesgo, matriz de tiempos |
 | `sim.py` | Simulador de turno y baseline greedy |
 | `baselines.py` | AcceptAll, HighestPay y NearestFirst, con las mismas restricciones duras |
+| `oracle.py` | Planeador offline con stream completo; jamás se expone en `/decide` |
 | `valor.py`, `nuez.py` | Tabla de valor y política de costo de oportunidad |
 | `tests/` | pytest |
 | `backendruta/` | FastAPI: protocolo Courier, rutas, JSONL, voz y WebSocket |
