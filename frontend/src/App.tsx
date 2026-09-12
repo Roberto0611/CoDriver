@@ -43,6 +43,8 @@ function App() {
   const [route, setRoute] = useState<RouteInfo | null>(null)
   const [origin, setOrigin] = useState<string>("Centro")
   const [destination, setDestination] = useState<string>("Valle")
+  const [showTraffic, setShowTraffic] = useState(false)
+  const [currentTime, setCurrentTime] = useState("14:00")
 
   const initMap = useCallback(async () => {
     if (!mapContainer.current || mapRef.current) return
@@ -253,6 +255,43 @@ function App() {
           layout: { 'line-cap': 'round', 'line-join': 'round' },
         })
 
+        // Layer de Tráfico e Incidentes
+        map.addSource('traffic', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } })
+        
+        map.addLayer({
+          id: 'traffic-line',
+          type: 'line',
+          source: 'traffic',
+          filter: ['==', ['get', 'tipo'], 'TRAFICO'],
+          paint: {
+            'line-color': [
+              'interpolate',
+              ['linear'],
+              ['get', 'factor_retraso'],
+              1.0, '#22c55e', // Verde (fluido)
+              1.5, '#eab308', // Amarillo (moderado)
+              2.5, '#f97316', // Naranja (pesado)
+              4.0, '#ef4444'  // Rojo (muy pesado)
+            ],
+            'line-width': ['interpolate', ['linear'], ['zoom'], 9, 3, 14, 8],
+            'line-opacity': 0.85
+          },
+          layout: { 'line-cap': 'round', 'line-join': 'round', 'visibility': 'none' }
+        })
+
+        map.addLayer({
+          id: 'traffic-incident',
+          type: 'line',
+          source: 'traffic',
+          filter: ['==', ['get', 'tipo'], 'CIERRE_TOTAL'],
+          paint: {
+            'line-color': '#000000',
+            'line-width': ['interpolate', ['linear'], ['zoom'], 9, 4, 14, 10],
+            'line-dasharray': [1, 2]
+          },
+          layout: { 'line-cap': 'round', 'line-join': 'round', 'visibility': 'none' }
+        })
+
         // Cargar zonas
         const zonasRes = await fetch('/zonas.json')
         const zonasData = await zonasRes.json()
@@ -392,11 +431,35 @@ function App() {
     }
   }, [initMap])
 
+  useEffect(() => {
+    if (!mapRef.current) return
+    const map = mapRef.current
+    
+    // Toggle visibility
+    if (map.getLayer('traffic-line')) {
+      map.setLayoutProperty('traffic-line', 'visibility', showTraffic ? 'visible' : 'none')
+      map.setLayoutProperty('traffic-incident', 'visibility', showTraffic ? 'visible' : 'none')
+    }
+
+    if (showTraffic) {
+      // Fetch traffic data for the current time
+      fetch(`http://127.0.0.1:8000/api/traffic?hora=${currentTime}`)
+        .then(r => r.json())
+        .then(data => {
+          const source = map.getSource('traffic') as maplibregl.GeoJSONSource
+          if (source) {
+            source.setData(data.geojson)
+          }
+        })
+        .catch(console.error)
+    }
+  }, [showTraffic, currentTime])
+
   const fetchDynamicRoute = async () => {
     if (!mapRef.current) return
     setLoadingRoute(true)
     try {
-      const res = await fetch(`http://127.0.0.1:8000/api/route?origen=${origin}&destino=${destination}`)
+      const res = await fetch(`http://127.0.0.1:8000/api/route?origen=${origin}&destino=${destination}&hora=${currentTime}`)
       if (!res.ok) throw new Error("Error fetching route")
       const routeData = await res.json()
 
@@ -544,6 +607,33 @@ function App() {
               }}
             >
               {loadingRoute ? 'Calculando...' : 'Trazar Ruta'}
+            </button>
+          </div>
+        </div>
+
+        {/* Simulador de Tráfico */}
+        <div className="glass-card">
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+            <div style={{ fontSize: '14px', fontWeight: 'bold' }}>Capa de Tráfico</div>
+            
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <label style={{ fontSize: '12px', color: '#a1a1aa' }}>Reloj Simulación:</label>
+              <input 
+                type="time" 
+                value={currentTime} 
+                onChange={(e) => setCurrentTime(e.target.value)}
+                style={{ background: '#18181b', color: 'white', border: '1px solid #3f3f46', padding: '4px', borderRadius: '4px' }}
+              />
+            </div>
+
+            <button 
+              onClick={() => setShowTraffic(!showTraffic)}
+              style={{
+                background: showTraffic ? '#ef4444' : '#22c55e', color: 'white', border: 'none', padding: '8px', 
+                borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold'
+              }}
+            >
+              {showTraffic ? 'Ocultar Tráfico' : 'Ver Tráfico'}
             </button>
           </div>
         </div>

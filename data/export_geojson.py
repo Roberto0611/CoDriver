@@ -98,11 +98,11 @@ def edges_to_geojson_chunked(G):
     return {name: {"type": "FeatureCollection", "features": feats} for name, feats in chunks.items()}
 
 
-def route_to_geojson(G, origen, destino):
+def route_to_geojson(G, origen, destino, weight="travel_time"):
     """Genera GeoJSON de la ruta más rápida entre dos puntos."""
     o_node = ox.nearest_nodes(G, origen[1], origen[0])
     d_node = ox.nearest_nodes(G, destino[1], destino[0])
-    ruta = nx.shortest_path(G, o_node, d_node, weight="travel_time")
+    ruta = nx.shortest_path(G, o_node, d_node, weight=weight)
 
     # Extraer coordenadas de cada nodo en la ruta
     coords = []
@@ -112,7 +112,10 @@ def route_to_geojson(G, origen, destino):
 
     # Calcular stats
     length_m = nx.shortest_path_length(G, o_node, d_node, weight="length")
-    time_s = nx.shortest_path_length(G, o_node, d_node, weight="travel_time")
+    try:
+        time_s = nx.shortest_path_length(G, o_node, d_node, weight=weight)
+    except Exception:
+        time_s = nx.shortest_path_length(G, o_node, d_node, weight="travel_time")
 
     feature = {
         "type": "Feature",
