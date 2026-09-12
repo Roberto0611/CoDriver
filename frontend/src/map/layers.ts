@@ -27,7 +27,13 @@ const zoomWidth = (...stops: number[]): ExpressionSpecification => [
 export function addRoadLayers(map: MLMap) {
   map.addSource('road-network', { type: 'geojson', data: EMPTY })
 
-  const road = (id: string, cls: string, color: string, width: ExpressionSpecification, minzoom?: number) => {
+  const road = (
+    id: string,
+    cls: string,
+    color: string,
+    width: ExpressionSpecification,
+    minzoom?: number
+  ) => {
     const layer: any = {
       id,
       type: 'line',
@@ -56,7 +62,13 @@ export function addRoadLayers(map: MLMap) {
   })
   road('roads-tertiary', 'tertiary', ROAD.tertiary, zoomWidth(13, 0.8, 15, 2.2, 17, 4.5), 12.5)
   road('roads-secondary', 'secondary', ROAD.secondary, zoomWidth(11, 0.8, 13, 2.2, 17, 5.5), 11)
-  road('roads-primary-casing', 'primary', ROAD.primaryCasing, zoomWidth(9, 1.6, 13, 4.4, 17, 8.4), 8)
+  road(
+    'roads-primary-casing',
+    'primary',
+    ROAD.primaryCasing,
+    zoomWidth(9, 1.6, 13, 4.4, 17, 8.4),
+    8
+  )
   road('roads-primary', 'primary', ROAD.primary, zoomWidth(9, 1, 13, 3, 17, 6.4), 8)
   road('roads-highway-casing', 'highway', ROAD.highwayCasing, zoomWidth(9, 2.4, 13, 5.6, 17, 10.4))
   road('roads-highway', 'highway', ROAD.highway, zoomWidth(9, 1.5, 13, 4, 17, 8))
@@ -110,10 +122,14 @@ const TRAFFIC_COLOR: ExpressionSpecification = [
   [
     'match',
     ['get', 'class'],
-    'highway', ROAD.highway,
-    'primary', ROAD.primary,
-    'secondary', ROAD.secondary,
-    'tertiary', ROAD.tertiary,
+    'highway',
+    ROAD.highway,
+    'primary',
+    ROAD.primary,
+    'secondary',
+    ROAD.secondary,
+    'tertiary',
+    ROAD.tertiary,
     ROAD.local,
   ],
 ]
@@ -183,7 +199,6 @@ export function toggleTrafficLayer(
         let matched = 0
         for (const f of features) {
           if (!f.properties) continue
-
 
           const name: string = f.properties.name ?? ''
           if (!name) continue

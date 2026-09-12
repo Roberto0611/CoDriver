@@ -41,7 +41,7 @@ function App() {
   }>({ origin: null, destination: null })
   const [loading, setLoading] = useState(true)
   const [loadingRoute, setLoadingRoute] = useState(false)
-  const [, setStats] = useState<GraphStats | null>(null)
+  const [stats, setStats] = useState<GraphStats | null>(null)
   const [route, setRoute] = useState<RouteInfo | null>(null)
   const [origin, setOrigin] = useState<string>('Centro')
   const [destination, setDestination] = useState<string>('Valle')
