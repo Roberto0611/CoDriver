@@ -47,6 +47,10 @@ export function textoDecisionCorto(d: Decision): string {
 
 /** Detalle expandido de la decisión (los terminos como cuenta legible). */
 export function textoDecisionDetalle(d: Decision): string {
+  if (d.razon) {
+    return d.razon
+  }
+
   const t = d.terminos
   const partes: string[] = []
 

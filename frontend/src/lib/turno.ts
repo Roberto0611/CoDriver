@@ -11,8 +11,11 @@ export interface TurnoMeta {
   ganado: number
   entregas: number
   rechazos: number
-  llego_tarde: boolean
   ofertas_totales: number
+  violaciones: number
+  llego_tarde: boolean
+  regreso_en: number
+  cancelados: number
 }
 
 /** Viaje de la moto entre dos puntos. */

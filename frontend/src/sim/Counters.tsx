@@ -63,9 +63,21 @@ export function Counters({ greedy, nuez, greedyMeta, nuezMeta, terminado }: Prop
             <strong className="num">{nuezMeta.ganado.toFixed(2)} MXN</strong>
           </div>
           <div className="turno-summary-row">
-            <span>Late?</span>
-            <strong>{nuezMeta.llego_tarde ? 'Yes' : 'No'}</strong>
+            <span>Safety violations</span>
+            <strong>{nuezMeta.violaciones ?? 0}</strong>
           </div>
+          <div className="turno-summary-row">
+            <span>Back by 14:50</span>
+            <strong>
+              {nuezMeta.regreso_en?.toFixed(1) ?? '?'} min {nuezMeta.llego_tarde ? '✗' : '✓'}
+            </strong>
+          </div>
+          {(nuezMeta.cancelados ?? 0) > 0 && (
+            <div className="turno-summary-row" style={{ color: '#f43f5e', fontWeight: 600 }}>
+              <span>Orders canceled due to disruption</span>
+              <strong>{nuezMeta.cancelados}</strong>
+            </div>
+          )}
         </div>
       )}
     </div>
