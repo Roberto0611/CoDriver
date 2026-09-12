@@ -54,6 +54,7 @@ class Resultado:
     minutos_ocupado: int = 0
     decisiones: list[Decision] = field(default_factory=list)
     ofertas: list[Oferta] = field(default_factory=list)
+    trayecto: list[tuple[int, int, str]] = field(default_factory=list)  # (minuto, punto, tipo)
 
 
 # --- A3: generador de ofertas ------------------------------------------------
@@ -171,6 +172,7 @@ def simular(cfg: ConfigTurno, politica: Politica) -> Resultado:
                 break   # esperando a que el restaurante termine
             pos = parada.punto
             ruta = ruta[1:]
+            res.trayecto.append((t, pos, parada.tipo))
 
             if parada.tipo == "dropoff" and parada.oferta_id:
                 o = aceptadas[parada.oferta_id]
