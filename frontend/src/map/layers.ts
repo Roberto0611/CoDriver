@@ -132,11 +132,6 @@ export function toggleTrafficLayer(
   hora?: string,
   onDone?: () => void,
 ) {
-  const source = map.getSource('road-network') as GeoJSONSource | undefined
-  if (!source) return
-
-  const features = getRoadFeatures()
-
   if (!visible) {
     // Restaurar colores originales
     for (const layerId of ROAD_LAYERS) {
@@ -146,13 +141,6 @@ export function toggleTrafficLayer(
         map.setPaintProperty(layerId, 'line-color', color)
       }
     }
-    // Limpiar traffic_factor de los features
-    for (const f of features) {
-      if (f.properties) {
-        delete f.properties.traffic_factor
-      }
-    }
-    source.setData({ type: 'FeatureCollection', features })
     onDone?.()
     return
   }
@@ -163,45 +151,47 @@ export function toggleTrafficLayer(
     .then((data: { traffic_map: Record<string, number>; incidents: Array<{ calle: string; factor?: number }> }) => {
       const trafficMap = data.traffic_map
       const incidents = data.incidents || []
-      console.log('[Traffic] Keys:', Object.keys(trafficMap).length, 'Incidents:', incidents.length)
 
-      let matched = 0
-      for (const f of features) {
-        if (!f.properties) continue
+      const fallback = [
+        'match',
+        ['get', 'class'],
+        'highway', ROAD.highway,
+        'primary', ROAD.primary,
+        'secondary', ROAD.secondary,
+        'tertiary', ROAD.tertiary,
+        ROAD.local,
+      ]
 
+      const matchExpr: any[] = ['match', ['get', 'name']]
+      for (const [name, factor] of Object.entries(trafficMap)) {
+         if (!name) continue
+         let color = '#16a34a'
+         if (factor >= 100) color = '#7f1d1d'
+         else if (factor >= 2.0) color = '#ef4444'
+         else if (factor >= 1.6) color = '#f97316'
+         else if (factor >= 1.3) color = '#eab308'
+         matchExpr.push(name, color)
+      }
+      matchExpr.push(fallback)
 
+      let finalColorExpr: any = matchExpr
 
-        const name: string = f.properties.name ?? ''
-        if (!name) continue
-
-        // 1. Búsqueda exacta O(1) para el tráfico regular masivo
-        let factor = trafficMap[name]
-
-        // 2. Búsqueda por substring solo para incidentes manuales
-        for (const inc of incidents) {
-          if (name.includes(inc.calle)) {
-            factor = 99999.0 // Factor altísimo para asegurar que se pinte rojo oscuro
-            break
-          }
-        }
-
-        if (factor !== undefined) {
-          f.properties.traffic_factor = factor
-          matched++
-        } else {
-          delete f.properties.traffic_factor
-        }
+      if (matchExpr.length < 4) {
+         finalColorExpr = fallback
       }
 
-      console.log(`[Traffic] Matched ${matched} / ${features.length} features`)
+      if (incidents.length > 0) {
+         const caseExpr: any[] = ['case']
+         for (const inc of incidents) {
+            caseExpr.push(['in', inc.calle, ['coalesce', ['get', 'name'], '']], '#7f1d1d')
+         }
+         caseExpr.push(finalColorExpr)
+         finalColorExpr = caseExpr
+      }
 
-      // Re-setear datos con las propiedades inyectadas
-      source.setData({ type: 'FeatureCollection', features })
-
-      // Cambiar el paint de las capas de calles a usar colores de tráfico
       for (const layerId of ROAD_LAYERS) {
         if (map.getLayer(layerId)) {
-          map.setPaintProperty(layerId, 'line-color', TRAFFIC_COLOR)
+          map.setPaintProperty(layerId, 'line-color', finalColorExpr)
         }
       }
 

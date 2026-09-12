@@ -62,7 +62,7 @@ function App() {
       pitch: 0,
       bearing: 0,
       maxZoom: 18,
-      minZoom: 12,
+      minZoom: 13,
     })
     mapRef.current = map
     map.addControl(new maplibregl.NavigationControl({ showCompass: true }), 'top-right')
@@ -71,10 +71,15 @@ function App() {
       try {
         addRoadLayers(map)
         const loadNearby = createRoadLoader(map, (edges) => setStats({ edges, nodes: 0 }))
-        await loadNearby(MTY_CENTER, 5)
+        await loadNearby(MTY_CENTER, 8)
+        let debounceTimer: ReturnType<typeof setTimeout>
         map.on('moveend', () => {
-          const c = map.getCenter()
-          loadNearby([c.lng, c.lat], 2)
+          if (map.getZoom() < 11) return // No cargar más calles si está muy alejado
+          clearTimeout(debounceTimer)
+          debounceTimer = setTimeout(() => {
+            const c = map.getCenter()
+            loadNearby([c.lng, c.lat], 1) // Cargar solo 1 zona a la vez
+          }, 300)
         })
 
         addRouteLayers(map)
