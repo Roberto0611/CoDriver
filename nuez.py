@@ -19,6 +19,14 @@ from sim import CAPACIDAD, COSTO_KM, Parada, indice_de
 
 MARGEN = 1.0  # el pedido debe rendir al menos esto por encima del costo de oportunidad
 
+# Cuando la ruta esta vacia, un minuto rinde EXACTAMENTE cero. La tabla de valor
+# dice lo que rinde un repartidor promedio, pero el promedio incluye a los que ya
+# traen trabajo encima; el que esta parado y lejos no puede aspirar a eso, y si se
+# lo cobra rechaza todo y termina el turno en ceros (era el caso del seed 1007).
+# ponytail: 0.5 salio de barrer el parametro; medido en 300 seeds contra x1.0 da
+# +$8.9 por turno, 3.4 veces el error. Si se recalibra el mundo, volver a barrerlo.
+DESCUENTO_PARADO = 0.5
+
 
 def politica_nuez(
     o: Oferta, est: EstadoRepartidor, ruta: list[Parada], cfg: ConfigTurno
@@ -40,6 +48,8 @@ def politica_nuez(
 
     # El costo de oportunidad: lo que rinden esos minutos normalmente.
     precio = valor.precio_del_tiempo(est.t_restante - cola, propios)
+    if not ruta:
+        precio *= DESCUENTO_PARADO
 
     terminos = {
         "pago_neto": round(neto, 1),
@@ -47,6 +57,7 @@ def politica_nuez(
         "por_minuto": round(neto / max(propios, 1), 2),
         "precio_tiempo": round(precio, 1),
         "ventaja": round(neto - precio, 1),
+        "parado": float(not ruta),
     }
 
     def no(razon: str, restriccion=None):
