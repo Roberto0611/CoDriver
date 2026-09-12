@@ -43,13 +43,14 @@
   --rose-ink: #93000a;
   --rose-tint: #ffdad6;
 
-  /* Bordes y sombras (teñidas de ciruela, nunca negro puro) */
+  /* Bordes y sombras (sin sombreados) */
   --hairline: #d8ccca;
   --hairline-strong: rgba(104, 73, 89, 0.3);
-  --shadow-card: 0 1px 3px rgba(104, 73, 89, 0.05), 0 4px 12px rgba(104, 73, 89, 0.04);
-  --shadow-float: 0 8px 24px rgba(104, 73, 89, 0.14);
-  --shadow-button: 0 2px 8px rgba(104, 73, 89, 0.35);
-  --focus-ring: 0 0 0 3px rgba(104, 73, 89, 0.15);
+  --shadow-card: none;
+  --shadow-float: none;
+  --shadow-button: none;
+  --focus-ring: none;
+
 
   /* Forma */
   --r-sm: 8px;

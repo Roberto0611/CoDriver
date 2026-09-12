@@ -6,11 +6,8 @@ import { Icon } from './ui/icons'
 import { formatNumber, ZONAS_LIST } from './lib/zones'
 import { baseStyle, MTY_CENTER, MTY_ZOOM } from './map/style'
 import {
-  addPuntosLayer,
   addRoadLayers,
   addRouteLayers,
-  addTrafficLayers,
-  addZonaLayers,
   toggleTrafficLayer,
 } from './map/layers'
 import { attachHoverPopups } from './map/popups'
@@ -23,6 +20,18 @@ maplibregl.setWorkerUrl(maplibreWorkerUrl)
 interface GraphStats {
   edges: number
   nodes: number
+}
+
+function timeToMinutes(timeStr: string): number {
+  const [h, m] = timeStr.split(':').map(Number)
+  return (h || 0) * 60 + (m || 0)
+}
+
+function minutesToTime(totalMin: number): string {
+  const clamped = Math.max(0, Math.min(24 * 60 - 1, totalMin))
+  const h = Math.floor(clamped / 60).toString().padStart(2, '0')
+  const m = (clamped % 60).toString().padStart(2, '0')
+  return `${h}:${m}`
 }
 
 function App() {
@@ -40,6 +49,7 @@ function App() {
   const [destination, setDestination] = useState<string>('Valle')
   const [showTraffic, setShowTraffic] = useState(false)
   const [currentTime, setCurrentTime] = useState('14:00')
+  const [isPlaying, setIsPlaying] = useState(false)
 
   const initMap = useCallback(async () => {
     if (!mapContainer.current || mapRef.current) return
@@ -68,9 +78,6 @@ function App() {
         })
 
         addRouteLayers(map)
-        addTrafficLayers(map)
-        addZonaLayers(map, await (await fetch('/zonas.json')).json())
-        addPuntosLayer(map, await (await fetch('/puntos.json')).json())
         attachHoverPopups(map)
       } catch (err) {
         console.error('Error cargando datos del grafo:', err)
@@ -93,6 +100,37 @@ function App() {
     if (!mapRef.current) return
     toggleTrafficLayer(mapRef.current, showTraffic, currentTime)
   }, [showTraffic, currentTime])
+
+  // Auto-play: Cada 5 segundos avanza 1 minuto el tiempo de simulación
+  useEffect(() => {
+    if (!isPlaying) return
+
+    const interval = setInterval(() => {
+      setCurrentTime((prev) => {
+        const mins = timeToMinutes(prev)
+        // Rango de simulación: 14:00 (840) a 16:00 (960)
+        const nextMins = mins >= 960 ? 840 : mins + 1
+        return minutesToTime(nextMins)
+      })
+    }, 5000)
+
+    return () => clearInterval(interval)
+  }, [isPlaying])
+
+  const stepMinute = (delta: number) => {
+    setCurrentTime((prev) => {
+      const mins = timeToMinutes(prev)
+      const nextMins = Math.max(840, Math.min(960, mins + delta))
+      return minutesToTime(nextMins)
+    })
+  }
+
+  const handleTogglePlay = () => {
+    if (!isPlaying && !showTraffic) {
+      setShowTraffic(true)
+    }
+    setIsPlaying((prev) => !prev)
+  }
 
   const fetchDynamicRoute = async () => {
     const map = mapRef.current
@@ -123,41 +161,73 @@ function App() {
         <div className="loading-text">Loading Monterrey's streets…</div>
       </div>
 
-      {/* Panel izquierdo */}
-      <div className="overlay-panel">
-        {/* Logo */}
-        <div className="logo" role="img" aria-label="Nuez">
-          {Icon.mark}
+      {/* Timeline de Tráfico en la parte superior del centro */}
+      <div className="timeline-panel">
+        <div className="timeline-controls">
+
+          <button
+            className="timeline-btn-round"
+            title="Atrasar 1 minuto"
+            onClick={() => stepMinute(-1)}
+          >
+            -1
+          </button>
+
+          <button
+            className="timeline-btn-play"
+            title={isPlaying ? 'Pausar simulación' : 'Iniciar simulación (1 min / 5s)'}
+            onClick={handleTogglePlay}
+          >
+            {isPlaying ? Icon.pause : Icon.play}
+          </button>
+
+          <button
+            className="timeline-btn-round"
+            title="Avanzar 1 minuto"
+            onClick={() => stepMinute(1)}
+          >
+            +1
+          </button>
         </div>
 
-        {/* Stats */}
-        {stats && (
-          <div className="glass-card">
-            <div className="stats-grid">
-              <div className="stat-item">
-                <div className="stat-value">{formatNumber(stats.nodes)}</div>
-                <div className="stat-label">Nodes</div>
-              </div>
-              <div className="stat-item">
-                <div className="stat-value">{formatNumber(stats.edges)}</div>
-                <div className="stat-label">Segments</div>
-              </div>
-              <div className="stat-item">
-                <div className="stat-value">
-                  20<small>km</small>
-                </div>
-                <div className="stat-label">Radius</div>
-              </div>
-              <div className="stat-item">
-                <div className="stat-value">5</div>
-                <div className="stat-label">Road classes</div>
-              </div>
+        <div className="timeline-scrubber">
+          <div className="timeline-time-display">{currentTime}</div>
+
+          <div className="timeline-slider-track">
+            <input
+              type="range"
+              min={840}
+              max={960}
+              step={1}
+              value={timeToMinutes(currentTime)}
+              onChange={(e) => setCurrentTime(minutesToTime(Number(e.target.value)))}
+              className="timeline-slider"
+            />
+            <div className="timeline-labels">
+              <span>14:00</span>
+              <span>16:00</span>
             </div>
           </div>
-        )}
+        </div>
 
+        <button
+          className={`timeline-toggle-btn ${showTraffic ? 'is-active' : ''}`}
+          onClick={() => setShowTraffic(!showTraffic)}
+        >
+          {showTraffic ? 'Layer: On' : 'Layer: Off'}
+        </button>
+      </div>
+
+      {/* Logo superior izquierdo */}
+      <div className="logo" role="img" aria-label="Nuez">
+        {Icon.mark}
+      </div>
+
+      {/* Panel de ruta (centro a la izquierda) */}
+      <div className="overlay-panel">
         {/* Buscador de rutas */}
         <div className="glass-card">
+
           <div className="finder">
             <div className="finder-title">Trace a route</div>
 
@@ -200,30 +270,6 @@ function App() {
           </div>
         </div>
 
-        {/* Simulador de Tráfico */}
-        <div className="glass-card">
-          <div className="finder">
-            <div className="finder-title">Traffic layer</div>
-
-            <div className="field">
-              <label htmlFor="sim-clock">Simulation clock</label>
-              <input
-                id="sim-clock"
-                type="time"
-                value={currentTime}
-                onChange={(e) => setCurrentTime(e.target.value)}
-                className="input-time"
-              />
-            </div>
-
-            <button
-              className={showTraffic ? 'btn-danger' : 'btn-primary'}
-              onClick={() => setShowTraffic(!showTraffic)}
-            >
-              {showTraffic ? 'Hide traffic' : 'Show traffic'}
-            </button>
-          </div>
-        </div>
 
         {/* Ruta */}
         {route && (
@@ -262,54 +308,9 @@ function App() {
           </div>
         )}
 
-        {/* Leyenda */}
-        <div className="glass-card">
-          <div className="legend">
-            <div className="legend-title">Road classes</div>
-            <div className="legend-item">
-              <div className="legend-line highway" />
-              Highway / trunk
-            </div>
-            <div className="legend-item">
-              <div className="legend-line primary" />
-              Primary
-            </div>
-            <div className="legend-item">
-              <div className="legend-line secondary" />
-              Secondary
-            </div>
-            <div className="legend-item">
-              <div className="legend-line local" />
-              Local / residential
-            </div>
-            <div className="legend-item">
-              <div className="legend-line route" />
-              Active route
-            </div>
-          </div>
-        </div>
+
       </div>
 
-      {/* Bottom bar */}
-      {stats && (
-        <div className="bottom-bar">
-          <div className="bottom-pill">
-            {Icon.pin} <strong>Monterrey, NL</strong>
-          </div>
-          <div className="bottom-pill">
-            {Icon.map} <strong>{formatNumber(stats.edges)}</strong> road segments
-          </div>
-          {route && (
-            <div className="bottom-pill is-route">
-              {Icon.route}{' '}
-              <strong>
-                {route.from} to {route.to}
-              </strong>{' '}
-              · {route.lengthKm} km
-            </div>
-          )}
-        </div>
-      )}
     </div>
   )
 }

@@ -74,50 +74,39 @@ def read_root():
 
 
 @app.get("/api/traffic")
-def get_traffic(hora: str | None = "14:00"):
-    """Devuelve las calles congestionadas y los incidentes activos en una hora dada."""
-    hora = hora if hora is not None else "14:00"
+def get_traffic(hora: Optional[str] = "14:00"):
+    """Devuelve un mapa nombre_calle→factor para colorear las calles reales del grafo."""
     traffic_records = database.get_traffic_at_time(hora)
     incidents = database.get_active_incidents(hora)
 
-    features = []
+    # Construir mapa nombre exacto → factor_retraso
+    traffic_map: dict[str, float] = {}
     for t in traffic_records:
-        features.append(
-            {
-                "type": "Feature",
-                "geometry": {"type": "LineString", "coordinates": t.get("coords", [])},
-                "properties": {
-                    "calle": t.get("calle_nombre"),
-                    "factor_retraso": t.get("factor_retraso"),
-                    "delay_segundos": t.get("delay_segundos"),
-                    "velocidad_kmh": t.get("velocidad_kmh"),
-                    "motivo": t.get("motivo"),
-                    "tipo": "TRAFICO",
-                },
-            }
-        )
+        calle = t.get("calle_nombre", "")
+        factor = t.get("factor_retraso", 1.0)
+        if calle:
+            traffic_map[calle] = factor
 
+    # Incidentes activos → factor altísimo
+    incident_keywords: list[dict] = []
     for inc in incidents:
-        features.append(
-            {
-                "type": "Feature",
-                "geometry": {"type": "LineString", "coordinates": inc.get("coords", [])},
-                "properties": {
-                    "calle": inc.get("calle"),
-                    "factor_penalizacion": inc.get("factor_penalizacion"),
-                    "motivo": inc.get("motivo"),
-                    "alerta_voz": inc.get("alerta_voz"),
-                    "tipo": inc.get("tipo", "CIERRE_TOTAL"),
-                },
-            }
-        )
+        calle = inc.get("calle", "")
+        if calle:
+            # Los incidentes inyectados manualmente podrían ser sub-strings o nombres exactos.
+            traffic_map[calle] = inc.get("factor_penalizacion", 99999.0)
+            incident_keywords.append({
+                "calle": calle,
+                "keywords": [calle],
+                "motivo": inc.get("motivo"),
+                "alerta_voz": inc.get("alerta_voz"),
+                "tipo": inc.get("tipo", "CIERRE_TOTAL"),
+            })
 
     return {
         "hora": hora,
-        "tigerdata_connected": database.is_connected(),
-        "total_incidentes": len(incidents),
+        "traffic_map": traffic_map,
+        "incidents": incident_keywords,
         "alertas": [inc.get("alerta_voz") for inc in incidents if inc.get("alerta_voz")],
-        "geojson": {"type": "FeatureCollection", "features": features},
     }
 
 
