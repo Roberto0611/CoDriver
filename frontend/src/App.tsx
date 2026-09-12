@@ -7,7 +7,7 @@ maplibregl.setWorkerUrl(maplibreWorkerUrl)
 
 // Centro de Monterrey
 const MTY_CENTER: [number, number] = [-100.3161, 25.6866]
-const MTY_ZOOM = 11.2
+const MTY_ZOOM = 14
 
 // Colores por tipo de vía (coherente con el CSS)
 const ROAD_COLORS: Record<string, string> = {
@@ -102,71 +102,75 @@ function App() {
 
         console.log(`[Copiloto] Grafo cargado: ${edgesData.features.length} aristas`)
 
-        // Capa única con estilo data-driven por tipo de vía
+        // ── Capas por tipo de vía ────────────────────────────────────────
+        // Autopistas/troncales
         map.addLayer({
-          id: 'road-network-layer',
+          id: 'roads-highway',
           type: 'line',
           source: 'road-network',
+          filter: ['==', ['get', 'class'], 'highway'],
           paint: {
-            'line-color': [
-              'match', ['get', 'class'],
-              'highway', '#fbbf24',
-              'primary', '#e2e8f0',
-              'secondary', '#94a3b8',
-              'tertiary', '#64748b',
-              /* local/default */ '#3b4d63',
-            ],
-            'line-width': [
-              'interpolate', ['linear'], ['zoom'],
-              9, [
-                'match', ['get', 'class'],
-                'highway', 0.8,
-                'primary', 0.5,
-                'secondary', 0.3,
-                'tertiary', 0.2,
-                0.1,
-              ],
-              13, [
-                'match', ['get', 'class'],
-                'highway', 3.5,
-                'primary', 2.5,
-                'secondary', 1.8,
-                'tertiary', 1.2,
-                0.7,
-              ],
-              17, [
-                'match', ['get', 'class'],
-                'highway', 6,
-                'primary', 4,
-                'secondary', 3,
-                'tertiary', 2,
-                1.2,
-              ],
-            ],
-            'line-opacity': [
-              'interpolate', ['linear'], ['zoom'],
-              9, [
-                'match', ['get', 'class'],
-                'highway', 0.9,
-                'primary', 0.7,
-                'secondary', 0.5,
-                'tertiary', 0.4,
-                0.25,
-              ],
-              13, [
-                'match', ['get', 'class'],
-                'highway', 1,
-                'primary', 0.9,
-                'secondary', 0.8,
-                'tertiary', 0.7,
-                0.5,
-              ],
-            ],
+            'line-color': '#fbbf24',
+            'line-width': ['interpolate', ['linear'], ['zoom'], 9, 1.5, 13, 4, 17, 8],
+            'line-opacity': ['interpolate', ['linear'], ['zoom'], 9, 0.9, 13, 1],
           },
-          layout: {
-            'line-cap': 'round',
-            'line-join': 'round',
+          layout: { 'line-cap': 'round', 'line-join': 'round' },
+        })
+
+        // Primarias
+        map.addLayer({
+          id: 'roads-primary',
+          type: 'line',
+          source: 'road-network',
+          filter: ['==', ['get', 'class'], 'primary'],
+          paint: {
+            'line-color': '#e2e8f0',
+            'line-width': ['interpolate', ['linear'], ['zoom'], 9, 0.8, 13, 3, 17, 6],
+            'line-opacity': ['interpolate', ['linear'], ['zoom'], 9, 0.75, 13, 1],
           },
+          layout: { 'line-cap': 'round', 'line-join': 'round' },
+        })
+
+        // Secundarias
+        map.addLayer({
+          id: 'roads-secondary',
+          type: 'line',
+          source: 'road-network',
+          filter: ['==', ['get', 'class'], 'secondary'],
+          paint: {
+            'line-color': '#94a3b8',
+            'line-width': ['interpolate', ['linear'], ['zoom'], 11, 0.5, 13, 2, 17, 5],
+            'line-opacity': ['interpolate', ['linear'], ['zoom'], 11, 0.6, 13, 0.9],
+          },
+          layout: { 'line-cap': 'round', 'line-join': 'round' },
+        })
+
+        // Terciarias
+        map.addLayer({
+          id: 'roads-tertiary',
+          type: 'line',
+          source: 'road-network',
+          filter: ['==', ['get', 'class'], 'tertiary'],
+          paint: {
+            'line-color': '#64748b',
+            'line-width': ['interpolate', ['linear'], ['zoom'], 13, 0.5, 15, 2, 17, 4],
+            'line-opacity': ['interpolate', ['linear'], ['zoom'], 13, 0.6, 15, 0.85],
+          },
+          layout: { 'line-cap': 'round', 'line-join': 'round' },
+        })
+
+        // Locales/residenciales (224K features — 83% del grafo)
+        map.addLayer({
+          id: 'roads-local',
+          type: 'line',
+          source: 'road-network',
+          filter: ['==', ['get', 'class'], 'local'],
+          paint: {
+            'line-color': '#475569',
+            'line-width': ['interpolate', ['linear'], ['zoom'], 14, 0.4, 16, 1.5, 17, 3],
+            'line-opacity': ['interpolate', ['linear'], ['zoom'], 14, 0.5, 16, 0.75],
+          },
+          layout: { 'line-cap': 'round', 'line-join': 'round' },
         })
 
         // Cargar ruta de ejemplo
@@ -261,29 +265,33 @@ function App() {
           offset: 10,
         })
 
-        map.on('mouseenter', 'road-network-layer', (e) => {
-          map.getCanvas().style.cursor = 'pointer'
-          const props = e.features?.[0]?.properties
-          if (!props) return
+        const ROAD_LAYERS = ['roads-highway', 'roads-primary', 'roads-secondary', 'roads-tertiary', 'roads-local']
 
-          const name = props.name || 'Sin nombre'
-          const speed = props.speed ? `${props.speed} km/h` : '—'
-          const cls = props.class || 'local'
+        for (const layerId of ROAD_LAYERS) {
+          map.on('mouseenter', layerId, (e) => {
+            map.getCanvas().style.cursor = 'pointer'
+            const props = e.features?.[0]?.properties
+            if (!props) return
 
-          popup
-            .setLngLat(e.lngLat)
-            .setHTML(`
-              <strong>${name}</strong><br>
-              <span style="color:#8a8a9a">Tipo:</span> ${cls}<br>
-              <span style="color:#8a8a9a">Velocidad:</span> ${speed}
-            `)
-            .addTo(map)
-        })
+            const name = props.name || 'Sin nombre'
+            const speed = props.speed ? `${props.speed} km/h` : '—'
+            const cls = props.class || 'local'
 
-        map.on('mouseleave', 'road-network-layer', () => {
-          map.getCanvas().style.cursor = ''
-          popup.remove()
-        })
+            popup
+              .setLngLat(e.lngLat)
+              .setHTML(`
+                <strong>${name}</strong><br>
+                <span style="color:#8a8a9a">Tipo:</span> ${cls}<br>
+                <span style="color:#8a8a9a">Velocidad:</span> ${speed}
+              `)
+              .addTo(map)
+          })
+
+          map.on('mouseleave', layerId, () => {
+            map.getCanvas().style.cursor = ''
+            popup.remove()
+          })
+        }
 
         setLoading(false)
       } catch (err) {
