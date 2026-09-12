@@ -426,6 +426,14 @@ preferencia y la mete en la función objetivo. Voz como canal de **entrada**, no
 Streaming de baja latencia para que se sienta vivo. Que suene a norteño, no a locutor de
 aeropuerto.
 
+**Estado (implementado):** paquete `voz/` + rutas `/api/voice/*` en el backend + helper
+`frontend/src/voice/nuez.ts`. Va directo al REST de ElevenLabs con httpx (el SDK no instala en
+Windows por rutas largas). Voz y modelo en `voz/config.py` (o `.env`: `NUEZ_VOICE_ID`,
+`NUEZ_TTS_MODEL`). **Cache en disco obligatoria** (`cache/voz/`): la cuenta es free, 10k
+caracteres en total, y el wifi falla en el pitch. Antes del demo:
+`python -m voz precache frases.txt`. Los tests simulan la API; `NUEZ_VOZ_LIVE=1` para pegarle
+de verdad. La primera `say()` del front debe salir de un click (autoplay) o llamar `unlock()`.
+
 ### TigerData (Timescale) — el store operacional
 
 Postgres con series de tiempo. El proyecto **es** una serie de tiempo: eventos del turno,
