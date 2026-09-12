@@ -1,5 +1,8 @@
 name: CI
 
+# Un job por check, para que en el PR se vea de un vistazo qué falló.
+# Dentro de cada job, un paso para Python y otro para el front.
+
 on:
   push:
     branches: [main]
@@ -11,81 +14,84 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  python:
-    name: Python · lint, format, types, tests, deps
+  deps:
+    name: Install Dependencies
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
-          cache: pip
-          cache-dependency-path: |
-            requirements.txt
-            requirements-dev.txt
-
-      - name: Install
-        run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt -r requirements-dev.txt
-
-      - name: Lint (ruff)
-        run: ruff check .
-
-      - name: Format (ruff)
-        run: ruff format --check .
-
-      - name: Types (mypy)
-        run: mypy
-
-      - name: Tests (pytest)
-        run: pytest
-
-      - name: Dependencies resolve without conflicts
+      - uses: ./.github/actions/setup
+      - name: Python · pip check (sin conflictos)
         run: pip check
-
-      - name: Dependencies have no known vulnerabilities
-        run: pip-audit -r requirements.txt -r requirements-dev.txt
-
-      - name: No file over 500 lines
-        run: python scripts/max_lines.py .
-
-  frontend:
-    name: Frontend · lint, format, types, tests, build, deps
-    runs-on: ubuntu-latest
-    defaults:
-      run:
+      - name: Python · pip-audit (sin vulnerabilidades)
+        run: python -m pip_audit -r requirements.txt -r requirements-dev.txt
+      - name: Frontend · npm audit (sin vulnerabilidades altas)
         working-directory: frontend
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 24
-          cache: npm
-          cache-dependency-path: frontend/package-lock.json
-
-      - name: Install (lockfile must be in sync)
-        run: npm ci
-
-      - name: Dependencies have no known vulnerabilities
         run: npm audit --audit-level=high
 
-      - name: Lint (oxlint)
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup
+      - name: Python · ruff check
+        run: ruff check .
+      - name: Frontend · oxlint
+        working-directory: frontend
         run: npm run lint
 
-      - name: Format (prettier)
+  format:
+    name: Format Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup
+      - name: Python · ruff format --check
+        run: ruff format --check .
+      - name: Frontend · prettier --check
+        working-directory: frontend
         run: npm run format:check
 
-      - name: Types (tsc)
+  types:
+    name: Type Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup
+      - name: Python · mypy
+        run: mypy
+      - name: Frontend · tsc
+        working-directory: frontend
         run: npm run typecheck
 
-      - name: Tests (vitest)
+  tests:
+    name: Unit Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup
+      - name: Python · pytest
+        run: pytest
+      - name: Frontend · vitest
+        working-directory: frontend
         run: npm test
 
-      - name: No file over 500 lines
-        run: python3 ../scripts/max_lines.py src
+  lines:
+    name: File Length Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Ningún archivo de código pasa de 500 líneas
+        run: python3 scripts/max_lines.py .
 
-      - name: Build (vite)
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup
+        with:
+          python: "false"
+      - name: Frontend · vite build
+        working-directory: frontend
         run: npm run build

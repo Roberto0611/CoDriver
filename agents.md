@@ -731,8 +731,9 @@ son cuatro inputs, no una app.
 - **Antes de agregar una dependencia:** ¿lo resuelve la stdlib en menos de 20 líneas? Entonces stdlib.
 - Comentarios y docs en español; nombres de código en inglés.
 - **Nada se mergea a `main` con CI en rojo.** El workflow (`.github/workflows/ci.yml`) corre en
-  cada push y PR: Python (`ruff check`, `ruff format --check`, `mypy`, `pytest`, `pip check`,
-  `pip-audit`) y front (`npm ci`, `npm audit`, oxlint, prettier, `tsc`, vitest, build).
+  cada push y PR, un job por check para ver de un vistazo qué falló: Install Dependencies,
+  Lint, Format Check, Type Check, Unit Tests, File Length Check, Build. Cada job corre su paso
+  de Python y su paso de front.
   Localmente, antes de subir: `python -m ruff check . && python -m ruff format . && python -m mypy && python -m pytest`
   y en `frontend/`: `npm run check`.
 - **Ningún archivo de código pasa de 500 líneas** (`python scripts/max_lines.py .`). Un archivo
