@@ -1,3 +1,4 @@
 osmnx
 scikit-learn
 matplotlib
+numpy

@@ -4,3 +4,5 @@ __pycache__/
 data/*.pkl
 .env
 data/*.png
+tiger-cloud-db-hackmty-credentials.env
+!data/matriz.pkl
