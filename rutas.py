@@ -12,6 +12,7 @@ from functools import cache
 from pathlib import Path
 
 from mundo import factor_trafico
+from seguridad import VEHICULOS
 
 _datos = pickle.loads((Path(__file__).parent / "data" / "matriz.pkl").read_bytes())
 
@@ -22,14 +23,18 @@ ZONA_DE = [z for z, _, _, _ in PUNTOS]
 COORD_DE = [(lat, lon) for _, _, lat, lon in PUNTOS]
 
 
-def minutos(i: int, j: int, hora: int) -> float:
+def minutos(i: int, j: int, hora: int, vehiculo: str = "moto") -> float:
     """Minutos reales del punto i al j a esa hora del dia.
 
     El factor depende del corredor (hacia el centro, saliendo, cruzando el rio,
     local), no solo de la hora: a las 15:30 cruzar a San Pedro cuesta el doble
     que moverte dentro de tu zona.
     """
-    return float(_M[i, j]) * factor_trafico(hora, ZONA_DE[i], ZONA_DE[j])
+    return (
+        float(_M[i, j])
+        * factor_trafico(hora, ZONA_DE[i], ZONA_DE[j])
+        * VEHICULOS[vehiculo].velocidad
+    )
 
 
 def km(i: int, j: int) -> float:

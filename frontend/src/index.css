@@ -2,5 +2,6 @@
 @import './styles/tokens.css';
 @import './styles/map.css';
 @import './styles/panel.css';
+@import './styles/agent-cards.css';
 @import './styles/overlays.css';
 @import './navie/navie.css';
