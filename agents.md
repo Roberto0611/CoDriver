@@ -48,10 +48,11 @@ python comparar.py 200 --duracion 480
 
 Son resultados del mundo sintético con esa configuración, no una promesa para cualquier
 vehículo u horario. Las pruebas cubren además ventanas de 65 y 137 min, tres vehículos y
-turnos de 8 horas desde las 8, 14 y 21 h. Verificación local: 127 tests Python pasan (1 de voz
+turnos de 8 horas desde las 8, 14 y 21 h. Verificación local: 163 tests Python pasan (1 de voz
 en vivo omitido), 11 tests de front pasan, lint/formato/tipos/contrato/límite de líneas y build
 en verde. El endpoint y el JSONL oficial también pasan su validador. **Siguiente pendiente:
-los cinco baselines y el Oracle.**
+el Oracle offline.** Ya corren los cinco agentes online (`AcceptAll`, `HighestPay`,
+`NearestFirst`, `GreedyRate` y `OurAgent`) con los mismos seeds de REPORTE.
 
 ### Qué existe y qué falta
 
@@ -59,7 +60,7 @@ los cinco baselines y el Oracle.**
 |---|---|---|
 | **0** | El mundo y el rival | ✅ |
 | **1** | **EL NÚMERO** — tabla de valor + política de Nuez | ✅ **+29.2% en seeds no vistos** |
-| **1b** | Conformidad con el spec oficial de Infosys | 🟡 duración, restricciones y `/decide` + JSONL ✅; faltan baselines/Oracle, modo degradado y shocks |
+| **1b** | Conformidad con el spec oficial de Infosys | 🟡 duración, restricciones, `/decide` + JSONL y cinco agentes online ✅; faltan Oracle, modo degradado y shocks |
 | **2** | Hacerlo visible — replay y pantalla partida | parcial: turnos grabados ✅, panel de decisión ❌ |
 | **3** | Hacerlo hablar — Gemini + ElevenLabs | el equipo lo trae aparte |
 | **4** | Tracks baratos y ensayo | sin empezar |
@@ -176,7 +177,7 @@ el porcentaje**: un agente brillante que no cumple el esquema pierde puntos por 
 | 2 ✅ | Las cinco restricciones + capacidades por vehículo | Es la mitad de Judgment |
 | 3 ✅ | **Turnos de 8 horas y duración variable** | Tabla larga offline, CLI configurable, velocidad por vehículo y conversión de `shift_hours` en `/shift/start` |
 | 4 ✅ | **Endpoint `/decide` + log de eventos en su JSONL** | Adaptador separado, overrides aplicados, razones inglesas bajo 40 palabras y JSONL local. Validador oficial en verde para endpoint y log |
-| 5 | **Los cinco baselines + el Oracle** | `results_table_template.csv` pide `AcceptAll`, `HighestPay`, `NearestFirst`, `GreedyRate`, `OurAgent` y un `Oracle` offline que conoce el stream completo. Tenemos uno de seis |
+| 5 | **Los cinco baselines + el Oracle** | Los cinco agentes online ya corren: `AcceptAll`, `HighestPay`, `NearestFirst`, `GreedyRate` y `OurAgent`. Falta el `Oracle` offline que conoce el stream completo |
 | 6 | `explain_decision` + modo degradado | Los jueces van a invalidar la credencial del modelo a media corrida. Hay que seguir decidiendo con la última estrategia y **señalar `degraded: true`**. Un fallback silencioso es crédito parcial; un crash es reprobado |
 | 7 | Shocks en vivo (`surge`, `closure`, `rain`, `delay`) | El brief exige al menos uno durante el demo |
 | 8 | Panel de decisión en el front | Judgment sigue en cero del lado visual |
@@ -882,7 +883,7 @@ Hitos que no se mueven:
 | B6 | ~~Política de costo de oportunidad~~ | ✅ `nuez.py`. **+29.2% en 200 seeds de REPORTE** |
 | B8 | ~~**Turnos de 8 h + los tres vehículos con su velocidad**~~ | ✅ `V_480.json`, duración/hora/vehículo por CLI, velocidad aplicada en planificación y recorrido |
 | B9 | ~~**Endpoint `/decide` + log JSONL del spec**~~ | ✅ `/shift/start`, `/decide`, `/shift/status`, `/shift/end`, `/zones`; ambos modos del validador oficial en verde |
-| B10 | **Los cinco baselines + el Oracle** | `results_table_template.csv` lleno, 6 renglones |
+| B10 | **Los cinco baselines + el Oracle** | 5/6: `baselines.py` aporta `AcceptAll`, `HighestPay` (pago neto ≥ $80) y `NearestFirst` (pickup ≤ 10 min); faltan Oracle y el sexto renglón de la tabla |
 | B11 | **`explain_decision` + modo degradado** | Responde por `order_id` en <10 s y marca `degraded: true` |
 | B7 | Contrafactual: qué habría pasado aceptando lo rechazado | Un número y una lista al cierre del turno |
 

@@ -16,9 +16,10 @@ from pathlib import Path
 import rutas
 import seeds
 import valor
+from baselines import POLITICAS
 from contrato import ConfigTurno, Punto
 from nuez import politica_nuez
-from sim import politica_greedy, simular
+from sim import Politica, politica_greedy, simular
 
 
 def main():
@@ -28,6 +29,11 @@ def main():
     parser.add_argument("--hora-inicio", type=int, choices=range(24), default=14)
     parser.add_argument("--vehiculo", choices=("moto", "car", "bike"), default="moto")
     parser.add_argument("--tabla", type=Path, help="tabla de valor construida offline")
+    parser.add_argument(
+        "--rivales",
+        action="store_true",
+        help="mide los cinco agentes online; el Oracle se mide por separado",
+    )
     args = parser.parse_args()
     if args.n_turnos <= 0 or args.duracion <= 0:
         parser.error("el numero de turnos y la duracion deben ser positivos")
@@ -40,9 +46,9 @@ def main():
     ancla = Punto("Tec", *tec)
 
     reporte = seeds.de_reporte(args.n_turnos)
-    filas = []
-    for semilla in reporte:
-        cfg = ConfigTurno(
+
+    def configuracion(semilla: int) -> ConfigTurno:
+        return ConfigTurno(
             duracion_min=args.duracion,
             ancla=ancla,
             margen_min=10,
@@ -50,6 +56,33 @@ def main():
             hora_inicio=args.hora_inicio,
             seed=semilla,
         )
+
+    if args.rivales:
+        politicas: dict[str, Politica] = {
+            **POLITICAS,
+            "GreedyRate": politica_greedy,
+            "OurAgent": politica,
+        }
+        resultados = {
+            nombre: [simular(configuracion(semilla), rival) for semilla in reporte]
+            for nombre, rival in politicas.items()
+        }
+        assert not any(seeds.es_de_tuneo(s) for s in reporte), "reportando sobre seeds tuneados"
+        print(f"{args.n_turnos} turnos frescos, seeds de REPORTE {reporte[0]}-{reporte[-1]}")
+        print(f"duracion: {args.duracion} min; inicio: {args.hora_inicio}:00; {args.vehiculo}\n")
+        print(f"  {'politica':<16} {'ganancia media':>16} {'entregas':>10} {'tarde':>8}")
+        for nombre, corridas in resultados.items():
+            print(
+                f"  {nombre:<16} ${statistics.mean(r.ganado for r in corridas):>14.0f} "
+                f"{statistics.mean(r.entregas for r in corridas):>10.1f} "
+                f"{sum(r.llego_tarde for r in corridas):>8}"
+            )
+        print("\nOracle pendiente: conoce todo el stream y se mide offline.")
+        return
+
+    filas = []
+    for semilla in reporte:
+        cfg = configuracion(semilla)
         g = simular(cfg, politica_greedy)
         n = simular(cfg, politica)
         filas.append((g, n))

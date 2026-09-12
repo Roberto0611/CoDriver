@@ -13,7 +13,14 @@ El contexto completo del proyecto (idea, arquitectura, motor, tracks, plan) est�
 pip install -r requirements.txt -r requirements-dev.txt
 python correr.py          # un turno greedy con el detalle de decisiones
 python comparar.py 50     # Nuez vs greedy en 50 turnos frescos: EL NÚMERO
+python comparar.py 50 --rivales  # los cinco agentes online con los mismos turnos
 ```
+
+`--rivales` mide reglas deliberadamente fijas: `AcceptAll` toma todo pedido
+factible; `HighestPay` exige pago neto de al menos $80; `NearestFirst` exige
+un pickup a 10 minutos o menos; `GreedyRate` y `OurAgent` son las políticas
+existentes. Las cinco pasan por `seguridad.revisar`; el Oracle offline queda
+pendiente porque conoce el stream completo.
 
 ## Protocolo de Infosys
 
@@ -76,6 +83,7 @@ cd frontend && npm run check
 | `contrato.py` | Formas de `Oferta`, `Decision`, `EstadoRepartidor`, `EventoMundo` |
 | `mundo.py`, `rutas.py` | Zonas, tráfico por hora, riesgo, matriz de tiempos |
 | `sim.py` | Simulador de turno y baseline greedy |
+| `baselines.py` | AcceptAll, HighestPay y NearestFirst, con las mismas restricciones duras |
 | `valor.py`, `nuez.py` | Tabla de valor y política de costo de oportunidad |
 | `tests/` | pytest |
 | `backendruta/` | FastAPI: protocolo Courier, rutas, JSONL, voz y WebSocket |
