@@ -12,6 +12,7 @@ minutos, no 25 — y eso un umbral fijo de $/min no lo puede ver.
 from itertools import permutations
 
 import rutas
+import shocks
 from sim import Parada
 
 MAX_PERMUTAR = 6  # 6! = 720 ordenes; de ahi para arriba se dispara
@@ -38,7 +39,14 @@ def _valida(orden: tuple[Parada, ...]) -> bool:
     return True
 
 
-def duracion(pos: int, orden, hora: int, t0: float = 0.0, vehiculo: str = "moto") -> float:
+def duracion(
+    pos: int,
+    orden,
+    hora: int,
+    t0: float = 0.0,
+    vehiculo: str = "moto",
+    activos: shocks.Activos = shocks.NINGUNO,
+) -> float:
     """Minutos que toma la ruta. `hora` es la hora en t0; cada tramo usa la SUYA.
 
     Una ruta de 70 minutos que empieza a las 14:50 termina a las 16:00, y el ultimo
@@ -48,7 +56,10 @@ def duracion(pos: int, orden, hora: int, t0: float = 0.0, vehiculo: str = "moto"
     t, desde = t0, pos
     for p in orden:
         # `hora` ya incluye los minutos de t0, asi que se resta su hora y se suma la de t.
-        t += rutas.minutos(desde, p.punto, hora + int(t) // 60 - int(t0) // 60, vehiculo)
+        tramo = rutas.minutos(desde, p.punto, hora + int(t) // 60 - int(t0) // 60, vehiculo)
+        # La disrupcion es FISICA: un cierre estira el tramo de verdad, aqui, en la
+        # ruta rapida. No depende de que ningun modelo opine nada.
+        t += tramo * activos.factor_tiempo(rutas.ZONA_DE[desde], rutas.ZONA_DE[p.punto])
         if p.tipo == "pickup":
             t = max(t, p.listo_en)  # esperando a que el restaurante termine
         desde = p.punto
@@ -56,38 +67,43 @@ def duracion(pos: int, orden, hora: int, t0: float = 0.0, vehiculo: str = "moto"
 
 
 def mejor_ruta(
-    pos: int, paradas: list[Parada], hora: int, t0: float = 0.0, vehiculo: str = "moto"
+    pos: int,
+    paradas: list[Parada],
+    hora: int,
+    t0: float = 0.0,
+    vehiculo: str = "moto",
+    activos: shocks.Activos = shocks.NINGUNO,
 ) -> tuple[list[Parada], float]:
     """El orden mas rapido de visitar las paradas. La PRIMERA no se reordena:
     ya vas en camino a ella y no hay vuelta en U a media avenida."""
     if len(paradas) <= 1:
-        return paradas, duracion(pos, paradas, hora, t0, vehiculo)
+        return paradas, duracion(pos, paradas, hora, t0, vehiculo, activos)
 
     fija, resto = paradas[0], paradas[1:]
     if not resto:
-        return paradas, duracion(pos, paradas, hora, t0, vehiculo)
+        return paradas, duracion(pos, paradas, hora, t0, vehiculo, activos)
 
     if len(resto) > MAX_PERMUTAR:
         # ponytail: con la mochila llena de dropoffs pendientes, insertar en la
         # mejor posicion en vez de permutar todo. Deja de ser exacto, pero un
         # repartidor tampoco replanea 5040 rutas en un semaforo.
-        return _por_insercion(pos, fija, resto, hora, t0, vehiculo)
+        return _por_insercion(pos, fija, resto, hora, t0, vehiculo, activos)
 
     mejor, mejor_t = None, float("inf")
     for perm in permutations(resto):
         candidato = (fija,) + perm
         if not _valida(candidato):
             continue
-        t = duracion(pos, candidato, hora, t0, vehiculo)
+        t = duracion(pos, candidato, hora, t0, vehiculo, activos)
         if t < mejor_t:
             mejor, mejor_t = candidato, t
 
     if mejor is None:  # no deberia pasar; si pasa, mejor una ruta mala que un nan
-        return paradas, duracion(pos, paradas, hora, t0, vehiculo)
+        return paradas, duracion(pos, paradas, hora, t0, vehiculo, activos)
     return list(mejor), mejor_t
 
 
-def _por_insercion(pos, fija, resto, hora, t0, vehiculo="moto"):
+def _por_insercion(pos, fija, resto, hora, t0, vehiculo="moto", activos=shocks.NINGUNO):
     orden = [fija]
     for nueva in resto:
         mejor, mejor_t = None, float("inf")
@@ -95,11 +111,11 @@ def _por_insercion(pos, fija, resto, hora, t0, vehiculo="moto"):
             cand = orden[:i] + [nueva] + orden[i:]
             if not _valida(tuple(cand)):
                 continue
-            t = duracion(pos, cand, hora, t0, vehiculo)
+            t = duracion(pos, cand, hora, t0, vehiculo, activos)
             if t < mejor_t:
                 mejor, mejor_t = cand, t
         orden = mejor or (orden + [nueva])
-    return orden, duracion(pos, orden, hora, t0, vehiculo)
+    return orden, duracion(pos, orden, hora, t0, vehiculo, activos)
 
 
 def costo_marginal(
@@ -109,10 +125,11 @@ def costo_marginal(
     hora: int,
     t0: float = 0.0,
     vehiculo: str = "moto",
+    activos: shocks.Activos = shocks.NINGUNO,
 ) -> tuple[list[Parada], float]:
     """Minutos EXTRA de agregar `nuevas`, y la ruta reordenada que los logra."""
-    _, sin = mejor_ruta(pos, ruta, hora, t0, vehiculo)
-    con_ruta, con = mejor_ruta(pos, ruta + nuevas, hora, t0, vehiculo)
+    _, sin = mejor_ruta(pos, ruta, hora, t0, vehiculo, activos)
+    con_ruta, con = mejor_ruta(pos, ruta + nuevas, hora, t0, vehiculo, activos)
     return con_ruta, con - sin
 
 

@@ -210,7 +210,7 @@ class CapaEstrategia:
 # adaptador HTTP porque es parte de la capa lenta: el adaptador solo lo cablea.
 
 
-def contexto_del_turno(state: Any, zonas: Sequence[str]) -> dict[str, Any]:
+def contexto_del_turno(state: Any, zonas: Sequence[str], activos: Any = None) -> dict[str, Any]:
     """Lo que el modelo alcanza a ver. Son DATOS del turno, nunca instrucciones."""
     if state is None:
         return {"shift_active": False}
@@ -227,6 +227,12 @@ def contexto_del_turno(state: Any, zonas: Sequence[str]) -> dict[str, Any]:
         "orders_completed": state.completed,
         "earnings_mxn_per_hr": round(state.earnings_mxn / horas, 2),
         "zones": list(zonas),
+        # Las disrupciones son lo que le da al modelo de que opinar. La fisica ya
+        # esta aplicada en el motor; aqui solo decide cuanto conviene evitar la zona.
+        "active_shocks": [
+            {"type": s.tipo, "zone": s.zona, "multiplier": s.multiplicador}
+            for s in (activos.shocks if activos else ())
+        ],
     }
 
 

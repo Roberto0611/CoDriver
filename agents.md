@@ -86,6 +86,8 @@ Esta sección es para quien retome el proyecto sin haber estado en la conversaci
 | `rutas.py` | La única puerta a preguntas de viaje. `minutos(i,j,hora)` y `km(i,j)`. Lee `data/matriz.pkl` (210 puntos) |
 | `seguridad.py` | **Las cinco restricciones del spec.** El archivo que el juez va a pedir abrir |
 | `seeds.py` | Los dos conjuntos de seeds, disjuntos y con nombre |
+| `shocks.py` | Las cuatro disrupciones. La **física**: cuánto se estira un tramo, cuánto sube el pago, cuánto se atrasa un pedido |
+| `backendruta/zonas.py` | La traducción entre zonas-entero (protocolo) y zonas-nombre (motor) |
 | `contrato.py` | El formato de todo lo que viaja entre piezas. No cambia en silencio (§13) |
 | `sim.py` | Generador de ofertas + reloj del turno + **política greedy (el baseline)** |
 | `ruteo.py` | Orden óptimo de paradas por enumeración exacta + costo marginal |
@@ -187,7 +189,7 @@ el porcentaje**: un agente brillante que no cumple el esquema pierde puntos por 
 | 5 ✅ | **Los cinco baselines + el Oracle** | `oracle.py` conoce el stream completo offline, explora agendas sin apilar y escoge el mejor resultado reproducible frente a los cinco agentes online |
 | 6a ✅ | **`explain_decision`** | `GET /explain/{order_id}` (alias `/explain_decision/{order_id}`) responde en ms desde el registro; si el proceso se reinició, lee el JSONL. Nunca re-decide |
 | 6b ✅ | **Modo degradado + capa de estrategia** | `backendruta/strategy.py`. Gemini corre en un hilo aparte y solo mueve tres perillas; la ruta rápida nunca lo llama. Sin credencial, `degraded: true` y sigue decidiendo. Se recupera solo |
-| 7 | Shocks en vivo (`surge`, `closure`, `rain`, `delay`) | El brief exige al menos uno durante el demo. `closure` no aparece hoy en ningún `.py` |
+| 7 ✅ | **Shocks** (`surge`, `closure`, `rain`, `delay`) | `shocks.py` + `POST /shock`. Física en código, juicio en Gemini. Dado aparte: el número sin shocks no se movió |
 | 8 | Reproducir el turno en el front + contadores + panel de decisión | Judgment sigue en cero del lado visual. Es trabajo solo de front, sobre los JSON grabados: [`docs/front-turno-grabado.md`](docs/front-turno-grabado.md) |
 
 ### `explain_decision`: qué quedó
@@ -263,6 +265,74 @@ recupera — más los rangos y el guardia de las perillas.
 
 **Lo que queda del 6b:** ensayarlo con la credencial puesta, y decidir si Gemini además narra la
 decisión en voz alta (eso es la capa de voz, no ésta).
+
+### Los shocks: física contra juicio
+
+Los cuatro tipos hacen dos cosas distintas y **mezclarlas sería el error**:
+
+| | **Física** — `shocks.py`, en código | **Juicio** — la capa de Gemini |
+|---|---|---|
+| `surge` | el pago en esa zona sube ×mult | ¿vale la pena ir? |
+| `closure` | los tramos que tocan esa zona ×2.2 | ¿evitarla del todo? |
+| `rain` | toda la ciudad ×1.35 | ¿subir el margen? |
+| `delay` | ese pedido queda listo N min después | — puro tiempo |
+
+Si cerraron una avenida, el viaje tarda más **aunque el modelo esté caído**. Un cierre no es una
+opinión. Por eso la física vive en la ruta rápida y determinista, y Gemini solo mueve las ganas
+(`estrategia.multiplicador_zona`).
+
+**`Activos` es una foto inmutable que se pasa como argumento**, nunca una global. Una variable
+global "está lloviendo" rompe el replay: el orden en que cada quien la lea cambia el resultado y no
+queda en el log. Como argumento es un dato más de la decisión y se audita.
+
+**Tres caminos, la misma capa:**
+
+```bash
+python comparar.py 200 --shocks     # el renglón medido
+POST /shock                          # el botón del juez
+```
+
+El replay sale de los eventos `shock` del JSONL.
+
+**El dado es aparte.** `shocks.generar` usa `Random(seed ^ SAL)`, no el de las ofertas. El stream
+de ofertas depende solo de `cfg.seed` y se escribe completo antes de que el agente decida nada, así
+que queda byte por byte idéntico: el número sin shocks no se mueve. Hay un test que lo fija.
+
+### Lo que salió de medir con disrupciones
+
+```
+python comparar.py 200            greedy $200   NUEZ $259   +29.1%   0 tarde
+python comparar.py 200 --shocks   greedy $189   NUEZ $247   +30.6%   4 y 6 tarde
+```
+
+Los dos bajan, que es lo esperado: el mundo se puso más difícil. La diferencia entre columnas
+aguanta.
+
+**Pero hay violaciones, y hay que decirlo.** 6 de 200 turnos no vuelven a tiempo con disrupciones.
+En 5 de esos 6 el motor **sí detectó** que ya no alcanzaba y no pudo hacer nada: traía todo
+recogido. Un repartidor puede cancelar lo que no ha recogido; no puede tirar comida que ya carga.
+
+Lo que sí se implementó: **cancelar lo que todavía no se recoge**. Cada minuto se reproyecta la
+ruta con las condiciones de ahora, y si ya no cabe en el turno se sueltan los pedidos pendientes
+de recoger, del último al primero, hasta que vuelva a caber (`Resultado.cancelados`).
+
+**Lo que se probó y NO sirvió:** escalar el colchón de fin de turno con la severidad de la
+disrupción activa. Medido, 6 tarde → 7, y cuesta ~$2 por turno. El problema no es el margen al
+aceptar: es que el shock llega **después** de comprometerse. Revertido.
+
+**Dos bugs que salieron de este trabajo**, los dos en el chequeo de factibilidad:
+
+1. Recalculaba el tramo en curso **completo desde el origen** cada minuto, sumando un minuto de
+   castigo por cada minuto en tránsito. Ahora arranca desde `t_llegada` en la primera parada.
+2. Usaba **una sola hora** para toda la ruta mientras la política estima cada tramo a la suya.
+
+El segundo movió el ratchet a propósito: **23.596 → 23.336** sin shocks. Son 0.26 puntos a cambio
+de que un turno que se pasaba del margen de 10 minutos ya no se pase. El margen ES la restricción
+de fin de turno: bustearlo era violar nuestra propia regla.
+
+**Hueco conocido:** `Resultado.llego_tarde` mide llegar después de que acaba el turno, no después
+del margen. Un turno puede bustear el colchón de 10 min y salir reportado como puntual. Al decir
+"cero violaciones" conviene ser preciso sobre cuál de las dos cosas se midió.
 
 ### Detalles del spec que se olvidan fácil
 
@@ -1030,6 +1100,10 @@ son cuatro inputs, no una app.
 - **Leer la API key una sola vez al arrancar** → los jueces la invalidan en el entorno del
   proceso; si la tenemos en memoria no nos enteramos y el modo degradado no se puede demostrar.
 - **Creerle al modelo sin recortar** → un `margen_mxn` alucinado apaga al repartidor. `sanear`.
+- **Meter los shocks al mismo dado que las ofertas** → cada seed produce otro stream, y hay que
+  recalibrar la tabla de valor y el ratchet desde cero. Dado aparte y el número no se mueve.
+- **Una global "está lloviendo"** → el replay deja de reproducirse y no hay forma de auditar por
+  qué. Las disrupciones van como argumento, siempre.
 - **Reportar sobre los seeds que tuneaste** → el protocolo topa Results en 3 sin importar el
   margen. Los dos conjuntos están en `seeds.py` y `comparar.py` revienta si se cruzan.
 - **Un turno animado como evidencia** → la varianza por turno es enorme. El turno bonito va al

@@ -7,6 +7,7 @@ from typing import Any, Literal
 from pydantic import BaseModel, ConfigDict, Field
 
 from contrato import ConfigTurno, Vehiculo
+from shocks import Shock
 from sim import Parada
 
 
@@ -65,6 +66,19 @@ class DecideResponse(BaseModel):
     economics: dict[str, float]
 
 
+class ShockRequest(BaseModel):
+    """Lo que el juez inyecta en vivo. Campos del evento `shock` del protocolo."""
+
+    shock_type: Literal["surge", "closure", "rain", "delay"]
+    sim_time: datetime | None = None  # None = ahora mismo
+    duration_min: int = Field(default=30, ge=1, le=480)
+    zone: int | None = None  # surge y closure
+    multiplier: float = Field(default=1.5, ge=1.0, le=3.0)  # surge
+    road: str | None = None  # closure: el nombre que se dice en voz alta
+    order_id: str | None = None  # delay
+    slip_min: int = Field(default=15, ge=0, le=120)  # delay
+
+
 @dataclass
 class ShiftState:
     config: ConfigTurno
@@ -79,5 +93,6 @@ class ShiftState:
     earnings_mxn: float = 0
     completed: int = 0
     offered: int = 0
+    shocks: tuple[Shock, ...] = ()  # disrupciones inyectadas por el juez
     accepted: dict[str, DecideRequest | None] = field(default_factory=dict)
     responses: dict[str, tuple[str, DecideResponse]] = field(default_factory=dict)

@@ -17,6 +17,7 @@ from typing import Literal
 
 import rutas
 import seguridad
+import shocks
 from contrato import ConfigTurno, Decision, EstadoRepartidor, Oferta, Punto
 
 # --- A3: parametros del generador -------------------------------------------
@@ -70,6 +71,7 @@ class Resultado:
     # Tramos recorridos, para que el front anime la moto: (t_salida, t_llegada, desde, hasta)
     tramos: list[tuple[int, float, int, int]] = field(default_factory=list)
     cobros: list[tuple[int, float]] = field(default_factory=list)  # (minuto, pesos netos)
+    cancelados: int = 0  # pedidos soltados porque una disrupcion los volvio infactibles
 
 
 # --- A3: generador de ofertas ------------------------------------------------
@@ -145,13 +147,60 @@ def indice_de(p: Punto) -> int:
 
 # Una politica recibe la oferta, el estado y la ruta actual; devuelve la ruta
 # nueva si acepta (o None si salta) mas la Decision con sus terminos.
-Politica = Callable[
-    [Oferta, EstadoRepartidor, list[Parada], ConfigTurno], tuple[list[Parada] | None, Decision]
-]
+#
+# `activos` son las disrupciones vigentes en este minuto. Va como argumento y no
+# como estado global a proposito: si el mundo cambia por debajo, el replay deja de
+# reproducirse y no hay forma de auditar por que. Las politicas que no lo miran lo
+# aceptan y lo ignoran; por eso el Protocol lleva **kwargs.
 
 
-def simular(cfg: ConfigTurno, politica: Politica) -> Resultado:
-    """Corre un turno completo. Determinista: mismo cfg.seed = mismo resultado."""
+# ponytail: `Callable[...]` y no un Protocol. Cada politica trae sus propios
+# kwargs opcionales (tabla, estrategia, activos) y un Protocol obligaria a que
+# todas acepten todos. El tipo de retorno si se verifica, que es lo que importa.
+Politica = Callable[..., tuple[list[Parada] | None, Decision]]
+
+
+def _no_alcanza(
+    ruta: list[Parada],
+    t_llegada: float,
+    cfg: ConfigTurno,
+    activos: shocks.Activos,
+) -> bool:
+    """Con las condiciones de AHORA, ¿ya no da tiempo de terminar la ruta y volver?
+
+    Arranca desde `t_llegada` en la PRIMERA parada, no desde la posicion actual: el
+    repartidor ya va a media calle hacia ella. Recalcular ese tramo completo cada
+    minuto suma un minuto de castigo por cada minuto en transito, y el chequeo
+    termina cancelando pedidos que si se alcanzaban.
+
+    Cada tramo se estima a SU hora, igual que `ruteo.duracion`; con una sola hora
+    para toda la ruta tambien discrepa de la politica.
+    """
+    ancla = rutas.indice_mas_cercano(cfg.ancla.lat, cfg.ancla.lon)
+
+    def tramo(a: int, b: int, cuando: float) -> float:
+        minutos = rutas.minutos(a, b, cfg.hora_inicio + int(cuando) // 60, cfg.vehiculo)
+        return minutos * activos.factor_tiempo(rutas.ZONA_DE[a], rutas.ZONA_DE[b])
+
+    reloj, desde = t_llegada, ruta[0].punto
+    if ruta[0].tipo == "pickup":
+        reloj = max(reloj, ruta[0].listo_en)
+    for parada in ruta[1:]:
+        reloj += tramo(desde, parada.punto, reloj)
+        if parada.tipo == "pickup":
+            reloj = max(reloj, parada.listo_en)
+        desde = parada.punto
+    return reloj + tramo(desde, ancla, reloj) > cfg.duracion_min - cfg.margen_min
+
+
+def simular(
+    cfg: ConfigTurno, politica: Politica, disrupciones: tuple[shocks.Shock, ...] = ()
+) -> Resultado:
+    """Corre un turno completo. Determinista: mismo cfg.seed = mismo resultado.
+
+    `disrupciones` viene de `shocks.generar`, que usa su PROPIO dado: el stream de
+    ofertas no se mueve un byte, asi que el numero sin shocks sigue siendo el mismo.
+    """
     ofertas = generar_ofertas(cfg)
     por_minuto: dict[int, list[Oferta]] = {}
     for o in ofertas:
@@ -170,6 +219,32 @@ def simular(cfg: ConfigTurno, politica: Politica) -> Resultado:
 
     for t in range(cfg.duracion_min):
         hora = (cfg.hora_inicio + t // 60) % 24
+        activos = shocks.en(t, disrupciones)
+
+        def viaje(a: int, b: int, h: int = hora, act: shocks.Activos = activos) -> float:
+            """Minutos reales de un tramo: el mapa, mas lo que le haga la disrupcion."""
+            return rutas.minutos(a, b, h, cfg.vehiculo) * act.factor_tiempo(
+                rutas.ZONA_DE[a], rutas.ZONA_DE[b]
+            )
+
+        # Una disrupcion puede volver infactible un plan que SI era factible al
+        # aceptarlo: llueve a los 20 min y el regreso que eran 25 ahora son 34. El
+        # repartidor no puede tirar comida que ya trae, pero si puede cancelar lo
+        # que todavia no recoge. Cancela lo ultimo que acepto hasta que vuelva a
+        # caberle el turno. Sin disrupciones esto no se dispara nunca: la politica
+        # ya garantizo la factibilidad al aceptar.
+        while ruta and ruta[0].tipo != "ancla" and _no_alcanza(ruta, t_llegada, cfg, activos):
+            cancelable = [p.oferta_id for p in ruta if p.tipo == "pickup" and p.oferta_id]
+            if not cancelable:
+                break  # todo lo pendiente ya viene en la mochila: hay que entregarlo
+            muerto = cancelable[-1]
+            primera = ruta[0]
+            ruta = [p for p in ruta if p.oferta_id != muerto]
+            res.cancelados += 1
+            if ruta and ruta[0] != primera:
+                t_llegada = t + viaje(pos, ruta[0].punto)
+                res.tramos.append((t, t_llegada, pos, ruta[0].punto))
+
         estado = EstadoRepartidor(
             t=t,
             t_restante=cfg.duracion_min - t,
@@ -182,7 +257,7 @@ def simular(cfg: ConfigTurno, politica: Politica) -> Resultado:
 
         # 1. Decidir sobre los pings de este minuto.
         for o in por_minuto.get(t, []):
-            nueva_ruta, dec = politica(o, estado, ruta, cfg)
+            nueva_ruta, dec = politica(o, estado, ruta, cfg, activos=activos)
             res.decisiones.append(dec)
             if nueva_ruta is None:
                 res.rechazos += 1
@@ -192,11 +267,11 @@ def simular(cfg: ConfigTurno, politica: Politica) -> Resultado:
             if ruta and nueva_ruta[0] != ruta[0]:
                 nueva_ruta = [ruta[0]] + [p for p in nueva_ruta if p != ruta[0]]
             if not ruta and nueva_ruta:
-                t_llegada = t + rutas.minutos(pos, nueva_ruta[0].punto, hora, cfg.vehiculo)
+                t_llegada = t + viaje(pos, nueva_ruta[0].punto)
                 res.tramos.append((t, t_llegada, pos, nueva_ruta[0].punto))
             ruta = nueva_ruta
             aceptadas[o.id] = o
-            listo_en[o.id] = o.t_aparece + o.t_prep
+            listo_en[o.id] = o.t_aparece + o.t_prep + activos.retraso(o.id)
 
         # 2. Avanzar: llegar a la parada en curso si toca.
         while ruta and t >= t_llegada:
@@ -210,26 +285,29 @@ def simular(cfg: ConfigTurno, politica: Politica) -> Resultado:
             if parada.tipo == "dropoff" and parada.oferta_id:
                 o = aceptadas[parada.oferta_id]
                 dist = rutas.km(indice_de(o.pickup), indice_de(o.dropoff))
-                cobro = o.pago * o.surge - dist * seguridad.VEHICULOS[cfg.vehiculo].costo_km
+                # El surge se cotiza al aparecer el ping, no al entregar: es lo que
+                # la app le prometio al repartidor cuando acepto.
+                cuando = shocks.en(o.t_aparece, disrupciones)
+                pago = o.pago * o.surge * cuando.factor_pago(rutas.ZONA_DE[indice_de(o.pickup)])
+                cobro = pago - dist * seguridad.VEHICULOS[cfg.vehiculo].costo_km
                 res.cobros.append((t, round(cobro, 2)))
                 res.ganado += cobro
                 res.entregas += 1
 
             if ruta:
-                t_llegada = t + rutas.minutos(pos, ruta[0].punto, hora, cfg.vehiculo)
+                t_llegada = t + viaje(pos, ruta[0].punto)
                 res.tramos.append((t, t_llegada, pos, ruta[0].punto))
 
         # Regresar al ancla es obligacion de cualquier politica: si ya no queda
         # tiempo mas que para volver, el simulador encamina de regreso.
         if not ruta and pos != ancla:
-            regreso = rutas.minutos(pos, ancla, hora, cfg.vehiculo)
+            regreso = viaje(pos, ancla)
             hora_siguiente = (cfg.hora_inicio + (t + 1) // 60) % 24
             # Si cambia la hora, el trafico puede saltar mientras estamos parados.
             # Salir ANTES del salto evita que esperar un minuto vuelva imposible
             # el regreso (car, 8 h desde las 8, seed 2000).
             salto_inviable = hora_siguiente != hora and (
-                t + 1 + rutas.minutos(pos, ancla, hora_siguiente, cfg.vehiculo)
-                >= cfg.duracion_min - cfg.margen_min
+                t + 1 + viaje(pos, ancla, hora_siguiente) >= cfg.duracion_min - cfg.margen_min
             )
             if t + regreso >= cfg.duracion_min - cfg.margen_min or salto_inviable:
                 ruta = [Parada("ancla", ancla)]
@@ -257,7 +335,13 @@ def simular(cfg: ConfigTurno, politica: Politica) -> Resultado:
 
 
 def politica_greedy(
-    o: Oferta, est: EstadoRepartidor, ruta: list[Parada], cfg: ConfigTurno
+    o: Oferta,
+    est: EstadoRepartidor,
+    ruta: list[Parada],
+    cfg: ConfigTurno,
+    *,
+    activos: shocks.Activos = shocks.NINGUNO,
+    **_,
 ) -> tuple[list[Parada] | None, Decision]:
     """Baseline honesto: acepta lo que se ve bien pagado y entrega en el orden que acepto.
 
@@ -274,7 +358,8 @@ def politica_greedy(
     def leg(a: int, b: int, desde_min: float) -> float:
         """El tramo se recorre en `desde_min` minutos mas, y para entonces puede
         ser otra hora con otro trafico. La hora sale del minuto ABSOLUTO del turno."""
-        return rutas.minutos(a, b, cfg.hora_inicio + int(est.t + desde_min) // 60, cfg.vehiculo)
+        minutos = rutas.minutos(a, b, cfg.hora_inicio + int(est.t + desde_min) // 60, cfg.vehiculo)
+        return minutos * activos.factor_tiempo(rutas.ZONA_DE[a], rutas.ZONA_DE[b])
 
     cola, desde = 0.0, pos
     for p in ruta:
@@ -283,10 +368,12 @@ def politica_greedy(
             cola = max(cola, p.listo_en - est.t)  # esperando al restaurante
         desde = p.punto
 
+    listo = o.t_aparece + o.t_prep + activos.retraso(o.id)
     minutos = cola + leg(desde, i_pick, cola)
-    minutos = max(minutos, o.t_aparece + o.t_prep - est.t)
+    minutos = max(minutos, listo - est.t)
     minutos += leg(i_pick, i_drop, minutos)
-    neto = o.pago * o.surge - rutas.km(i_pick, i_drop) * seguridad.VEHICULOS[cfg.vehiculo].costo_km
+    pago = o.pago * o.surge * activos.factor_pago(rutas.ZONA_DE[i_pick])
+    neto = pago - rutas.km(i_pick, i_drop) * seguridad.VEHICULOS[cfg.vehiculo].costo_km
     propios = minutos - cola  # lo que cuesta ESTE pedido, sin la cola de adelante
     terminos = {
         "pago_neto": round(neto, 1),
@@ -318,7 +405,7 @@ def politica_greedy(
         return no("Paga muy poco por el tiempo.", "reservation_wage")
 
     nueva = ruta + [
-        Parada("pickup", i_pick, o.id, o.t_aparece + o.t_prep),
+        Parada("pickup", i_pick, o.id, listo),
         Parada("dropoff", i_drop, o.id, peso_kg=o.peso_kg, volumen_l=o.volumen_l),
     ]
     return nueva, Decision(est.t, o.id, "aceptar", terminos, f"Van {neto:.0f} pesos.")
