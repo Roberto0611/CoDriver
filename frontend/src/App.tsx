@@ -48,6 +48,7 @@ function App() {
   const [showTraffic, setShowTraffic] = useState(false)
   const [currentTime, setCurrentTime] = useState('14:00')
   const [isPlaying, setIsPlaying] = useState(false)
+  const isNaviePlayground = typeof window !== 'undefined' && window.location.hash === '#navie'
 
   const initMap = useCallback(async () => {
     if (!mapContainer.current || mapRef.current) return
@@ -90,12 +91,14 @@ function App() {
   }, [])
 
   useEffect(() => {
+    if (isNaviePlayground) return
+
     initMap()
     return () => {
       mapRef.current?.remove()
       mapRef.current = null
     }
-  }, [initMap])
+  }, [initMap, isNaviePlayground])
 
   // Toggle de tráfico: actualizar capa cuando cambia la hora o la visibilidad, o si cargan más calles
   useEffect(() => {
@@ -150,6 +153,10 @@ function App() {
     } finally {
       setLoadingRoute(false)
     }
+  }
+
+  if (isNaviePlayground) {
+    return <NaviePlayground />
   }
 
   return (
