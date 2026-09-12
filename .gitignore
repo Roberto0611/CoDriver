@@ -1,0 +1,6 @@
+.venv/
+__pycache__/
+*.pyc
+data/*.pkl
+.env
+data/*.png
