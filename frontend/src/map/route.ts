@@ -35,7 +35,8 @@ export interface RouteGeoJSON {
   features: RouteFeature[]
 }
 
-const API = 'http://127.0.0.1:8000'
+import { API_URL } from '../lib/api'
+const API = API_URL
 
 export async function fetchRoute(
   origen: string,

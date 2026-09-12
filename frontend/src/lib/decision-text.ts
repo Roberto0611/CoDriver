@@ -50,6 +50,13 @@ export function textoDecisionDetalle(d: Decision): string {
   const t = d.terminos
   const partes: string[] = []
 
+  // Especial: Mostrar cálculos de fin de turno
+  if (d.restriccion === 'shift_end_infeasible' && t.minutos_para_terminar != null && t.minutos_de_turno != null) {
+    const minsTerminar = t.minutos_para_terminar.toFixed(0)
+    const minsTurno = t.minutos_de_turno.toFixed(0)
+    return `Takes ${minsTerminar} min to deliver & return. ${minsTurno} min left in shift. No time.`
+  }
+
   if (t.pago_neto != null) partes.push(`Pays MXN ${t.pago_neto.toFixed(0)}`)
   if (t.minutos != null) partes.push(`${t.minutos.toFixed(0)} min`)
   if (t.precio_tiempo != null) {
