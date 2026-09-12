@@ -44,7 +44,7 @@ class Parada:
     tipo: Literal["pickup", "dropoff", "ancla"]
     punto: int
     oferta_id: str | None = None
-    listo_en: int = 0   # minuto en que el restaurante termina; 0 = sin espera
+    listo_en: int = 0  # minuto en que el restaurante termina; 0 = sin espera
 
 
 @dataclass

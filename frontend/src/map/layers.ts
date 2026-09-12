@@ -1,6 +1,5 @@
-import type { GeoJSON } from 'geojson'
 import type { ExpressionSpecification, GeoJSONSource, Map as MLMap } from 'maplibre-gl'
-import { AMBER, PLUM, ROAD, ROUND, ROUTE_CASING, ROUTE_COLOR } from './style'
+import { ROAD, ROUND, ROUTE_CASING, ROUTE_COLOR } from './style'
 import { getRoadFeatures } from './roads'
 
 const EMPTY = { type: 'FeatureCollection' as const, features: [] }
@@ -78,7 +77,6 @@ export function addRouteLayers(map: MLMap) {
   })
 }
 
-
 // ── Tráfico ──────────────────────────────────────────────────────────────
 
 const TRAFFIC_API = 'http://127.0.0.1:8000'
@@ -91,13 +89,18 @@ const TRAFFIC_COLOR: ExpressionSpecification = [
     'interpolate',
     ['linear'],
     ['get', 'traffic_factor'],
-    1.0, '#16a34a',  // verde — fluido
-    1.3, '#eab308',  // amarillo — moderado
-    1.6, '#f97316',  // naranja — pesado
-    2.0, '#ef4444',  // rojo — muy pesado
-    100, '#7f1d1d',  // rojo oscuro — cierre/incidente
+    1.0,
+    '#16a34a', // verde — fluido
+    1.3,
+    '#eab308', // amarillo — moderado
+    1.6,
+    '#f97316', // naranja — pesado
+    2.0,
+    '#ef4444', // rojo — muy pesado
+    100,
+    '#7f1d1d', // rojo oscuro — cierre/incidente
   ] as unknown as ExpressionSpecification,
-  ['get', 'base_color'],  // fallback: color original de la calle
+  ['get', 'base_color'], // fallback: color original de la calle
 ]
 
 // Colores base por clase de vía (para restaurar al apagar tráfico)
@@ -118,7 +121,7 @@ export function toggleTrafficLayer(
   map: MLMap,
   visible: boolean,
   hora?: string,
-  onDone?: () => void,
+  onDone?: () => void
 ) {
   const source = map.getSource('road-network') as GeoJSONSource | undefined
   if (!source) return
@@ -149,53 +152,63 @@ export function toggleTrafficLayer(
   // Fetch traffic data y colorear calles reales
   fetch(`${TRAFFIC_API}/api/traffic?hora=${hora ?? '14:00'}`)
     .then((r) => r.json())
-    .then((data: { traffic_map: Record<string, number>; incidents: Array<{ calle: string; factor?: number }> }) => {
-      const trafficMap = data.traffic_map
-      const incidents = data.incidents || []
-      console.log('[Traffic] Keys:', Object.keys(trafficMap).length, 'Incidents:', incidents.length)
+    .then(
+      (data: {
+        traffic_map: Record<string, number>
+        incidents: Array<{ calle: string; factor?: number }>
+      }) => {
+        const trafficMap = data.traffic_map
+        const incidents = data.incidents || []
+        console.log(
+          '[Traffic] Keys:',
+          Object.keys(trafficMap).length,
+          'Incidents:',
+          incidents.length
+        )
 
-      let matched = 0
-      for (const f of features) {
-        if (!f.properties) continue
+        let matched = 0
+        for (const f of features) {
+          if (!f.properties) continue
 
-        // Guardar color base original en TODOS los features (incluso sin nombre)
-        f.properties.base_color = BASE_COLORS[f.properties.class as string] ?? ROAD.local
+          // Guardar color base original en TODOS los features (incluso sin nombre)
+          f.properties.base_color = BASE_COLORS[f.properties.class as string] ?? ROAD.local
 
-        const name: string = f.properties.name ?? ''
-        if (!name) continue
+          const name: string = f.properties.name ?? ''
+          if (!name) continue
 
-        // 1. Búsqueda exacta O(1) para el tráfico regular masivo
-        let factor = trafficMap[name]
+          // 1. Búsqueda exacta O(1) para el tráfico regular masivo
+          let factor = trafficMap[name]
 
-        // 2. Búsqueda por substring solo para incidentes manuales
-        for (const inc of incidents) {
-          if (name.includes(inc.calle)) {
-            factor = 99999.0 // Factor altísimo para asegurar que se pinte rojo oscuro
-            break
+          // 2. Búsqueda por substring solo para incidentes manuales
+          for (const inc of incidents) {
+            if (name.includes(inc.calle)) {
+              factor = 99999.0 // Factor altísimo para asegurar que se pinte rojo oscuro
+              break
+            }
+          }
+
+          if (factor !== undefined) {
+            f.properties.traffic_factor = factor
+            matched++
+          } else {
+            delete f.properties.traffic_factor
           }
         }
 
-        if (factor !== undefined) {
-          f.properties.traffic_factor = factor
-          matched++
-        } else {
-          delete f.properties.traffic_factor
+        console.log(`[Traffic] Matched ${matched} / ${features.length} features`)
+
+        // Re-setear datos con las propiedades inyectadas
+        source.setData({ type: 'FeatureCollection', features })
+
+        // Cambiar el paint de las capas de calles a usar colores de tráfico
+        for (const layerId of ROAD_LAYERS) {
+          if (map.getLayer(layerId)) {
+            map.setPaintProperty(layerId, 'line-color', TRAFFIC_COLOR)
+          }
         }
+
+        onDone?.()
       }
-
-      console.log(`[Traffic] Matched ${matched} / ${features.length} features`)
-
-      // Re-setear datos con las propiedades inyectadas
-      source.setData({ type: 'FeatureCollection', features })
-
-      // Cambiar el paint de las capas de calles a usar colores de tráfico
-      for (const layerId of ROAD_LAYERS) {
-        if (map.getLayer(layerId)) {
-          map.setPaintProperty(layerId, 'line-color', TRAFFIC_COLOR)
-        }
-      }
-
-      onDone?.()
-    })
+    )
     .catch(console.error)
 }

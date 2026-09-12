@@ -11,10 +11,10 @@ minutos, no 25 — y eso un umbral fijo de $/min no lo puede ver.
 
 from itertools import permutations
 
-MAX_PERMUTAR = 6   # 6! = 720 ordenes; de ahi para arriba se dispara
-
 import rutas
 from sim import Parada
+
+MAX_PERMUTAR = 6  # 6! = 720 ordenes; de ahi para arriba se dispara
 
 # La espera en el restaurante SI cuenta: al encadenar pedidos llegas a proposito
 # antes de que esten listos, y esa espera es tiempo muerto. Sin contarla, la ruta
@@ -43,12 +43,14 @@ def duracion(pos: int, orden, hora: int, t0: float = 0.0) -> float:
     for p in orden:
         t += rutas.minutos(desde, p.punto, hora)
         if p.tipo == "pickup":
-            t = max(t, p.listo_en)      # esperando a que el restaurante termine
+            t = max(t, p.listo_en)  # esperando a que el restaurante termine
         desde = p.punto
     return t - t0
 
 
-def mejor_ruta(pos: int, paradas: list[Parada], hora: int, t0: float = 0.0) -> tuple[list[Parada], float]:
+def mejor_ruta(
+    pos: int, paradas: list[Parada], hora: int, t0: float = 0.0
+) -> tuple[list[Parada], float]:
     """El orden mas rapido de visitar las paradas. La PRIMERA no se reordena:
     ya vas en camino a ella y no hay vuelta en U a media avenida."""
     if len(paradas) <= 1:
@@ -73,7 +75,7 @@ def mejor_ruta(pos: int, paradas: list[Parada], hora: int, t0: float = 0.0) -> t
         if t < mejor_t:
             mejor, mejor_t = candidato, t
 
-    if mejor is None:   # no deberia pasar; si pasa, mejor una ruta mala que un nan
+    if mejor is None:  # no deberia pasar; si pasa, mejor una ruta mala que un nan
         return paradas, duracion(pos, paradas, hora, t0)
     return list(mejor), mejor_t
 
@@ -93,8 +95,9 @@ def _por_insercion(pos, fija, resto, hora, t0):
     return orden, duracion(pos, orden, hora, t0)
 
 
-def costo_marginal(pos: int, ruta: list[Parada], nuevas: list[Parada],
-                   hora: int, t0: float = 0.0) -> tuple[list[Parada], float]:
+def costo_marginal(
+    pos: int, ruta: list[Parada], nuevas: list[Parada], hora: int, t0: float = 0.0
+) -> tuple[list[Parada], float]:
     """Minutos EXTRA de agregar `nuevas`, y la ruta reordenada que los logra."""
     _, sin = mejor_ruta(pos, ruta, hora, t0)
     con_ruta, con = mejor_ruta(pos, ruta + nuevas, hora, t0)

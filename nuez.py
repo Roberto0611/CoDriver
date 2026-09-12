@@ -10,8 +10,8 @@ Las restricciones duras son las mismas y no se negocian: seguridad de la zona y
 alcanzar a volver al ancla antes de clase.
 """
 
-import ruteo
 import rutas
+import ruteo
 import valor
 from contrato import ConfigTurno, Decision, EstadoRepartidor, Oferta
 from mundo import es_segura
@@ -30,8 +30,10 @@ def politica_nuez(
 
     # B2: cuantos minutos EXTRA cuesta meter este pedido, con las paradas
     # reordenadas de la mejor forma. Si va de paso, casi nada.
-    nuevas = [Parada("pickup", i_pick, o.id, o.t_aparece + o.t_prep),
-              Parada("dropoff", i_drop, o.id)]
+    nuevas = [
+        Parada("pickup", i_pick, o.id, o.t_aparece + o.t_prep),
+        Parada("dropoff", i_drop, o.id),
+    ]
     nueva_ruta, propios = ruteo.costo_marginal(pos, ruta, nuevas, hora, est.t)
     _, cola = ruteo.mejor_ruta(pos, ruta, hora, est.t)
     neto = o.pago * o.surge - rutas.km(i_pick, i_drop) * COSTO_KM[cfg.vehiculo]

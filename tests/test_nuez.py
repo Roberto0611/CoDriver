@@ -60,9 +60,7 @@ def test_mochila_llena_es_restriccion():
     ruta_llena = [
         Parada("dropoff", rutas.puntos_de("Tec")[i + 2], f"o_{i}") for i in range(CAPACIDAD)
     ]
-    nueva, dec = politica_nuez(
-        oferta(TEC_I, otro_tec, pago=900.0), estado(), ruta_llena, cfg()
-    )
+    nueva, dec = politica_nuez(oferta(TEC_I, otro_tec, pago=900.0), estado(), ruta_llena, cfg())
     assert nueva is None
     assert dec.restriccion == "mochila_llena"
 
@@ -73,6 +71,7 @@ def test_acepta_lo_que_rinde_mas_que_sus_minutos():
     assert dec.accion == "aceptar"
     assert dec.restriccion is None
     assert dec.terminos["ventaja"] > 0
+    assert nueva is not None
     # `listo_en` lo pone la politica para que el ruteo cuente la espera del restaurante.
     assert [(p.tipo, p.punto, p.oferta_id) for p in nueva] == [
         ("pickup", TEC_I, "o_test"),

@@ -32,5 +32,4 @@ export function attachHoverPopups(map: maplibregl.Map) {
     })
     map.on('mouseleave', layerId, leave)
   }
-
 }
