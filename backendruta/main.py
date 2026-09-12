@@ -183,16 +183,29 @@ def get_route(origen: str, destino: str, hora: str | None = None):
         weight_param = dynamic_weight
 
     try:
-        geojson_data = route_to_geojson(G, coord_origen, coord_destino, weight=weight_param)
-        geojson_data["features"][0]["properties"]["from"] = origen
-        geojson_data["features"][0]["properties"]["to"] = destino
-        geojson_data["features"][0]["properties"]["hora"] = hora
-        geojson_data["features"][0]["properties"]["incidente_activo"] = bool(active_incidents)
+        # 1. Ruta Clásica (Tonta): Asume vía libre siempre ("travel_time")
+        classic_geojson = route_to_geojson(G, coord_origen, coord_destino, weight="travel_time")
+        feat_classic = classic_geojson["features"][0]
+        feat_classic["properties"]["agent"] = "classic"
+        feat_classic["properties"]["from"] = origen
+        feat_classic["properties"]["to"] = destino
+        feat_classic["properties"]["hora"] = hora
+
+        # 2. Ruta IA (Inteligente): Considera incidentes si hay
+        ai_geojson = route_to_geojson(G, coord_origen, coord_destino, weight=weight_param)
+        feat_ai = ai_geojson["features"][0]
+        feat_ai["properties"]["agent"] = "ai"
+        feat_ai["properties"]["from"] = origen
+        feat_ai["properties"]["to"] = destino
+        feat_ai["properties"]["hora"] = hora
+        feat_ai["properties"]["incidente_activo"] = bool(active_incidents)
         if active_incidents:
-            geojson_data["features"][0]["properties"]["alerta_voz"] = active_incidents[0].get(
-                "alerta_voz"
-            )
-        return geojson_data
+            feat_ai["properties"]["alerta_voz"] = active_incidents[0].get("alerta_voz")
+
+        return {
+            "type": "FeatureCollection",
+            "features": [feat_classic, feat_ai]
+        }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e)) from e
 

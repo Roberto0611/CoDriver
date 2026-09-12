@@ -2,6 +2,7 @@ import type { GeoJSON } from 'geojson'
 import * as maplibregl from 'maplibre-gl'
 
 export interface RouteInfo {
+  agent: string
   from: string
   to: string
   lengthKm: number
@@ -9,8 +10,13 @@ export interface RouteInfo {
   nodes: number
 }
 
+export interface VSInfo {
+  classic: RouteInfo | null
+  ai: RouteInfo | null
+}
+
 interface RouteFeature {
-  properties: { from: string; to: string; length_km: number; time_min: number; nodes: number }
+  properties: RouteInfo
   geometry: { coordinates: [number, number][] }
 }
 
@@ -33,43 +39,84 @@ export async function fetchRoute(
   return res.json()
 }
 
-export function routeInfoOf(data: RouteGeoJSON): RouteInfo | null {
-  const f = data.features[0]
-  if (!f) return null
-  const p = f.properties
-  return { from: p.from, to: p.to, lengthKm: p.length_km, timeMin: p.time_min, nodes: p.nodes }
+export function routeInfoOf(data: RouteGeoJSON): VSInfo {
+  const classicFeature = data.features.find(f => f.properties.agent === 'classic')
+  const aiFeature = data.features.find(f => f.properties.agent === 'ai')
+
+  const toInfo = (f: RouteFeature | undefined): RouteInfo | null => {
+    if (!f) return null
+    return {
+      agent: f.properties.agent,
+      from: f.properties.from,
+      to: f.properties.to,
+      lengthKm: f.properties.length_km || f.properties.lengthKm,
+      timeMin: f.properties.time_min || f.properties.timeMin,
+      nodes: f.properties.nodes
+    }
+  }
+
+  return {
+    classic: toInfo(classicFeature),
+    ai: toInfo(aiFeature)
+  }
 }
 
-function marker(kind: 'origin' | 'destination', label: string) {
+function marker(kind: 'origin' | 'destination' | 'classic' | 'ai', label: string) {
   const el = document.createElement('div')
-  el.className = kind === 'origin' ? 'marker' : 'marker is-destination'
-  const html = `<strong>${label}</strong><br><span class="muted">${
-    kind === 'origin' ? 'Origin' : 'Destination'
-  }</span>`
+  if (kind === 'origin') {
+    el.className = 'marker'
+  } else if (kind === 'destination') {
+    el.className = 'marker is-destination'
+  } else if (kind === 'classic') {
+    el.className = 'marker is-classic-car'
+    el.innerHTML = '🤖' // Classic Agent
+  } else if (kind === 'ai') {
+    el.className = 'marker is-ai-car'
+    el.innerHTML = '🧠' // AI Agent
+  }
+
   return new maplibregl.Marker({ element: el }).setPopup(
-    new maplibregl.Popup({ offset: 12 }).setHTML(html)
+    new maplibregl.Popup({ offset: 12 }).setHTML(`<strong>${label}</strong>`)
   )
 }
 
-/** Pinta la ruta, coloca los dos marcadores y encuadra el mapa. */
+/** Pinta las rutas, coloca marcadores y encuadra el mapa. */
 export function drawRoute(
   map: maplibregl.Map,
   data: RouteGeoJSON,
-  info: RouteInfo,
-  markers: { origin: maplibregl.Marker | null; destination: maplibregl.Marker | null }
+  info: VSInfo,
+  markers: { origin: maplibregl.Marker | null; destination: maplibregl.Marker | null; classicCar: maplibregl.Marker | null; aiCar: maplibregl.Marker | null }
 ) {
   const source = map.getSource('route') as maplibregl.GeoJSONSource | undefined
   source?.setData(data as unknown as GeoJSON)
 
-  const coords = data.features[0].geometry.coordinates
   markers.origin?.remove()
   markers.destination?.remove()
-  markers.origin = marker('origin', info.from).setLngLat(coords[0]).addTo(map)
-  markers.destination = marker('destination', info.to)
-    .setLngLat(coords[coords.length - 1])
-    .addTo(map)
+  markers.classicCar?.remove()
+  markers.aiCar?.remove()
 
   const bounds = new maplibregl.LngLatBounds()
-  coords.forEach((c) => bounds.extend(c))
-  map.fitBounds(bounds, { padding: 50, duration: 1000 })
+
+  const classicFeature = data.features.find(f => f.properties.agent === 'classic')
+  const aiFeature = data.features.find(f => f.properties.agent === 'ai')
+
+  if (classicFeature && info.classic) {
+    const coords = classicFeature.geometry.coordinates
+    markers.origin = marker('origin', info.classic.from).setLngLat(coords[0]).addTo(map)
+    markers.destination = marker('destination', info.classic.to).setLngLat(coords[coords.length - 1]).addTo(map)
+    // Place classic car somewhere on the route or at origin
+    markers.classicCar = marker('classic', 'Agente Clásico').setLngLat(coords[0]).addTo(map)
+    coords.forEach((c) => bounds.extend(c))
+  }
+
+  if (aiFeature && info.ai) {
+    const coords = aiFeature.geometry.coordinates
+    // Place AI car
+    markers.aiCar = marker('ai', 'Nuez IA').setLngLat(coords[0]).addTo(map)
+    coords.forEach((c) => bounds.extend(c))
+  }
+
+  if (!bounds.isEmpty()) {
+    map.fitBounds(bounds, { padding: 50, duration: 1000 })
+  }
 }
