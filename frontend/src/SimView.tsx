@@ -18,6 +18,7 @@ import type { TurnoData, TurnoIndex } from './lib/turno'
 import { Counters } from './sim/Counters'
 import { Decisions } from './sim/Decisions'
 import { Distribution } from './sim/Distribution'
+import { DecisionToast } from './sim/DecisionToast'
 
 maplibregl.setWorkerUrl(maplibreWorkerUrl)
 
@@ -349,9 +350,13 @@ export default function SimView() {
     : { ganado: 0, entregas: 0, saltadas: 0 }
   const terminado = t >= maxT - 1
 
-  // Buscar si Nuez acaba de rechazar por seguridad
+  // Buscar si Nuez acaba de rechazar por seguridad o de aceptar un pedido
   const frameNuez = nuez?.frames[t]
   const recentSafetyDecision = frameNuez?.decisiones.find(d => d.restriccion && esSeguridad(d.restriccion))
+  const recentAccepted = frameNuez?.decisiones.find((d) => d.accion === 'aceptar')
+  const aceptadoTexto = recentAccepted
+    ? `MXN ${recentAccepted.terminos.pago_neto?.toFixed(0) ?? '?'} for ${recentAccepted.terminos.minutos?.toFixed(0) ?? '?'} min`
+    : null
 
   return (
     <div className="app">
@@ -374,19 +379,25 @@ export default function SimView() {
         </div>
       </div>
 
-      {/* Banner de Restricción */}
-      {recentSafetyDecision && recentSafetyDecision.restriccion && (
-        <div className="restriction-banner" style={{
-          position: 'absolute', top: '80px', left: '50%', transform: 'translateX(-50%)',
-          backgroundColor: '#f43f5e', color: 'white', padding: '10px 24px', borderRadius: 8,
-          fontWeight: 700, fontSize: '1.05rem', zIndex: 20,
-          display: 'flex', alignItems: 'center', gap: '8px',
-          boxShadow: '0 8px 16px rgba(244, 63, 94, 0.4)',
-          animation: 'pulse 1.5s infinite'
-        }}>
-          {Icon.shield} {etiquetaRestriccion(recentSafetyDecision.restriccion).toUpperCase()} REJECTED
-        </div>
-      )}
+      {/* Avisos de decisión: aceptado arriba, bloqueado por seguridad abajo */}
+      <div className="decision-toast-stack">
+        <DecisionToast
+          variant="accepted"
+          texto={aceptadoTexto}
+          decisionKey={recentAccepted ? `${seed}-${t}-${recentAccepted.oferta_id}` : null}
+        />
+        <DecisionToast
+          variant="blocked"
+          texto={
+            recentSafetyDecision?.restriccion
+              ? etiquetaRestriccion(recentSafetyDecision.restriccion)
+              : null
+          }
+          decisionKey={
+            recentSafetyDecision ? `${seed}-${t}-${recentSafetyDecision.oferta_id}` : null
+          }
+        />
+      </div>
 
       {/* Timeline */}
       <div className="timeline-panel">
