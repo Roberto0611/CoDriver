@@ -4,6 +4,7 @@ El unico test que pega a la API de verdad se activa con NUEZ_VOZ_LIVE=1 y llave 
 """
 
 import os
+import sys
 from pathlib import Path
 
 import httpx
@@ -107,7 +108,13 @@ def test_errores_de_api_son_vozerror_con_mensaje_util(cfg: Config):
     assert not tts.cache_path("Skip it.", cfg).exists(), "un error no deja cache"
 
 
-def test_sin_llave_o_sin_texto_falla_claro(cfg: Config, tmp_path: Path):
+def test_sin_llave_o_sin_texto_falla_claro(
+    cfg: Config, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+):
+    # Sin esto, Config toma la llave del .env de quien corre los tests y el test le
+    # pega a ElevenLabs de verdad: gasta cuota y falla segun el estado de la cuenta.
+    monkeypatch.delenv("ELEVENLABS_API_KEY", raising=False)
+    monkeypatch.setattr(sys.modules["voz.config"], "load_dotenv", lambda *a, **k: False)
     sin = Config(_api_key=None, cache_dir=tmp_path / "x")
     with pytest.raises(tts.VozError, match="ELEVENLABS_API_KEY"):
         tts.sintetizar("Skip it.", cfg=sin)
@@ -143,6 +150,7 @@ def test_transcribir_clip_vacio_falla(cfg: Config):
 def api(monkeypatch: pytest.MonkeyPatch, cfg: Config):
     monkeypatch.setattr(tts, "config", cfg)
     monkeypatch.setattr(voice, "config", cfg)
+    monkeypatch.setattr(voice, "_caida_hasta", 0.0)
     app = FastAPI()
     app.include_router(voice.router)
     return TestClient(app)
@@ -168,6 +176,34 @@ def test_say_convierte_vozerror_en_502(api: TestClient, monkeypatch: pytest.Monk
     r = api.get("/api/voice/say", params={"text": "Skip it."})
     assert r.status_code == 502
     assert "ELEVENLABS_API_KEY" in r.json()["detail"]
+
+
+def test_tras_una_falla_say_no_espera_a_elevenlabs_pero_sirve_la_cache(
+    api: TestClient, monkeypatch: pytest.MonkeyPatch
+):
+    llamadas: list[str] = []
+    reloj = [1000.0]
+
+    def truena(text, **kw):
+        llamadas.append(text)
+        raise tts.VozError("ElevenLabs rechazo la llave (401)")
+        yield  # noqa: B901
+
+    monkeypatch.setattr(tts, "stream", truena)
+    monkeypatch.setattr(voice, "_ahora", lambda: reloj[0])
+
+    assert api.get("/api/voice/say", params={"text": "Skip it."}).status_code == 502
+    assert api.get("/api/voice/say", params={"text": "Take it."}).status_code == 502
+    assert llamadas == ["Skip it."], "la segunda frase no debe esperar otra vez a la API"
+
+    # Lo que ya esta en disco sigue sonando con la voz de Nuez aunque la API este caida.
+    monkeypatch.setattr(tts, "en_cache", lambda text, **kw: True)
+    monkeypatch.setattr(tts, "stream", lambda text, **kw: iter([MP3]))
+    assert api.get("/api/voice/say", params={"text": "Skip it."}).status_code == 200
+
+    reloj[0] += voice.PAUSA_TRAS_FALLA_S + 1
+    monkeypatch.setattr(tts, "en_cache", lambda text, **kw: False)
+    assert api.get("/api/voice/say", params={"text": "Take it."}).status_code == 200, "reintenta"
 
 
 def test_say_rechaza_texto_vacio_o_enorme(api: TestClient):

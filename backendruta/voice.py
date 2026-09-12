@@ -8,6 +8,7 @@ La llave de ElevenLabs no sale de aqui. Cada frase se cachea en disco (ver voz/t
 """
 
 import os
+import time
 from typing import Annotated
 
 import httpx
@@ -21,15 +22,30 @@ router = APIRouter(prefix="/api/voice", tags=["voice"])
 
 MAX_CHARS = 400  # una frase de Nuez son ~100; esto frena un abuso que vacie la cuota
 
+# Tras una falla de ElevenLabs (llave rechazada, sin cuota, sin red) las frases que no estan
+# en cache responden 502 al instante durante este rato. Sin esto cada frase del demo espera
+# el rechazo de la API antes de que el front caiga a la voz del navegador, y llega tarde.
+PAUSA_TRAS_FALLA_S = 60.0
+_caida_hasta = 0.0
+_ultima_falla = ""
+
+
+def _ahora() -> float:
+    return time.monotonic()
+
 
 @router.get("/say")
 def say(text: str = Query(..., min_length=1, max_length=MAX_CHARS)) -> StreamingResponse:
+    global _caida_hasta, _ultima_falla
     hit = tts.en_cache(text)
+    if not hit and _ahora() < _caida_hasta:
+        raise HTTPException(status_code=502, detail=f"ElevenLabs en pausa: {_ultima_falla}")
     try:
         chunks = tts.stream(text)
         # Se fuerza la primera llamada aqui: un error debe ser un 502, no un stream roto.
         primero = next(chunks)
     except tts.VozError as e:
+        _caida_hasta, _ultima_falla = _ahora() + PAUSA_TRAS_FALLA_S, str(e)
         raise HTTPException(status_code=502, detail=str(e)) from e
     except StopIteration:
         raise HTTPException(status_code=502, detail="ElevenLabs no devolvio audio.") from None
