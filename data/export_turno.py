@@ -127,7 +127,13 @@ def grabar(seed: int, nombre: str, politica, cache: dict) -> dict:
             "ganado": res.ganado,
             "entregas": res.entregas,
             "rechazos": res.rechazos,
+            # Dos cosas distintas: `violaciones` es aceptar algo infactible (romper
+            # la regla) y `llego_tarde` es no volver antes de duracion - margen, que
+            # puede deberse a algo que paso DESPUES de aceptar.
+            "violaciones": res.violaciones,
             "llego_tarde": res.llego_tarde,
+            "regreso_en": res.regreso_en,
+            "cancelados": res.cancelados,
             "ofertas_totales": len(res.ofertas),
         },
         "config": asdict(cfg),
