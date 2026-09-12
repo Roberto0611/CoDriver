@@ -21,6 +21,14 @@ FRONTEND_PUBLIC = AQUI.parent / "frontend" / "public"
 ORIGEN = (25.6714, -100.3090)   # Macroplaza
 DESTINO = (25.6510, -100.3590)  # Valle, San Pedro
 
+# Las calles locales son el 83.6% de las aristas (224k de 268k) y a zoom 11-14
+# -el zoom del demo- se ven como un manchon gris. Filtrarlas baja el archivo de
+# 66 MB a ~11 MB y deja el esqueleto de la ciudad, que es lo que el juez reconoce.
+# Ponlo en True si alguna vez hace falta el detalle a zoom 17.
+INCLUIR_LOCALES = False
+
+DECIMALES = 5   # ~1 metro de precision; el sexto decimal solo pesa
+
 
 def classify_highway(highway):
     """Clasifica el tipo de vía para estilizar en el mapa."""
@@ -42,9 +50,14 @@ def edges_to_geojson(G):
     _, edges = ox.graph_to_gdfs(G)
 
     features = []
+    omitidas = 0
     for _, row in edges.iterrows():
         geom = row.geometry
         highway_class = classify_highway(row.get("highway", ""))
+
+        if highway_class == "local" and not INCLUIR_LOCALES:
+            omitidas += 1
+            continue
 
         # Solo incluir coordenadas (lon, lat) de la geometría
         coords = list(geom.coords)
@@ -53,7 +66,7 @@ def edges_to_geojson(G):
             "type": "Feature",
             "geometry": {
                 "type": "LineString",
-                "coordinates": [[round(c[0], 6), round(c[1], 6)] for c in coords],
+                "coordinates": [[round(c[0], DECIMALES), round(c[1], DECIMALES)] for c in coords],
             },
             "properties": {
                 "class": highway_class,
@@ -64,6 +77,8 @@ def edges_to_geojson(G):
         }
         features.append(feature)
 
+    if omitidas:
+        print(f"  calles locales omitidas: {omitidas:,} (INCLUIR_LOCALES=False)")
     return {"type": "FeatureCollection", "features": features}
 
 

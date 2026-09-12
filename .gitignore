@@ -6,3 +6,6 @@ data/*.pkl
 data/*.png
 tiger-cloud-db-hackmty-credentials.env
 !data/matriz.pkl
+frontend/public/mty_*.json
+cache/
+frontend/node_modules/
