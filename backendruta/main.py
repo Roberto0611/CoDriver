@@ -74,7 +74,7 @@ def read_root():
 
 
 @app.get("/api/traffic")
-def get_traffic(hora: Optional[str] = "14:00"):
+def get_traffic(hora: str | None = "14:00"):
     """Devuelve un mapa nombre_calle→factor para colorear las calles reales del grafo."""
     traffic_records = database.get_traffic_at_time(hora)
     incidents = database.get_active_incidents(hora)

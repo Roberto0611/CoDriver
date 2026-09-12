@@ -62,7 +62,7 @@ function App() {
       pitch: 0,
       bearing: 0,
       maxZoom: 18,
-      minZoom: 9,
+      minZoom: 12,
     })
     mapRef.current = map
     map.addControl(new maplibregl.NavigationControl({ showCompass: true }), 'top-right')
@@ -95,11 +95,11 @@ function App() {
     }
   }, [initMap])
 
-  // Toggle de tráfico: actualizar capa cuando cambia la hora o la visibilidad
+  // Toggle de tráfico: actualizar capa cuando cambia la hora o la visibilidad, o si cargan más calles
   useEffect(() => {
     if (!mapRef.current) return
     toggleTrafficLayer(mapRef.current, showTraffic, currentTime)
-  }, [showTraffic, currentTime])
+  }, [showTraffic, currentTime, stats?.edges])
 
   // Auto-play: Cada 5 segundos avanza 1 minuto el tiempo de simulación
   useEffect(() => {
