@@ -156,7 +156,7 @@
       ]
     },
     "Decision": {
-      "doc": "Por qué el motor hizo lo que hizo. Alimenta el front, la voz y el contrafactual.\n\n`terminos` lleva TODOS los números que entraron a la decisión, no solo el\nresultado: de ahí sale la explicación al juez y el reporte contrafactual.",
+      "doc": "Por qué el motor hizo lo que hizo. Alimenta el front, la voz y el contrafactual.\n\n    `terminos` lleva TODOS los números que entraron a la decisión, no solo el\n    resultado: de ahí sale la explicación al juez y el reporte contrafactual.",
       "fields": [
         {
           "name": "t",
