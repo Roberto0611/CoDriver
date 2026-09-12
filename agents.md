@@ -32,6 +32,26 @@ al dejar de aceptar viajes que no alcanzaba a terminar. La corrección se aplic�
 políticas, así que la comparación es limpia — pero el número honesto es *"el baseline ingenuo se
 ve mejor en papel porque se pasa del turno; corregido eso, la diferencia real es 29%"*.
 
+**Validación de duración variable (12 de septiembre):** se conserva el resultado de 2 horas.
+Para 8 horas, moto, inicio 14:00, con `V_480.json` construido sobre TUNEO 0–299:
+
+```
+python comparar.py 200 --duracion 480
+
+200 turnos, seeds de REPORTE 2000-2199
+                  greedy      NUEZ
+  ganancia media   $725     $1051
+  entregas          9.9      19.4
+  llegaron tarde      0         0
+  DELTA: +45.0%   gana en 172/200
+```
+
+Son resultados del mundo sintético con esa configuración, no una promesa para cualquier
+vehículo u horario. Las pruebas cubren además ventanas de 65 y 137 min, tres vehículos y
+turnos de 8 horas desde las 8, 14 y 21 h. Verificación local: 127 tests Python pasan (1 de voz
+en vivo omitido), 11 tests de front pasan, lint/formato/tipos/contrato/límite de líneas y build
+en verde. **Siguiente pendiente: `/decide` + JSONL del protocolo.**
+
 ### Qué existe y qué falta
 
 | Fase | Qué | Estado |
@@ -67,7 +87,7 @@ Esta sección es para quien retome el proyecto sin haber estado en la conversaci
 | `contrato.py` | El formato de todo lo que viaja entre piezas. No cambia en silencio (§13) |
 | `sim.py` | Generador de ofertas + reloj del turno + **política greedy (el baseline)** |
 | `ruteo.py` | Orden óptimo de paradas por enumeración exacta + costo marginal |
-| `valor.py` | La tabla de valor: cuánto rinden los minutos que quedan. Escribe `V.json` |
+| `valor.py` | Tabla de valor offline: `V.json` para ventanas de hasta 120 min y `V_480.json` para hasta 480 min. Admite otras calibraciones por CLI |
 | `nuez.py` | **La política del agente.** Costo de oportunidad en vez de umbral fijo |
 | `comparar.py` | El arnés de medición. **Aquí sale EL NÚMERO** |
 | `courier/` | El spec oficial que mandó Infosys. Material ajeno: se lee, no se toca (excluido de ruff/mypy) |
@@ -77,6 +97,26 @@ Esta sección es para quien retome el proyecto sin haber estado en la conversaci
 ```bash
 python comparar.py 200
 ```
+
+Para evaluar jornadas largas y otros vehículos:
+
+```bash
+python comparar.py 200 --duracion 480 --hora-inicio 14 --vehiculo moto
+```
+
+`--duracion` está en minutos. La comparación conserva `V.json` para ventanas de hasta
+120 min y carga `V_480.json` para las mayores, hasta 480 min. Ambas tablas predeterminadas
+se calibraron con moto e inicio a las 14:00: usarlas en otra ventana, hora o vehículo es una
+aproximación agregada, no una calibración específica. Para construir y usar otra:
+
+```bash
+python valor.py --duracion 480 --hora-inicio 8 --vehiculo bike --salida V_bike_8.json
+python comparar.py 200 --duracion 480 --hora-inicio 8 --vehiculo bike --tabla V_bike_8.json
+```
+
+Las tablas nuevas incluyen los parámetros y seeds de TUNEO como metadatos. Un horizonte
+mayor al cubierto por la tabla falla explícitamente: nunca se recorta a 120 min ni vuelve
+gratis el costo de oportunidad. Se admiten duraciones que no sean múltiplos de 10.
 
 ```bash
 python valor.py
@@ -117,9 +157,10 @@ desde el minuto absoluto del turno. El greedy además ya cuenta la espera del re
 
 Resultado: **0 violaciones de fin de turno en 300 seeds × 3 horas de arranque, en las dos políticas.**
 
-`ponytail:` pendiente — el ruteo corrige la hora tramo por tramo dentro de `duracion`, que era
-donde mordía; si algún día hace falta más precisión, el siguiente paso es que la hora viaje
-también por `mejor_ruta` y `costo_marginal`.
+`mejor_ruta` y `costo_marginal` usan `duracion` con la hora de cada tramo y el vehículo.
+El simulador también anticipa el salto de tráfico al cambiar de hora mientras está parado:
+esperar hasta después del salto podía volver imposible el regreso (car, 8 h desde las 8,
+seed 2000). La inserción de rutas grandes conserva ahora la primera parada en curso.
 
 ### Qué sigue, en orden
 
@@ -130,7 +171,7 @@ el porcentaje**: un agente brillante que no cumple el esquema pierde puntos por 
 |---|---|---|
 | 1 ✅ | Separar seeds de tuneo y reporte | Sin esto, Results se topa en 3 |
 | 2 ✅ | Las cinco restricciones + capacidades por vehículo | Es la mitad de Judgment |
-| 3 | **Turnos de 8 horas y duración variable** | El spec corre `shift_hours: 8.0`; todo está calibrado a 120 min. Incluye conectar `seguridad.VEHICULOS[v].velocidad` a `rutas.minutos` (hoy el campo existe pero nadie lo lee) |
+| 3 ✅ | **Turnos de 8 horas y duración variable** | Tabla larga offline, CLI configurable y velocidad por vehículo conectada a decisiones, ruteo y simulador. La conversión de `shift_hours` corresponde al endpoint pendiente |
 | 4 | **Endpoint `/decide` + log de eventos en su JSONL** | `validate_format.py` es un portero objetivo: pasa o no pasa. Campos: `decision` (ACCEPT/SKIP), `reason`, `binding_constraint`, `latency_ms`, `tier`, `degraded`. `sim_time` es fecha ISO, no minutos. Las zonas son enteros, no nombres |
 | 5 | **Los cinco baselines + el Oracle** | `results_table_template.csv` pide `AcceptAll`, `HighestPay`, `NearestFirst`, `GreedyRate`, `OurAgent` y un `Oracle` offline que conoce el stream completo. Tenemos uno de seis |
 | 6 | `explain_decision` + modo degradado | Los jueces van a invalidar la credencial del modelo a media corrida. Hay que seguir decidiendo con la última estrategia y **señalar `degraded: true`**. Un fallback silencioso es crédito parcial; un crash es reprobado |
@@ -215,10 +256,10 @@ repartidor — y le explicamos cada decisión en voz alta, porque él es el que 
 El usuario no es un repartidor de tiempo completo: es un universitario con **dos horas libres
 entre clases** que quiere sacar dinero sin alejarse del campus.
 
-**Esto no es solo narrativa — refuerza el motor.** Un turno de 8 horas perdona errores: aceptas
-una mala, pierdes 40 minutos, te recuperas. Dos horas no perdonan nada: un pedido malo se come
-el 30% de la ventana. **Mientras más corto el turno, más vale el costo de oportunidad** y más
-ridículo se ve el greedy. El delta contra el baseline se dispara.
+En dos horas, perder 40 minutos consume un tercio de la ventana; por eso elegir bien y volver
+a clase importa tanto para el estudiante. **No asumimos que un turno corto produce mayor
+ventaja porcentual:** se mide por duración. Hoy el resultado de 8 horas supera al de 2 horas
+en el mundo sintético (ver §0).
 
 Y el demo le pega mucho más a jueces que están parados en un campus.
 
@@ -780,12 +821,14 @@ El reto dicta el formato. Obedecerlo al pie de la letra y subirle:
    Dos horas de ventana. Esto ancla todo el demo en una historia que los jueces viven.
 1. Pantalla partida: **Baseline (greedy)** vs **Nuez**. Mapa real de MTY, dos motos
    moviéndose, dos contadores corriendo.
-2. Min 4 — **cierre vial en Morones Prieto**. El baseline se mete. Nuez **habla**,
-   reencamina, y en pantalla aparece el porqué.
-3. Min 6 — **surge en San Pedro**. El baseline se va por el dinero fácil. Nuez lo rechaza
-   porque **no alcanza a volver a clase** — y lo dice con esas palabras.
-4. Últimos minutos: **el baseline no llega a clase**. Nuez sí, y además en el camino de
-   regreso agarra dos pedidos que le quedaban de paso.
+2. Min 4 — **cierre vial en Morones Prieto**. Mostrar cómo reaccionan las dos políticas
+   al mismo cierre. Nuez **habla** y en pantalla aparecen los términos de su decisión.
+3. Min 6 — **surge en San Pedro**. Si el viaje permite volver a clase, mostrar la diferencia
+   entre aceptar por tarifa y evaluar el costo de oportunidad. Si no permite volver,
+   **ambos lo rechazan**: ninguna política compra tiempo extra con dinero.
+4. Últimos minutos: **ambos regresan a tiempo**. Mostrar cuánto ganó cada uno bajo el mismo
+   límite. Explicar los pedidos de paso que Nuez haya agrupado; la cantidad y la ventaja
+   salen del turno real, no del guion. Un seed concreto puede favorecer al baseline.
 5. Cierre: reporte contrafactual + hash de Solana con las entregas del turno.
 6. **Dejar que un juez apriete el botón del seed.** *"Escoge un turno que nunca hemos visto."*
    Eso vale más que cualquier slide.
@@ -828,13 +871,13 @@ Hitos que no se mueven:
 
 | # | Tarea | Listo cuando |
 |---|---|---|
-| B1 | ~~**Baseline greedy**~~ | ✅ **mediana $251 / 4 entregas / 1 de 50 llega tarde** |
+| B1 | ~~**Baseline greedy**~~ | ✅ **media $200 / 3.2 entregas / 0 de 200 llegan tarde** (120 min, REPORTE 2000–2199) |
 | B2 | ~~Ruta exacta por enumeración + costo marginal~~ | ✅ `ruteo.py`. Hasta 6 paradas permuta exacto, arriba inserta |
 | B3 | ~~Restricciones duras~~ | ✅ `seguridad.py`, las **cinco** del spec, con su `binding_constraint` |
 | B4 | Correr 300 turnos → log de decisiones → TigerData | Tabla `decisiones` poblada. **Hacerlo ya en el JSONL del spec**, no en formato propio |
 | B5 | ~~Tabla de valor → `V.json`~~ | ✅ `valor.py`, Monte Carlo tabular sobre seeds de TUNEO |
 | B6 | ~~Política de costo de oportunidad~~ | ✅ `nuez.py`. **+29.2% en 200 seeds de REPORTE** |
-| B8 | **Turnos de 8 h + los tres vehículos con su velocidad** | El spec corre `shift_hours: 8.0`; hoy todo está calibrado a 120 min |
+| B8 | ~~**Turnos de 8 h + los tres vehículos con su velocidad**~~ | ✅ `V_480.json`, duración/hora/vehículo por CLI, velocidad aplicada en planificación y recorrido |
 | B9 | **Endpoint `/decide` + log JSONL del spec** | `validate_format.py` en verde |
 | B10 | **Los cinco baselines + el Oracle** | `results_table_template.csv` lleno, 6 renglones |
 | B11 | **`explain_decision` + modo degradado** | Responde por `order_id` en <10 s y marca `degraded: true` |

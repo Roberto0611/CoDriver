@@ -37,7 +37,7 @@ class Perfil:
 
 
 # ponytail: numeros a ojo (una caja de moto real son ~45 L). Perilla de calibracion.
-# velocidad todavia no la lee rutas.minutos; se conecta con el turno de 8 horas.
+# rutas.minutos aplica velocidad tanto al planear como al recorrer cada tramo.
 VEHICULOS = {
     "moto": Perfil(peso_kg=20, volumen_l=60, pedidos=3, velocidad=1.00, costo_km=1.8),
     "car": Perfil(peso_kg=100, volumen_l=400, pedidos=6, velocidad=1.15, costo_km=3.2),

@@ -192,7 +192,7 @@ def simular(cfg: ConfigTurno, politica: Politica) -> Resultado:
             if ruta and nueva_ruta[0] != ruta[0]:
                 nueva_ruta = [ruta[0]] + [p for p in nueva_ruta if p != ruta[0]]
             if not ruta and nueva_ruta:
-                t_llegada = t + rutas.minutos(pos, nueva_ruta[0].punto, hora)
+                t_llegada = t + rutas.minutos(pos, nueva_ruta[0].punto, hora, cfg.vehiculo)
                 res.tramos.append((t, t_llegada, pos, nueva_ruta[0].punto))
             ruta = nueva_ruta
             aceptadas[o.id] = o
@@ -216,15 +216,24 @@ def simular(cfg: ConfigTurno, politica: Politica) -> Resultado:
                 res.entregas += 1
 
             if ruta:
-                t_llegada = t + rutas.minutos(pos, ruta[0].punto, hora)
+                t_llegada = t + rutas.minutos(pos, ruta[0].punto, hora, cfg.vehiculo)
                 res.tramos.append((t, t_llegada, pos, ruta[0].punto))
 
         # Regresar al ancla es obligacion de cualquier politica: si ya no queda
         # tiempo mas que para volver, el simulador encamina de regreso.
         if not ruta and pos != ancla:
-            if t + rutas.minutos(pos, ancla, hora) >= cfg.duracion_min - cfg.margen_min:
+            regreso = rutas.minutos(pos, ancla, hora, cfg.vehiculo)
+            hora_siguiente = (cfg.hora_inicio + (t + 1) // 60) % 24
+            # Si cambia la hora, el trafico puede saltar mientras estamos parados.
+            # Salir ANTES del salto evita que esperar un minuto vuelva imposible
+            # el regreso (car, 8 h desde las 8, seed 2000).
+            salto_inviable = hora_siguiente != hora and (
+                t + 1 + rutas.minutos(pos, ancla, hora_siguiente, cfg.vehiculo)
+                >= cfg.duracion_min - cfg.margen_min
+            )
+            if t + regreso >= cfg.duracion_min - cfg.margen_min or salto_inviable:
                 ruta = [Parada("ancla", ancla)]
-                t_llegada = t + rutas.minutos(pos, ancla, hora)
+                t_llegada = t + regreso
                 res.tramos.append((t, t_llegada, pos, ancla))
 
         # Restricciones 2 y 3: el contador de minutos continuos. Parar 20 minutos
@@ -265,7 +274,7 @@ def politica_greedy(
     def leg(a: int, b: int, desde_min: float) -> float:
         """El tramo se recorre en `desde_min` minutos mas, y para entonces puede
         ser otra hora con otro trafico. La hora sale del minuto ABSOLUTO del turno."""
-        return rutas.minutos(a, b, cfg.hora_inicio + int(est.t + desde_min) // 60)
+        return rutas.minutos(a, b, cfg.hora_inicio + int(est.t + desde_min) // 60, cfg.vehiculo)
 
     cola, desde = 0.0, pos
     for p in ruta:
