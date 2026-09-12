@@ -80,9 +80,20 @@
 .navie-eyes-error {
   opacity: 0;
   pointer-events: none;
-  transition: opacity 0.35s ease-in-out;
+  will-change: opacity;
 }
 
+.navie-stage:not(.navie-searching):not(.navie-error) .navie-eyes-wrap {
+  animation: none;
+}
+
+.navie-stage:not(.navie-searching):not(.navie-error) .navie-wink-eyes {
+  animation: navieNormalEyesSequence 5s ease-in-out infinite;
+}
+
+.navie-stage:not(.navie-searching):not(.navie-error) .navie-eyes-happy {
+  animation: navieHappyEyesSequence 5s ease-in-out infinite;
+}
 
 /* ==========================================
    KEYFRAMES DE ANIMACIONES
@@ -110,7 +121,6 @@
   82%, 84%                { transform: scaleY(0); }
 }
 
-/* Guiño */
 @keyframes navieTiltWink {
   0%       { transform: rotate(0deg) translateX(0); }
   12%      { transform: rotate(-20deg) translateX(-12px); }
@@ -142,16 +152,24 @@
   74%, 100%{ transform: scaleY(1); }
 }
 
-@keyframes navieSwapNormalEyes {
-  0%, 19%   { opacity: 1; }
-  20%, 69%  { opacity: 0; }
-  70%, 100% { opacity: 1; }
+@keyframes navieNormalEyesSequence {
+  0%, 28%   { opacity: 1; }
+  30%, 34%  { opacity: 0; }
+  36%, 42%  { opacity: 1; }
+  44%, 58%  { opacity: 0; }
+  60%, 68%  { opacity: 1; }
+  70%, 76%  { opacity: 0; }
+  80%, 100% { opacity: 1; }
 }
 
-@keyframes navieSwapHappyEyes {
-  0%, 19%   { opacity: 0; }
-  20%, 69%  { opacity: 1; }
-  70%, 100% { opacity: 0; }
+@keyframes navieHappyEyesSequence {
+  0%, 36%   { opacity: 0; }
+  38%, 44%  { opacity: 1; }
+  46%, 50%  { opacity: 0; }
+  52%, 58%  { opacity: 1; }
+  60%, 66%  { opacity: 0; }
+  68%, 74%  { opacity: 1; }
+  76%, 100% { opacity: 0; }
 }
 
 /* Buscando */
@@ -210,10 +228,12 @@
   animation: navieHappyBlink 4.8s ease-in-out infinite;
 }
 .navie-stage.navie-happy .navie-wink-eyes {
-  animation: navieSwapNormalEyes 4.8s ease-in-out infinite;
+  animation: navieNormalEyesCycle 4.8s ease-in-out infinite;
+  opacity: 1;
 }
 .navie-stage.navie-happy .navie-eyes-happy {
-  animation: navieSwapHappyEyes 4.8s ease-in-out infinite;
+  animation: navieHappyEyesCycle 4.8s ease-in-out infinite;
+  opacity: 1;
 }
 
 /* Modo: Buscando (Fade-out elegante + ligero encogimiento) */

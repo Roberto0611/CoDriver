@@ -9,6 +9,7 @@ import { addRouteLayers, toggleTrafficLayer } from './map/layers'
 import { attachHoverPopups } from './map/popups'
 import { createRoadLoader } from './map/roads'
 import { drawRoute, fetchRoute, routeInfoOf, type VSInfo } from './map/route'
+import { NaviePlayground } from './navie/NaviePlayground'
 
 // Configurar worker de MapLibre para Vite
 maplibregl.setWorkerUrl(maplibreWorkerUrl)
@@ -38,7 +39,9 @@ function App() {
   const markersRef = useRef<{
     origin: maplibregl.Marker | null
     destination: maplibregl.Marker | null
-  }>({ origin: null, destination: null })
+    classicCar: maplibregl.Marker | null
+    aiCar: maplibregl.Marker | null
+  }>({ origin: null, destination: null, classicCar: null, aiCar: null })
   const [loading, setLoading] = useState(true)
   const [loadingRoute, setLoadingRoute] = useState(false)
   const [stats, setStats] = useState<GraphStats | null>(null)
