@@ -17,11 +17,20 @@ ARCHIVO = Path(__file__).parent / "V.json"
 CUBETA = 10  # minutos por cubeta: 120 min -> 12 cubetas
 
 
-def construir(n: int = 300, duracion: int = 120, hora_inicio: int = 14) -> dict[int, float]:
-    """Corre el baseline n veces y promedia la ganancia futura por cubeta."""
+def construir(
+    n: int = 300, duracion: int = 120, hora_inicio: int = 14, politica=None
+) -> dict[int, float]:
+    """Corre una politica n veces y promedia la ganancia futura por cubeta.
+
+    Con politica=None usa el baseline. Pasando la propia politica de Nuez se hace
+    iteracion de politica: la tabla refleja lo que rinde el tiempo jugando BIEN,
+    no jugando como el baseline, y el umbral se vuelve mas exigente donde debe.
+    """
     import rutas
     from contrato import ConfigTurno, Punto
     from sim import politica_greedy, simular
+
+    politica = politica or politica_greedy
 
     tec = rutas.COORD_DE[rutas.puntos_de("Tec")[0]]
     muestras: dict[int, list[float]] = {}
@@ -30,7 +39,7 @@ def construir(n: int = 300, duracion: int = 120, hora_inicio: int = 14) -> dict[
         cfg = ConfigTurno(
             duracion_min=duracion, ancla=Punto("Tec", *tec), seed=seed, hora_inicio=hora_inicio
         )
-        res = simular(cfg, politica_greedy)
+        res = simular(cfg, politica)
 
         for t in range(0, duracion + 1, CUBETA):
             restante = duracion - t
