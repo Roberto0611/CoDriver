@@ -553,7 +553,75 @@ El reto dicta el formato. Obedecerlo al pie de la letra y subirle:
 
 ---
 
-## 10. Plan de 36h
+## 10. Tareas
+
+**Lo primero, en la hora 1, antes que nada: el contrato de eventos.** Un JSON con la forma de
+`oferta`, `decision`, `estado_repartidor` y `evento_mundo`. Sin eso los cuatro carriles se
+bloquean entre sí. Se define entre todos, se congela, y cada quien mockea lo que le falta.
+
+Hitos que no se mueven:
+
+| Hora | Hito |
+|---|---|
+| **1** | Contrato de eventos congelado |
+| **10** | **Baseline greedy corriendo con un número.** Sin esto no hay proyecto |
+| **18** | Motor le gana al baseline en seeds no vistos |
+| **24** | Gemini explicando decisiones |
+| **30** | Demo completo de punta a punta |
+| **33** | **Feature freeze.** Solo se ensaya y se arreglan bugs |
+
+---
+
+### Carril A — Simulador y datos
+
+| # | Tarea | Listo cuando |
+|---|---|---|
+| A0 | ~~Grafo de MTY descargado + sanity check~~ | ✅ hecho |
+| A1 | Matriz de tiempos precalculada entre los ~200 puntos de interés (restaurantes, zonas de entrega, anclas) | Consulta O(1), sin tocar el grafo en vivo |
+| A2 | Factor de tráfico por hora del día | Macroplaza→Valle da ~22 min en pico, ~8 en madrugada |
+| A3 | Generador de ofertas con `seed` | Mismo seed = mismo stream, byte por byte |
+| A4 | Reloj de turno + estado del repartidor (posición, mochila, fatiga) | Corre una ventana de 120 min de punta a punta |
+| A5 | Eventos del mundo: surge por zona/hora, cierre vial, lluvia | Se disparan por config y sí afectan tiempos y pagos |
+| A6 | Capa de riesgo zona-hora (sintética y curada, documentada como tal) | Devuelve riesgo dado (zona, hora) |
+
+### Carril B — Motor de decisión
+
+| # | Tarea | Listo cuando |
+|---|---|---|
+| B1 | **Baseline greedy** | Da un número de ganancia. **Hora 10.** |
+| B2 | Ruta exacta por enumeración + costo marginal en minutos | Responde "¿cuántos minutos extra me cuesta este pedido?" |
+| B3 | Restricciones duras: regreso factible al ancla + seguridad | Rechaza y dice cuál restricción mandó |
+| B4 | Correr 300 turnos → log de decisiones → TigerData | Tabla `decisiones` poblada |
+| B5 | Query de la tabla de valor → `V.json` | Archivo en disco, ~32 números por zona |
+| B6 | Política de costo de oportunidad leyendo `V.json` | **Gana ≥20% al baseline en 50 seeds no vistos** |
+| B7 | Contrafactual: qué habría pasado aceptando lo rechazado | Un número y una lista al cierre del turno |
+
+### Carril C — Front y demo
+
+| # | Tarea | Listo cuando |
+|---|---|---|
+| C1 | **Contrato de eventos WebSocket** | Congelado en la hora 1 |
+| C2 | Pantalla de configuración (ventana, ancla, vehículo, margen) | Cuatro inputs, no una app |
+| C3 | Mapa MapLibre con los dos agentes y sus rutas | Dos motos moviéndose sobre calles reales |
+| C4 | Contadores + panel de decisión con los términos visibles | Al señalar una decisión se ve por qué |
+| C5 | Botón de seed del juez + botón de evento (surge / cierre) | El juez puede apretarlos él mismo |
+| C6 | Branding Nuez: nombre, SVG, paleta, prompt de personalidad | **3h máximo, en paralelo** |
+
+### Carril D — Integraciones
+
+| # | Tarea | Listo cuando |
+|---|---|---|
+| D1 | `docker compose`: app + TigerData/Timescale | `docker compose up` y corre |
+| D2 | Gemini: clima + eventos masivos → JSON de pesos y multiplicadores | El motor consume el JSON y cambia de conducta |
+| D3 | Gemini: narración de decisiones + reporte contrafactual | Texto listo para la voz |
+| D4 | ElevenLabs TTS streaming con la personalidad de Nuez | Habla mientras el turno corre, sin cortar |
+| D5 | ElevenLabs STT: el repartidor contesta y ajusta preferencias | "esa colonia no" cambia la función objetivo |
+| D6 | Deploy en Vultr | URL pública + fallback localhost probado |
+| D7 | Solana devnet: reputación portable | **Recortable.** Primero que se corta |
+
+---
+
+## 11. Plan de 36h
 
 | Bloque | Qué |
 |---|---|
@@ -576,7 +644,7 @@ son cuatro inputs, no una app.
 
 ---
 
-## 11. Trampas que hunden este reto
+## 12. Trampas que hunden este reto
 
 - **LLM calculando dinero** → alucina, pierde contra greedy. Motor determinista; LLM solo explica y ajusta pesos.
 - **Simulador bonito, agente mediocre** → el 60% de los equipos se queda sin tiempo para el agente. **Baseline corriendo en la hora 10, sin excepciones.**
@@ -586,7 +654,7 @@ son cuatro inputs, no una app.
 
 ---
 
-## 12. Convenciones para trabajar aquí
+## 13. Convenciones para trabajar aquí
 
 - **Python 3.11+.** Simulador y agente en un solo proceso, sin servicios extra.
 - **Todo turno es reproducible por `seed`.** Si un resultado no se reproduce con su seed, es un bug.
