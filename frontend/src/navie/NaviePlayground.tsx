@@ -7,7 +7,15 @@ export function NaviePlayground() {
   const [mode, setMode] = useState<CompassMode>('idle')
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: 40, gap: 20 }}>
+    <div
+      style={{
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        padding: 40,
+        gap: 20,
+      }}
+    >
       <h1 style={{ margin: 0, fontSize: 32 }}>Navie playground</h1>
 
       <NavieCompass mode={mode} />

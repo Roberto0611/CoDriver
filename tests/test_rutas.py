@@ -1,6 +1,7 @@
 """La matriz de tiempos: consulta O(1), consistente con el trafico y las zonas."""
 
 import rutas
+import seguridad
 from mundo import ZONAS
 
 
@@ -46,3 +47,12 @@ def test_indice_mas_cercano_resuelve_el_ancla_a_su_zona():
     # Un punto exacto se resuelve a si mismo.
     j = rutas.puntos_de("Valle")[0]
     assert rutas.indice_mas_cercano(*rutas.COORD_DE[j]) == j
+
+
+def test_velocidad_por_vehiculo_y_trafico_al_cruzar_medianoche():
+    origen, destino = rutas.puntos_de("Tec")[:2]
+    for vehiculo, perfil in seguridad.VEHICULOS.items():
+        for hora in (3, 14, 18, 25):
+            assert rutas.minutos(origen, destino, hora, vehiculo) == (
+                rutas.minutos(origen, destino, hora % 24) * perfil.velocidad
+            )

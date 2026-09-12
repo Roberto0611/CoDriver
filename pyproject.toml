@@ -1,7 +1,7 @@
 [tool.ruff]
 line-length = 100
 target-version = "py311"
-extend-exclude = ["frontend", "cache", ".venv", "venv", "courier"]
+    extend-exclude = ["frontend", "cache", ".venv", "venv", "courier"]
 
 [tool.ruff.lint]
 # E/W estilo, F errores reales, I imports ordenados, B bugs comunes, UP sintaxis moderna.

@@ -1,5 +1,7 @@
 """La tabla de valor: monotona, interpolada, acotada. Y se puede reconstruir."""
 
+import pytest
+
 import valor
 
 
@@ -20,10 +22,10 @@ def test_interpola_linealmente_entre_cubetas():
     assert abs(valor.de(15) - (V[10] + V[20]) / 2) < 1e-9
 
 
-def test_se_acota_fuera_del_rango():
-    V = valor.cargar()
+def test_no_recorta_silenciosamente_un_turno_largo():
     assert valor.de(-5) == 0
-    assert valor.de(10_000) == V[max(V)]
+    with pytest.raises(ValueError, match="horizonte"):
+        valor.de(480)
 
 
 def test_precio_del_tiempo_es_la_diferencia_y_nunca_negativo():
@@ -38,3 +40,24 @@ def test_construir_produce_una_tabla_completa():
     assert sorted(V) == list(range(0, 61, valor.CUBETA))
     assert V[0] == 0
     assert V[60] >= V[30] >= V[0]
+
+
+def test_turno_largo_cobra_el_tiempo_desde_el_inicio():
+    tabla = valor.para_turno(480)
+    assert valor.precio_del_tiempo(480, 30, tabla) > 0
+    assert valor.para_turno(120) == valor.cargar()
+    with pytest.raises(ValueError, match="cubre"):
+        valor.para_turno(481)
+
+
+def test_duracion_fuera_de_cubetas_tiene_cero_y_extremo():
+    tabla = valor.construir(n=3, duracion=137)
+    assert sorted(tabla) == [*range(0, 131, 10), 137]
+    assert tabla[0] == 0
+    assert valor.de(133.5, tabla) == pytest.approx((tabla[130] + tabla[137]) / 2)
+
+
+@pytest.mark.parametrize("n,duracion", [(0, 120), (2001, 120), (3, 0), (3, -5)])
+def test_rechaza_calibracion_invalida(n, duracion):
+    with pytest.raises(ValueError):
+        valor.construir(n=n, duracion=duracion)

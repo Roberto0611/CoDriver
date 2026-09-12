@@ -140,3 +140,29 @@ def test_las_cinco_restricciones_se_disparan_de_verdad():
         "vehicle_capacity",
         "reservation_wage",
     }, f"faltaron por dispararse: {vistas}"
+
+
+@pytest.mark.parametrize("duracion,hora", [(65, 14), (137, 14), (480, 8), (480, 14), (480, 21)])
+@pytest.mark.parametrize("vehiculo", ("moto", "car", "bike"))
+def test_ventanas_variables_vehiculos_y_regreso(duracion, hora, vehiculo):
+    import seeds
+    from nuez import politica_nuez
+
+    for seed in seeds.de_reporte(5):
+        config = cfg(seed, duracion_min=duracion, hora_inicio=hora, vehiculo=vehiculo)
+        for politica in (politica_greedy, politica_nuez):
+            res = simular(config, politica)
+            assert not res.llego_tarde, (seed, duracion, hora, vehiculo, politica.__name__)
+            assert res.entregas == sum(d.accion == "aceptar" for d in res.decisiones)
+            assert all(0 <= d.t < duracion for d in res.decisiones)
+            assert 0 <= res.minutos_ocupado <= duracion
+            for salida, llegada, origen, destino in res.tramos:
+                esperado = rutas.minutos(origen, destino, hora + salida // 60, vehiculo)
+                assert llegada - salida == pytest.approx(esperado)
+
+
+def test_ampliar_turno_conserva_el_stream_inicial_y_no_depende_del_vehiculo():
+    corto = generar_ofertas(cfg(7))
+    largo = generar_ofertas(cfg(7, duracion_min=480, vehiculo="bike"))
+    assert corto == [o for o in largo if o.t_aparece < 120]
+    assert largo[-1].t_aparece > 400
