@@ -45,7 +45,6 @@ export default function SimView() {
   const [isPlaying, setIsPlaying] = useState(false)
   const [speedIdx, setSpeedIdx] = useState(0)
   const [maxT, setMaxT] = useState(120)
-  const [activeShockBanner, setActiveShockBanner] = useState<string | null>(null)
 
   const handleShock = async (type: 'closure' | 'rain') => {
     try {
@@ -59,9 +58,37 @@ export default function SimView() {
         body: JSON.stringify(payload)
       });
       
-      const bannerText = type === 'closure' ? 'Cierre en Constitución · 40 min' : 'Lluvia intensa · 45 min';
-      setActiveShockBanner(bannerText);
-      setTimeout(() => setActiveShockBanner(null), 10000);
+      if (mapRef.current) {
+        const map = mapRef.current;
+        if (type === 'closure') {
+          map.flyTo({ center: [-100.315, 25.668], zoom: 15, pitch: 45, duration: 2000 });
+          
+          const roadLayers = map.getStyle().layers.filter((l: any) => l.id.startsWith('roads-') && !l.id.includes('-casing'));
+          for (const layer of roadLayers) {
+            const originalColor = map.getPaintProperty(layer.id, 'line-color');
+            if (originalColor && (!Array.isArray(originalColor) || originalColor[0] !== 'case')) {
+              map.setPaintProperty(layer.id, 'line-color', [
+                'case',
+                ['in', 'Constitución', ['coalesce', ['get', 'name'], '']],
+                '#ef4444', // Red
+                originalColor
+              ] as any);
+              
+              setTimeout(() => {
+                if (map.getLayer(layer.id)) map.setPaintProperty(layer.id, 'line-color', originalColor);
+              }, 15000);
+            }
+          }
+        } else {
+          // Lluvia
+          map.flyTo({ center: MTY_CENTER, zoom: 12, pitch: 0, duration: 2000 });
+          const originalBg = map.getPaintProperty('background', 'background-color');
+          map.setPaintProperty('background', 'background-color', '#94a3b8'); // Rainy blue-gray
+          setTimeout(() => {
+            if (map.getLayer('background')) map.setPaintProperty('background', 'background-color', originalBg);
+          }, 15000);
+        }
+      }
     } catch (e) {
       console.error('Error triggering shock:', e);
     }
@@ -358,21 +385,6 @@ export default function SimView() {
           animation: 'pulse 1.5s infinite'
         }}>
           {Icon.shield} {etiquetaRestriccion(recentSafetyDecision.restriccion).toUpperCase()} REJECTED
-        </div>
-      )}
-
-      {/* Banner de Shocks (Disrupciones) */}
-      {activeShockBanner && (
-        <div style={{
-          position: 'absolute', top: '130px', left: '50%', transform: 'translateX(-50%)',
-          backgroundColor: '#0f172a', color: 'white', padding: '10px 24px', borderRadius: 8,
-          fontWeight: 700, fontSize: '1.05rem', zIndex: 20,
-          display: 'flex', alignItems: 'center', gap: '8px',
-          boxShadow: '0 8px 16px rgba(0, 0, 0, 0.4)',
-          border: '2px solid #38bdf8',
-          animation: 'pulse 2s infinite'
-        }}>
-          ⚠️ {activeShockBanner.toUpperCase()}
         </div>
       )}
 
