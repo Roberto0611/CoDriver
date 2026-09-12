@@ -25,7 +25,7 @@ DESTINO = (25.6510, -100.3590)  # Valle, San Pedro
 # -el zoom del demo- se ven como un manchon gris. Filtrarlas baja el archivo de
 # 66 MB a ~11 MB y deja el esqueleto de la ciudad, que es lo que el juez reconoce.
 # Ponlo en True si alguna vez hace falta el detalle a zoom 17.
-INCLUIR_LOCALES = False
+INCLUIR_LOCALES = True
 
 DECIMALES = 5   # ~1 metro de precision; el sexto decimal solo pesa
 
