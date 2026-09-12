@@ -1,0 +1,196 @@
+﻿/* ─── Avisos de decisión (bloqueado / aceptado) ───
+   Tarjetas apiladas abajo a la derecha: aceptado arriba, bloqueado abajo.
+   Entran chicas, crecen de más y se asientan (rebote pedido explícitamente
+   para estos avisos). Crecen desde la esquina. */
+.decision-toast-stack {
+  position: absolute;
+  right: 20px;
+  bottom: 56px; /* por encima del control de atribución de MapLibre (44px) */
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch; /* apiladas, ambas del ancho de la más ancha */
+  gap: 8px;
+  pointer-events: none;
+}
+
+.decision-toast {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 220px;
+  padding: 12px 10px 12px 12px;
+  background: var(--card);
+  border: 1px solid var(--hairline);
+  border-radius: var(--r-lg);
+  box-shadow: 0 8px 24px rgba(104, 73, 89, 0.14);
+  transform-origin: bottom right;
+  animation: toast-pop 520ms cubic-bezier(0.3, 0.7, 0.4, 1) both;
+}
+
+/* La entrada al revés: mismos puntos espejados y la curva invertida. */
+.decision-toast.is-leaving {
+  animation: toast-pop-out 520ms cubic-bezier(0.6, 0, 0.7, 0.3) forwards;
+}
+
+.decision-toast-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+}
+
+/* El color dice qué pasó: rosa = seguridad, esmeralda = dinero. */
+.decision-toast.is-blocked .decision-toast-icon {
+  background: var(--rose-tint);
+  color: var(--rose-ink);
+}
+
+.decision-toast.is-accepted .decision-toast-icon {
+  background: var(--emerald-tint);
+  color: var(--emerald-ink);
+}
+
+.decision-toast.is-blocked .caps {
+  color: var(--rose-ink);
+}
+
+.decision-toast.is-accepted .caps {
+  color: var(--emerald-ink);
+}
+
+.decision-toast-icon svg {
+  width: 18px;
+  height: 18px;
+}
+
+.decision-toast-body {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.decision-toast-label {
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 20px;
+  color: var(--ink);
+}
+
+/* Cerrar: al final de la fila, centrado con el texto. El círculo visible es de
+   28px, pero el área de toque llega a 44px con el margen negativo. */
+.decision-toast-close {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  margin-left: auto;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--ink-3);
+  cursor: pointer;
+  pointer-events: auto;
+  transition:
+    background 150ms var(--ease),
+    color 150ms var(--ease),
+    transform 150ms var(--ease);
+}
+
+.decision-toast-close::before {
+  content: '';
+  position: absolute;
+  inset: -8px;
+}
+
+.decision-toast-close svg {
+  width: 14px;
+  height: 14px;
+}
+
+.decision-toast-close:hover {
+  background: var(--surface-high);
+  color: var(--ink);
+}
+
+.decision-toast-close:active {
+  transform: scale(0.96);
+}
+
+.decision-toast-close:focus-visible {
+  outline: 2px solid var(--plum);
+  outline-offset: 2px;
+}
+
+.decision-toast-close:disabled {
+  cursor: default;
+  pointer-events: none;
+}
+
+@keyframes toast-pop {
+  0% {
+    opacity: 0;
+    transform: scale(0.6);
+  }
+  55% {
+    opacity: 1;
+    transform: scale(1.08);
+  }
+  80% {
+    transform: scale(0.98);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes toast-pop-out {
+  0% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  20% {
+    transform: scale(0.98);
+  }
+  45% {
+    opacity: 1;
+    transform: scale(1.08);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(0.6);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .decision-toast {
+    animation: toast-fade 150ms var(--ease) both;
+  }
+
+  /* Otro nombre de animación: cambiar solo la dirección no la reinicia. */
+  .decision-toast.is-leaving {
+    animation: toast-fade-out 150ms var(--ease) forwards;
+  }
+
+  @keyframes toast-fade {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+
+  @keyframes toast-fade-out {
+    to {
+      opacity: 0;
+    }
+  }
+}

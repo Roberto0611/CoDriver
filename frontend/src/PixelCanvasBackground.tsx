@@ -17,11 +17,11 @@ export interface PixelCanvasBackgroundProps {
 }
 
 // ── Configuraciones por defecto exportadas desde FrontHelp ──────────────────
-const DEFAULT_VIDEO_SRC = '/Haz_un_video_en_donde_las_nube.mp4'
-const DEFAULT_PIXEL_SIZE = 3
+const DEFAULT_VIDEO_SRC = '/tec-fondo-compact.gif'
+const DEFAULT_PIXEL_SIZE = 5
 const DEFAULT_SHAPE_MODE = 'circles'
-const DEFAULT_COLOR_MODE = 'palette'
-const DEFAULT_PALETTE = ['#000000', '#00C800', '#00C800', '#FFD700']
+const DEFAULT_COLOR_MODE = 'full'
+const DEFAULT_PALETTE = ['#FF4500', '#0000CD', '#00C800', '#FFD700']
 const DEFAULT_CONTRAST = 100
 const DEFAULT_LIGHTNESS = 100
 
@@ -118,15 +118,14 @@ export const PixelCanvasBackground: React.FC<PixelCanvasBackgroundProps> = ({
     const paletteRgb = palette.map(hexToRgb)
 
     const updateDimensions = () => {
-      const parent = canvas.parentElement
-      const w = parent && parent.clientWidth > 0 ? parent.clientWidth : window.innerWidth
-      const h = parent && parent.clientHeight > 0 ? parent.clientHeight : window.innerHeight
+      const w = window.innerWidth
+      const h = window.innerHeight
       const dpr = Math.min(window.devicePixelRatio || 1, 2)
 
       canvas.width = Math.floor(w * dpr)
       canvas.height = Math.floor(h * dpr)
-      canvas.style.width = '100%'
-      canvas.style.height = '100%'
+      canvas.style.width = `${w}px`
+      canvas.style.height = `${h}px`
 
       offscreen.width = w
       offscreen.height = h
@@ -283,12 +282,12 @@ export const PixelCanvasBackground: React.FC<PixelCanvasBackgroundProps> = ({
   return (
     <div
       style={{
-        position: 'absolute',
+        position: 'fixed',
         top: 0,
         left: 0,
-        width: '100%',
-        height: '100%',
-        zIndex: 0,
+        width: '100vw',
+        height: '100vh',
+        zIndex: -1,
         pointerEvents: 'none',
         overflow: 'hidden',
         ...style,

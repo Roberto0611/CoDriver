@@ -5,7 +5,11 @@
   --navie-warm: #f59e0b;
   --navie-emerald: #10b981;
 }
-/* --- Estructura Base --- */
+
+/* ==========================================
+   ESTRUCTURA BASE Y CAPAS
+   ========================================== */
+
 .navie-stage {
   position: relative;
   width: 260px;
@@ -30,7 +34,6 @@
   display: block;
 }
 
-/* --- Capas Principales con Transiciones Suaves --- */
 .navie-body-wrap {
   z-index: 1;
   transform-origin: 50% 50%;
@@ -49,7 +52,6 @@
   z-index: 3;
   transform-origin: 50% 55%;
   animation: navieBreathe 3.2s ease-in-out infinite;
-  /* Transición global para desaparecer en modo searching */
   transition:
     opacity 0.35s ease-in-out,
     transform 0.35s ease-in-out;
@@ -81,31 +83,20 @@
   clip-path: inset(0 0 0 51%);
 }
 
-/* Ojos alternativos con fading suave */
+/* Ojos alternativos */
 .navie-eyes-happy,
 .navie-eyes-error {
   opacity: 0;
   pointer-events: none;
+  transition: opacity 0.35s ease-in-out;
   will-change: opacity;
-}
-
-.navie-stage:not(.navie-searching):not(.navie-error) .navie-eyes-wrap {
-  animation: none;
-}
-
-.navie-stage:not(.navie-searching):not(.navie-error) .navie-wink-eyes {
-  animation: navieNormalEyesSequence 5s ease-in-out infinite;
-}
-
-.navie-stage:not(.navie-searching):not(.navie-error) .navie-eyes-happy {
-  animation: navieHappyEyesSequence 5s ease-in-out infinite;
 }
 
 /* ==========================================
    KEYFRAMES DE ANIMACIONES
    ========================================== */
 
-/* Reposo */
+/* --- Reposo (Idle) --- */
 @keyframes navieBreathe {
   0%,
   100% {
@@ -159,6 +150,7 @@
   }
 }
 
+/* --- Guiño (Wink) --- */
 @keyframes navieTiltWink {
   0% {
     transform: rotate(0deg) translateX(0);
@@ -192,7 +184,8 @@
   }
 }
 
-/* Feliz: Rebote del cuerpo */
+/* --- Feliz (Happy) --- */
+/* 1. Rebote constante */
 @keyframes navieHappyBounce {
   0%,
   100% {
@@ -209,91 +202,61 @@
   }
 }
 
-/* Feliz: Cierre de ojos sincronizado */
-@keyframes navieHappyBlink {
+/* 2. Cierre y apertura de ojos (38% y 78%) */
+@keyframes navieHappyBlinkCycle {
   0%,
-  16% {
-    transform: scaleY(1);
-  }
-  20% {
-    transform: scaleY(0);
-  }
-  24%,
-  66% {
-    transform: scaleY(1);
-  }
-  70% {
-    transform: scaleY(0);
-  }
-  74%,
-  100% {
-    transform: scaleY(1);
-  }
-}
-
-@keyframes navieNormalEyesSequence {
-  0%,
-  28% {
-    opacity: 1;
-  }
-  30%,
   34% {
-    opacity: 0;
+    transform: scaleY(1);
   }
-  36%,
-  42% {
+  38% {
+    transform: scaleY(0);
+  } /* Ojos cerrados */
+  42%,
+  74% {
+    transform: scaleY(1);
+  }
+  78% {
+    transform: scaleY(0);
+  } /* Ojos cerrados */
+  82%,
+  100% {
+    transform: scaleY(1);
+  }
+}
+
+/* 3. Alternar ojos normales en el parpadeo */
+@keyframes navieHappySwapNormal {
+  0%,
+  37% {
     opacity: 1;
   }
-  44%,
-  58% {
+  38%,
+  77% {
     opacity: 0;
   }
-  60%,
-  68% {
-    opacity: 1;
-  }
-  70%,
-  76% {
-    opacity: 0;
-  }
-  80%,
+  78%,
   100% {
     opacity: 1;
   }
 }
 
-@keyframes navieHappyEyesSequence {
+/* 4. Alternar ojos felices en el parpadeo */
+@keyframes navieHappySwapHappy {
   0%,
-  36% {
+  37% {
     opacity: 0;
   }
   38%,
-  44% {
+  77% {
     opacity: 1;
   }
-  46%,
-  50% {
-    opacity: 0;
-  }
-  52%,
-  58% {
-    opacity: 1;
-  }
-  60%,
-  66% {
-    opacity: 0;
-  }
-  68%,
-  74% {
-    opacity: 1;
-  }
-  76%,
+  78%,
   100% {
     opacity: 0;
   }
 }
 
-/* Buscando */
+/* --- Buscando (Searching) --- */
 @keyframes navieSearching {
   0% {
     transform: rotate(0deg);
@@ -339,7 +302,7 @@
   }
 }
 
-/* Error */
+/* --- Error --- */
 @keyframes navieErrorSway {
   0%,
   100% {
@@ -370,7 +333,7 @@
 }
 
 /* ==========================================
-   MODOS Y TRANSICIONES
+   MODOS Y ESTADOS
    ========================================== */
 
 /* Modo: Guiño */
@@ -384,23 +347,21 @@
   animation: navieWinkClose 3.2s ease-in-out infinite;
 }
 
-/* Modo: Feliz */
+/* Modo: Feliz (Rebote + parpadeo y cambio de ojos sincronizado) */
 .navie-stage.navie-happy {
   animation: navieHappyBounce 1.2s ease-in-out infinite;
 }
 .navie-stage.navie-happy .navie-eyes-wrap {
-  animation: navieHappyBlink 4.8s ease-in-out infinite;
+  animation: navieHappyBlinkCycle 4s ease-in-out infinite;
 }
 .navie-stage.navie-happy .navie-wink-eyes {
-  animation: navieNormalEyesCycle 4.8s ease-in-out infinite;
-  opacity: 1;
+  animation: navieHappySwapNormal 4s step-end infinite;
 }
 .navie-stage.navie-happy .navie-eyes-happy {
-  animation: navieHappyEyesCycle 4.8s ease-in-out infinite;
-  opacity: 1;
+  animation: navieHappySwapHappy 4s step-end infinite;
 }
 
-/* Modo: Buscando (Fade-out elegante + ligero encogimiento) */
+/* Modo: Buscando (Fade-out suave de ojos + giro de aguja) */
 .navie-stage.navie-searching .navie-eyes-wrap {
   opacity: 0;
   transform: scale(0.85);
@@ -410,7 +371,7 @@
   animation: navieSearching 4.8s ease-in-out infinite;
 }
 
-/* Modo: Error (Fade-out ojos normales -> Fade-in ojos de error) */
+/* Modo: Error (Ojos de error entran con fade-in) */
 .navie-stage.navie-error {
   animation: navieErrorSway 0.95s ease-in-out infinite;
 }

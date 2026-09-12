@@ -6,7 +6,8 @@ Documento de contexto del proyecto. Lo que decidimos, por qué, y cómo se traba
 
 ## 0. Estado actual — leer esto primero
 
-**Última actualización: 12 de septiembre de 2026 (tarde).** Rama de trabajo: `main`.
+**Última actualización: 12 de septiembre de 2026, noche.** Rama: `main`, con el PR #8 (shocks)
+ya mergeado. Árbol limpio, los 7 checks del CI en verde.
 
 **El proyecto en tres renglones:** un estudiante tiene una ventana libre entre clases y quiere
 sacar dinero repartiendo comida. Nuestro agente decide qué aceptar y qué no, le gana a un
@@ -15,55 +16,48 @@ repartidor normal por un margen claro, y explica cada decisión en voz alta.
 ### El número, hoy
 
 ```
-python comparar.py 200
+python comparar.py 200          seeds de REPORTE 2000-2199
 
-200 turnos, seeds de REPORTE 2000-2199
-                  greedy      NUEZ
-  ganancia media   $200      $259
-  entregas          3.2       5.1
-  llegaron tarde      0         0
-  DELTA: +29.2%   gana en 150/200
+                     greedy      NUEZ
+  ganancia media      $198      $264
+  entregas             3.2       5.2
+  violaciones            0         0
+  rebasaron el margen    0         0
+  DELTA: +33.5%   gana en 152/200
 ```
+
+Turno de 8 horas (`--duracion 480`, moto, 14:00, tabla `V_480.json`): greedy **$733**, Nuez
+**$1081**, **+47.5%**, gana en 175/200, cero violaciones y cero rebasados.
+
+Con disrupciones (`--shocks`): greedy $189, Nuez $251, **+32.9%**, cero violaciones y 14 de 200
+rebasados — ver "Dos métricas, no una".
+
+**La tabla de rivales** (50 turnos de REPORTE, moto, 120 min):
+
+```
+AcceptAll     $180        GreedyRate    $206
+HighestPay    $133        OurAgent      $265
+NearestFirst  $128        Oracle        $281   ← solver offline con el turno completo
+```
+
+**94% del óptimo teórico.** Ese número se dice en voz alta.
 
 **El asterisco, y hay que decirlo en el pitch:** la trayectoria fue −1.0% → +1.8% (tráfico
-direccional) → +9.0% (batching) → +11.1% (descuento de tiempo parado) → **+29.2%**. Ese último
-salto **no es que Nuez mejorara** ($257 → $259, o sea nada): es que el greedy bajó de $233 a $200
-al dejar de aceptar viajes que no alcanzaba a terminar. La corrección se aplicó idéntica a las dos
-políticas, así que la comparación es limpia — pero el número honesto es *"el baseline ingenuo se
-ve mejor en papel porque se pasa del turno; corregido eso, la diferencia real es 29%"*.
-
-**Validación de duración variable (12 de septiembre):** se conserva el resultado de 2 horas.
-Para 8 horas, moto, inicio 14:00, con `V_480.json` construido sobre TUNEO 0–299:
-
-```
-python comparar.py 200 --duracion 480
-
-200 turnos, seeds de REPORTE 2000-2199
-                  greedy      NUEZ
-  ganancia media   $725     $1051
-  entregas          9.9      19.4
-  llegaron tarde      0         0
-  DELTA: +45.0%   gana en 172/200
-```
-
-Son resultados del mundo sintético con esa configuración, no una promesa para cualquier
-vehículo u horario. Las pruebas cubren además ventanas de 65 y 137 min, tres vehículos y
-turnos de 8 horas desde las 8, 14 y 21 h. Verificación local: 177 tests Python pasan (1 de voz
-en vivo omitido), 11 tests de front pasan, lint/formato/tipos/contrato/límite de líneas y build
-en verde. El endpoint y el JSONL oficial también pasan su validador, incluido el log con los
-campos de `explain_decision`. Ya corren los cinco agentes online y el `Oracle` offline con los
-mismos seeds de REPORTE.
+direccional) → +9.0% (batching) → +11.1% (descuento de tiempo parado) → +29% → **+33.5%**. Los
+dos últimos saltos **no son que Nuez se volviera más lista**: son correcciones al simulador que
+quitaron demoras que nunca existieron y arreglaron un baseline que se pasaba del turno. La
+corrección se aplicó idéntica a las dos políticas, así que la comparación es limpia.
 
 ### Qué existe y qué falta
 
 | Fase | Qué | Estado |
 |---|---|---|
 | **0** | El mundo y el rival | ✅ |
-| **1** | **EL NÚMERO** — tabla de valor + política de Nuez | ✅ **+29.2% en seeds no vistos** |
-| **1b** | Conformidad con el spec oficial de Infosys | 🟡 duración, restricciones, `/decide` + JSONL, cinco agentes online, Oracle, `explain_decision` y **modo degradado** ✅; faltan los shocks |
-| **2** | Hacerlo visible — replay y pantalla partida | 🟡 los JSON grabados existen, pero **el front todavía no los reproduce** (hoy hace una carrera de rutas A→B). Brief listo en [`docs/front-turno-grabado.md`](docs/front-turno-grabado.md) |
-| **3** | Hacerlo hablar — Gemini + ElevenLabs | el equipo lo trae aparte |
-| **4** | Tracks baratos y ensayo | sin empezar |
+| **1** | **EL NÚMERO** — tabla de valor + política de Nuez | ✅ **+33.5% en seeds no vistos** |
+| **1b** | Conformidad con el spec de Infosys | ✅ los 8 puntos: seeds disjuntos, 5 restricciones, 8 h, `/decide` + JSONL, 5 baselines + Oracle, `explain_decision`, modo degradado, shocks |
+| **2** | Hacerlo visible — replay y pantalla partida | 🟡 el front ya reproduce el turno, con contadores, panel de decisión y distribución. Faltan el botón del shock y no tirar la `razon` |
+| **3** | Hacerlo hablar — Gemini + ElevenLabs | 🟡 Gemini ✅ (capa de estrategia). ElevenLabs construido pero **desconectado del turno** |
+| **4** | Entregables y ensayo | 🔴 la tabla de resultados está **en blanco** y el demo **no se ha ensayado** |
 
 ---
 
@@ -101,7 +95,8 @@ Esta sección es para quien retome el proyecto sin haber estado en la conversaci
 | `backendruta/courier_format.py` | Traduce una `Decision` del motor a la respuesta del spec: razón en inglés bajo 40 palabras, `economics` y eventos del JSONL |
 | `backendruta/explain.py` | **`explain_decision`.** Arma `inputs` + `alternatives_considered` al decidir, los guarda en el evento `decision` y los busca por `order_id` (en memoria o leyendo el JSONL) |
 | `backendruta/event_log.py` | Escritura local del JSONL cronológico; no depende de red ni TigerData |
-| `docs/front-turno-grabado.md` | Brief para el front: formato de los turnos grabados y qué construir en el mapa |
+| `front-turno-grabado.md` | Brief original del front: formato de los turnos grabados (casi todo hecho ya) |
+| `front-siguiente.md` | Lo que le falta al front hoy: botón del shock, la `razon`, los campos nuevos del meta |
 | `courier/` | El spec oficial que mandó Infosys. Material ajeno: se lee, no se toca (excluido de ruff/mypy) |
 
 ### Comandos
@@ -176,22 +171,75 @@ El simulador también anticipa el salto de tráfico al cambiar de hora mientras 
 esperar hasta después del salto podía volver imposible el regreso (car, 8 h desde las 8,
 seed 2000). La inserción de rutas grandes conserva ahora la primera parada en curso.
 
-### Qué sigue, en orden
+### Qué falta antes del pitch
 
-El spec de Infosys (`courier/`) es prescriptivo y **cumplir el formato vale más ahorita que subir
-el porcentaje**: un agente brillante que no cumple el esquema pierde puntos por mecánica.
+Los 8 puntos del spec están cerrados. Lo que queda es **entregables y demo**, y está ordenado
+por cuánto duele no tenerlo.
 
-| # | Qué | Por qué |
+| # | Qué | Dónde | Por qué duele |
+|---|---|---|---|
+| **A** 🔴 | **Llenar `results_table_template.csv`** | script nuevo + `sim.py` | El spec dice *"fill this in and put it on one slide"*. Es LA diapositiva de Results y está vacía |
+| **B** 🔴 | **Conectar la voz al turno** | `SimView.tsx` + `voice/nuez.ts` | Las dos piezas existen y **no se conocen**: el turno corre en silencio. Es la tesis del proyecto |
+| **C** 🔴 | **Botón del shock en el front** | `frontend/src/` | El brief exige una disrupción en vivo y hoy no se puede disparar desde la pantalla |
+| **D** 🔴 | **Ensayar el demo** | nadie, cero código | *"A constraint never demonstrated triggering scores low — rehearse at least two"* |
+| **E** 🟡 | `decision-text.ts` **tira el campo `razon`** | `frontend/src/lib/` | Ahora la razón nombra el cierre; el texto generado lo pierde |
+| **F** 🟡 | **Tiger guardando la bitácora de decisiones** | `backendruta/database.py` | Hoy guarda tráfico para el mapa. El track se gana con el log |
+
+#### A — La tabla de resultados
+
+`courier/results_table_template.csv` sigue siendo la plantilla en blanco. Pide ocho columnas por
+agente y tenemos los seis renglones (AcceptAll … Oracle). Faltan tres métricas:
+
+- `mean_mxn_per_hr` — se deriva de lo que ya hay
+- `accept_rate_pct` — se deriva de `res.decisiones`
+- `deadhead_pct_of_km` — **no existe**. Qué fracción de los km son sin pedido encima. Hay que
+  medirlo en `sim.py`, separando km con carga de km vacíos
+
+Lo demás sale de `comparar.py --rivales`. **Nombrar los dos conjuntos de seeds en la diapositiva**
+o Results se topa en 3.
+
+#### B — La voz
+
+Existe todo y nadie lo llama:
+
+```
+voz/tts.py, stt.py, config.py     el cliente de ElevenLabs
+backendruta/voice.py              /say  /listen  /config  /agent
+frontend/src/voice/nuez.ts        say()  listen()  prefetch()  unlock()
+```
+
+`SimView.tsx` no lo invoca ni una vez. Lo que falta es que cuando Nuez rechaza algo **lo diga** —
+la frase ya existe, es el campo `razon`. `prefetch()` es el seguro del demo: precargar las frases
+del turno grabado para no depender del wifi.
+
+#### D — El ensayo
+
+Hay que armar y cronometrar:
+
+- provocar **la regla del calor y un cierre**, en vivo y a propósito (son las dos más vistosas)
+- cortar la credencial de Gemini **con la red apagada** y que se vea el badge de degradado
+- las respuestas de menos de 10 segundos a las ocho preguntas que el spec lista textualmente
+
+#### F — Tiger
+
+`database.py` ya crea hypertables, pero guarda **tráfico e incidentes para pintar el mapa**. La
+bitácora de decisiones vive en un JSONL local (`backendruta/event_log.py`).
+
+El argumento honesto: *"Timescale es una base de series de tiempo, y nuestra bitácora de decisiones
+**es** una serie de tiempo."* Hoy `explain_decision` relee un archivo; contra Tiger sería una query.
+Eso gana el track; un adorno no.
+
+### Cómo repartirse sin chocar
+
+Main nos ha llegado en rojo dos veces por merges cruzados. El reparto que no choca:
+
+| Quién | Archivos | Choca con |
 |---|---|---|
-| 1 ✅ | Separar seeds de tuneo y reporte | Sin esto, Results se topa en 3 |
-| 2 ✅ | Las cinco restricciones + capacidades por vehículo | Es la mitad de Judgment |
-| 3 ✅ | **Turnos de 8 horas y duración variable** | Tabla larga offline, CLI configurable, velocidad por vehículo y conversión de `shift_hours` en `/shift/start` |
-| 4 ✅ | **Endpoint `/decide` + log de eventos en su JSONL** | Adaptador separado, overrides aplicados, razones inglesas bajo 40 palabras y JSONL local. Validador oficial en verde para endpoint y log |
-| 5 ✅ | **Los cinco baselines + el Oracle** | `oracle.py` conoce el stream completo offline, explora agendas sin apilar y escoge el mejor resultado reproducible frente a los cinco agentes online |
-| 6a ✅ | **`explain_decision`** | `GET /explain/{order_id}` (alias `/explain_decision/{order_id}`) responde en ms desde el registro; si el proceso se reinició, lee el JSONL. Nunca re-decide |
-| 6b ✅ | **Modo degradado + capa de estrategia** | `backendruta/strategy.py`. Gemini corre en un hilo aparte y solo mueve tres perillas; la ruta rápida nunca lo llama. Sin credencial, `degraded: true` y sigue decidiendo. Se recupera solo |
-| 7 ✅ | **Shocks** (`surge`, `closure`, `rain`, `delay`) | `shocks.py` + `POST /shock`. Física en código, juicio en Gemini. Dado aparte: el número sin shocks no se movió |
-| 8 | Reproducir el turno en el front + contadores + panel de decisión | Judgment sigue en cero del lado visual. Es trabajo solo de front, sobre los JSON grabados: [`docs/front-turno-grabado.md`](docs/front-turno-grabado.md) |
+| Front | `frontend/src/*` | nadie |
+| Backend/datos | `backendruta/database.py`, `event_log.py` | nadie |
+| Motor | `sim.py`, `comparar.py`, script nuevo de resultados | nadie |
+
+**La voz (B) toca `SimView.tsx`**, que es del front. Hay que acordarlo antes de escribir una línea.
 
 ### `explain_decision`: qué quedó
 
@@ -242,7 +290,7 @@ repartidor; los rangos de arriba lo dejan en 40 antes de que llegue al motor. Un
 se ignora: el modelo no puede crear geografía.
 
 **El seguro del número:** `BASE` son los valores de hoy. Mientras nadie actualice la estrategia,
-el agente se comporta idéntico a cuando se midió el +29.2%, y el ratchet lo confirma byte a byte.
+el agente se comporta idéntico al que se midió, y el ratchet lo confirma byte a byte.
 
 **La credencial se lee de `os.environ` en cada llamada**, a propósito. Los jueces la invalidan en
 el entorno del proceso; un cliente creado al arrancar con la llave guardada en memoria nunca se
@@ -372,13 +420,13 @@ le quitó una demora que nunca existió.
 
 ### Pendientes chicos pero que se notan
 
-- **Los turnos grabados son de TUNEO** (1, 7 y 42), y el del seed 1 quedó feo: el greedy hace $66
-  y 1 entrega. Es el golden de regresión, por eso no se cambió, pero **para el demo hay que
-  escoger otros seeds, y de REPORTE**. Se regraban con `python data/export_turno.py 1 2000 2001 2002`.
-  Incluir el `1`: `turnos.json` se reescribe solo con los seeds que se pasen.
-- **La varianza por turno es enorme** (desviación ~56 puntos porcentuales; el peor turno −83%, el
-  mejor +252%). **Un turno animado no es evidencia.** Hay que mostrar la distribución de 50 turnos
-  al lado del turno bonito, o el juez tiene razón en no creernos.
+- **Los turnos grabados ya son de REPORTE** (2000, 2001, 2002) ✅. El seed 1 se conserva en disco
+  porque es el golden de `tests/test_engine_golden.py`, pero no aparece en `turnos.json`. Al
+  regrabar hay que correr los dos: `export_turno.py 1` y luego `export_turno.py 2000 2001 2002`
+  (el último gana en `turnos.json`).
+- **La varianza por turno es enorme** (el seed 2002 sale en −26% mientras el 2000 sale en +198%).
+  **Un turno animado no es evidencia.** Ya existe `frontend/src/sim/Distribution.tsx`; hay que
+  asegurarse de que se vea al lado del turno bonito, o el juez tiene razón en no creernos.
 - **El front comía ~3 GB de RAM.** La medición es anterior a la carga de calles por zona
   (`frontend/src/map/roads.ts`): el patrón `_roadFeatures.concat` que se citaba como causa ya no
   aparece en `src/`. **Medir de nuevo antes de invertirle tiempo.** Si sigue alto, la palanca más
@@ -1055,7 +1103,7 @@ Hitos que no se mueven:
 | B3 | ~~Restricciones duras~~ | ✅ `seguridad.py`, las **cinco** del spec, con su `binding_constraint` |
 | B4 | Correr 300 turnos → log de decisiones → TigerData | Tabla `decisiones` poblada. **Hacerlo ya en el JSONL del spec**, no en formato propio |
 | B5 | ~~Tabla de valor → `V.json`~~ | ✅ `valor.py`, Monte Carlo tabular sobre seeds de TUNEO |
-| B6 | ~~Política de costo de oportunidad~~ | ✅ `nuez.py`. **+29.2% en 200 seeds de REPORTE** |
+| B6 | ~~Política de costo de oportunidad~~ | ✅ `nuez.py`. **+33.5% en 200 seeds de REPORTE** |
 | B8 | ~~**Turnos de 8 h + los tres vehículos con su velocidad**~~ | ✅ `V_480.json`, duración/hora/vehículo por CLI, velocidad aplicada en planificación y recorrido |
 | B9 | ~~**Endpoint `/decide` + log JSONL del spec**~~ | ✅ `/shift/start`, `/decide`, `/shift/status`, `/shift/end`, `/zones`; ambos modos del validador oficial en verde |
 | B10 | ~~**Los cinco baselines + el Oracle**~~ | ✅ `baselines.py` aporta los tres rivales y `oracle.py` el sexto renglón offline. En 200 REPORTE: Nuez $259, Oracle $275, 0 llegadas tarde; `python comparar.py 200 --rivales` los mide |
@@ -1069,7 +1117,7 @@ Hitos que no se mueven:
 |---|---|---|
 | C1 | **Contrato de eventos WebSocket** | Congelado en la hora 1 |
 | C2 | Pantalla de configuración (ventana, ancla, vehículo, margen) | Cuatro inputs, no una app |
-| C3 | Mapa MapLibre con los dos agentes y sus rutas | Dos motos moviéndose sobre calles reales. **Mapa y calles ✅; falta reproducir `turno_*.json`**, ver [`docs/front-turno-grabado.md`](docs/front-turno-grabado.md) |
+| C3 | ~~Mapa con los dos agentes y sus rutas~~ | ✅ `SimView.tsx` reproduce el turno grabado con timeline, contadores, panel de decisión y distribución |
 | C4 | Contadores + panel de decisión con los términos visibles | Al señalar una decisión se ve por qué. Los datos ya están en `frames[t].decisiones`; el backend ya expone `GET /explain/{order_id}` |
 | C5 | Botón de seed del juez + botón de evento (surge / cierre) | El juez puede apretarlos él mismo |
 | C6 | Branding Nuez: nombre, SVG, paleta, prompt de personalidad | **3h máximo, en paralelo.** Paleta y tokens ✅ (sección 8b); falta el SVG de la ardilla (Eli) |
