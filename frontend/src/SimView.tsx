@@ -13,6 +13,7 @@ import { createRoadLoader } from './map/roads'
 import { cargarTurnosPorSeed, cargarIndiceTurnos, cargarPuntos } from './lib/loader'
 import { posicionEnMinuto, minutosAHora, contadoresEnT, estelaHastaT } from './lib/sim'
 import { esSeguridad, etiquetaRestriccion } from './lib/decision-text'
+import { API_URL } from './lib/api'
 import type { TurnoData, TurnoIndex } from './lib/turno'
 import { Counters } from './sim/Counters'
 import { Decisions } from './sim/Decisions'
@@ -44,6 +45,27 @@ export default function SimView() {
   const [isPlaying, setIsPlaying] = useState(false)
   const [speedIdx, setSpeedIdx] = useState(0)
   const [maxT, setMaxT] = useState(120)
+  const [activeShockBanner, setActiveShockBanner] = useState<string | null>(null)
+
+  const handleShock = async (type: 'closure' | 'rain') => {
+    try {
+      const payload = type === 'closure' 
+        ? {"shock_type": "closure", "zone": 2, "duration_min": 40, "road": "Constitución"}
+        : {"shock_type": "rain", "duration_min": 45};
+        
+      await fetch(`${API_URL}/shock`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      
+      const bannerText = type === 'closure' ? 'Cierre en Constitución · 40 min' : 'Lluvia intensa · 45 min';
+      setActiveShockBanner(bannerText);
+      setTimeout(() => setActiveShockBanner(null), 10000);
+    } catch (e) {
+      console.error('Error triggering shock:', e);
+    }
+  }
 
   // Cargar índice y puntos al montar
   useEffect(() => {
@@ -339,6 +361,21 @@ export default function SimView() {
         </div>
       )}
 
+      {/* Banner de Shocks (Disrupciones) */}
+      {activeShockBanner && (
+        <div style={{
+          position: 'absolute', top: '130px', left: '50%', transform: 'translateX(-50%)',
+          backgroundColor: '#0f172a', color: 'white', padding: '10px 24px', borderRadius: 8,
+          fontWeight: 700, fontSize: '1.05rem', zIndex: 20,
+          display: 'flex', alignItems: 'center', gap: '8px',
+          boxShadow: '0 8px 16px rgba(0, 0, 0, 0.4)',
+          border: '2px solid #38bdf8',
+          animation: 'pulse 2s infinite'
+        }}>
+          ⚠️ {activeShockBanner.toUpperCase()}
+        </div>
+      )}
+
       {/* Timeline */}
       <div className="timeline-panel">
         <div className="timeline-controls">
@@ -394,6 +431,22 @@ export default function SimView() {
               {s}x
             </button>
           ))}
+        </div>
+
+        {/* Shocks (Disrupciones) */}
+        <div className="shock-controls" style={{ display: 'flex', gap: '8px', marginLeft: '16px', borderLeft: '1px solid #e2e8f0', paddingLeft: '16px' }}>
+          <button 
+            onClick={() => handleShock('closure')}
+            style={{ padding: '6px 12px', fontSize: '0.8rem', fontWeight: 600, backgroundColor: '#fef3c7', color: '#b45309', border: '1px solid #fde68a', borderRadius: '6px', cursor: 'pointer' }}
+          >
+            🚧 Cerrar Constitución
+          </button>
+          <button 
+            onClick={() => handleShock('rain')}
+            style={{ padding: '6px 12px', fontSize: '0.8rem', fontWeight: 600, backgroundColor: '#e0f2fe', color: '#0369a1', border: '1px solid #bae6fd', borderRadius: '6px', cursor: 'pointer' }}
+          >
+            🌧 Empezar Lluvia
+          </button>
         </div>
       </div>
 
