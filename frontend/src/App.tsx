@@ -239,14 +239,16 @@ function App() {
         {/* Buscador de rutas */}
         <div className="glass-card finder-card">
           <div className="finder">
-            <div className="finder-title">📍 Simulation Setup</div>
+            <div className="finder-title" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>{Icon.pin} Simulation Setup</div>
             <div className="finder-fields">
               <div className="field">
                 <label htmlFor="origin">Origin</label>
                 <div className="select">
                   <select id="origin" value={origin} onChange={(e) => setOrigin(e.target.value)}>
                     {ZONAS_LIST.map((z) => (
-                      <option key={z} value={z}>{z}</option>
+                      <option key={z} value={z}>
+                        {z}
+                      </option>
                     ))}
                   </select>
                   {Icon.chevron}
@@ -261,7 +263,9 @@ function App() {
                     onChange={(e) => setDestination(e.target.value)}
                   >
                     {ZONAS_LIST.map((z) => (
-                      <option key={z} value={z}>{z}</option>
+                      <option key={z} value={z}>
+                        {z}
+                      </option>
                     ))}
                   </select>
                   {Icon.chevron}
@@ -278,14 +282,14 @@ function App() {
         {/* Dashboard VS */}
         {route && (
           <div className="vs-dashboard">
-            <div className="vs-header">⚔️ ALGORITHM SHOWDOWN</div>
-            
+            <div className="vs-header" style={{ display: 'flex', alignItems: 'center', gap: '8px', justifyContent: 'center' }}>{Icon.route} ALGORITHM SHOWDOWN</div>
+
             <div className="vs-cards">
               {/* Classic Agent Card */}
               {route.classic && (
                 <div className="glass-card agent-card classic-agent">
                   <div className="agent-header">
-                    <span className="agent-icon">🤖</span>
+                    <span className="agent-icon" style={{ width: '1.2em', height: '1.2em' }}>{Icon.moto}</span>
                     <span className="agent-name">Classic Algorithm</span>
                   </div>
                   <div className="agent-stats">
@@ -308,7 +312,7 @@ function App() {
               {route.ai && (
                 <div className="glass-card agent-card ai-agent">
                   <div className="agent-header">
-                    <span className="agent-icon">🧠</span>
+                    <span className="agent-icon" style={{ width: '1.2em', height: '1.2em' }}>{Icon.mark}</span>
                     <span className="agent-name">Nuez AI</span>
                   </div>
                   <div className="agent-stats">
@@ -323,8 +327,8 @@ function App() {
                   </div>
                   <div className="agent-log brain-log">
                     <code>
-                      {route.ai.timeMin < (route.classic?.timeMin || 0) 
-                        ? `[${currentTime}] ⚠️ Traffic ahead. Rerouting via optimal path.` 
+                      {route.ai.timeMin < (route.classic?.timeMin || 0)
+                        ? `[${currentTime}] [!] Traffic ahead. Rerouting via optimal path.`
                         : `[${currentTime}] Analyzing traffic... Current path is optimal.`}
                     </code>
                   </div>

@@ -18,7 +18,14 @@ export function addRoadLayers(map: MLMap, zone: string, data: FeatureCollection)
   const sourceId = `road-network-${zone}`
   map.addSource(sourceId, { type: 'geojson', data })
 
-  const beforeId = map.getLayer('route') ? 'route' : undefined
+  // Encontrar la capa de ruta/estela más baja para insertar las calles debajo
+  const possibleBeforeIds = [
+    'trail-greedy-line',
+    'route-classic-casing',
+    'route-ai-glow',
+    'route-oracle-glow',
+  ]
+  const beforeId = possibleBeforeIds.find((id) => map.getLayer(id))
 
   const road = (
     baseId: string,
@@ -125,10 +132,10 @@ export function addRouteLayers(map: MLMap) {
     type: 'line',
     source: 'route',
     filter: ['==', ['get', 'agent'], 'oracle'],
-    paint: { 
-      'line-color': '#fef08a', 
+    paint: {
+      'line-color': '#fef08a',
       'line-width': zoomWidth(9, 2, 14, 4),
-      'line-dasharray': [2, 2]
+      'line-dasharray': [2, 2],
     },
     layout: ROUND,
   })
@@ -136,7 +143,8 @@ export function addRouteLayers(map: MLMap) {
 
 // ── Tráfico ──────────────────────────────────────────────────────────────
 
-const TRAFFIC_API = 'http://127.0.0.1:8000'
+import { API_URL } from '../lib/api'
+const TRAFFIC_API = API_URL
 
 // Colores base por clase de vía (para restaurar al apagar tráfico)
 const BASE_COLORS: Record<string, string> = {

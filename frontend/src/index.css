@@ -4,4 +4,6 @@
 @import './styles/panel.css';
 @import './styles/agent-cards.css';
 @import './styles/overlays.css';
+@import './styles/vs-dashboard.css';
+@import './styles/sim.css';
 @import './navie/navie.css';

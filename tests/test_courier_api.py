@@ -181,14 +181,20 @@ def test_jsonl_pasa_el_validador_oficial_y_guarda_inputs(api):
         json.loads(line) for line in service.log.path.read_text(encoding="utf-8").splitlines()
     ]
     event_names = [event["event"] for event in events]
-    assert event_names[:3] == ["shift_start", "order_offered", "decision"]
-    assert event_names[-1] == "shift_end"
-    assert "position_update" in event_names
-    assert "earnings_update" in event_names
-    assert events[1]["sim_time"] == "2026-03-21T14:30:00"
-    assert events[1]["zone_pickup"] == 4
-    assert events[2]["inputs"]["time_remaining_min"] == 330
-    assert [event["sim_time"] for event in events] == sorted(event["sim_time"] for event in events)
+    # `strategy_update` lo escribe el hilo de la capa lenta, que corre entre pings
+    # y no se sincroniza con ellos a proposito. Puede caer en cualquier hueco: lo
+    # que tiene que estar en orden es la ruta rapida.
+    rapida = [event for event in events if event["event"] != "strategy_update"]
+    rapidos = [event["event"] for event in rapida]
+    assert rapidos[:3] == ["shift_start", "order_offered", "decision"]
+    assert rapidos[-1] == "shift_end"
+    assert "position_update" in rapidos
+    assert "earnings_update" in rapidos
+    assert "strategy_update" in event_names, "la capa de estrategia tiene que reportarse"
+    assert rapida[1]["sim_time"] == "2026-03-21T14:30:00"
+    assert rapida[1]["zone_pickup"] == 4
+    assert rapida[2]["inputs"]["time_remaining_min"] == 330
+    assert [event["sim_time"] for event in rapida] == sorted(e["sim_time"] for e in rapida)
 
     validated = subprocess.run(
         [
@@ -249,3 +255,52 @@ def test_tiempos_y_distancia_del_request_entran_a_la_decision(api):
     assert body["binding_constraint"] == "shift_end_infeasible"
     assert body["economics"]["total_time_min"] == 110
     assert body["economics"]["net_pay_mxn"] == pytest.approx(116_832)
+
+
+def test_el_boton_del_juez_inyecta_un_shock_y_no_frena_el_bucle(api):
+    """El brief exige una disrupcion en vivo. Tiene que entrar sin detener /decide."""
+    client, service = api
+    start(client)
+
+    respuesta = client.post(
+        "/shock",
+        json={"shock_type": "closure", "zone": 2, "duration_min": 40, "road": "Constitucion"},
+    )
+    assert respuesta.status_code == 200, respuesta.text
+    assert respuesta.json()["shock_type"] == "closure"
+    assert respuesta.json()["active_shocks"] == 1
+
+    decidido = client.post("/decide", json=order()).json()
+    assert decidido["decision"] in ("ACCEPT", "SKIP"), "decidio, no se quedo esperando"
+    assert decidido["latency_ms"] < 50, "el shock no se come el presupuesto"
+    assert decidido["tier"] == "tier1"
+
+    eventos = [
+        json.loads(linea)
+        for linea in service.log.path.read_text(encoding="utf-8").splitlines()
+        if '"shock"' in linea
+    ]
+    assert eventos, "el shock queda en la bitacora para el replay"
+    assert eventos[-1]["zone"] == 2 and eventos[-1]["road"] == "Constitucion"
+
+
+def test_el_shock_estira_el_viaje_de_verdad(api):
+    """La fisica no es opinion: el mismo pedido cuesta mas minutos con la calle cerrada."""
+    client, service = api
+    start(client)
+
+    # Pagos bajos para que los salte y la ruta siga vacia: asi los dos se miden
+    # desde el mismo punto de partida y la unica diferencia es la lluvia.
+    sin = client.post("/decide", json=order("ORD-SIN", base_pay_mxn=4.0)).json()
+    client.post("/shock", json={"shock_type": "rain", "duration_min": 60})
+    con = client.post("/decide", json=order("ORD-CON", base_pay_mxn=4.0)).json()
+
+    assert sin["decision"] == con["decision"] == "SKIP"
+
+    assert con["economics"]["total_time_min"] > sin["economics"]["total_time_min"]
+    assert service.state is not None and len(service.state.shocks) == 1
+
+
+def test_un_shock_sin_turno_es_conflicto(api):
+    client, _ = api
+    assert client.post("/shock", json={"shock_type": "rain"}).status_code == 409

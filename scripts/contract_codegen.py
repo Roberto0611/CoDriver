@@ -11,6 +11,7 @@ que se note: se corre --write, se revisa el diff en el PR, y todos se enteran.
 """
 
 import dataclasses
+import inspect
 import json
 import sys
 import types
@@ -97,7 +98,10 @@ def esquema() -> dict[str, Any]:
                     and f.default_factory is dataclasses.MISSING,
                 }
             )
-        doc = (cls.__doc__ or "").strip()
+        # cleandoc y no `.strip()`: Python 3.13 quita la sangria de los docstrings al
+        # compilar y 3.11 no, asi que el snapshot salia distinto segun la laptop y
+        # tronaba el Contract Check sin que nadie hubiera tocado contrato.py.
+        doc = inspect.cleandoc(cls.__doc__ or "").strip()
         if doc.startswith(cls.__name__ + "("):
             doc = ""  # sin docstring, dataclass pone la firma; no aporta
         out["classes"][cls.__name__] = {"doc": doc, "fields": campos}

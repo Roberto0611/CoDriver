@@ -9,7 +9,7 @@
 // Los navegadores bloquean audio hasta un gesto del usuario: la primera `say` debe
 // venir de un click (o llamar `unlock()` en el click de "Start shift").
 
-export const API_URL = import.meta.env.VITE_API_URL ?? 'http://127.0.0.1:8000'
+import { API_URL } from '../lib/api'
 
 /** URL que reproduce una frase. Sirve tal cual en `<audio src>`. */
 export function sayUrl(text: string, apiUrl: string = API_URL): string {

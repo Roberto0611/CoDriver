@@ -67,4 +67,52 @@ export const Icon = {
       <path d="M15 6v12" />
     </svg>
   ),
+  moto: (
+    <svg viewBox="0 0 24 24" {...stroke}>
+      <circle cx="5" cy="17" r="3" />
+      <circle cx="19" cy="17" r="3" />
+      <path d="M5 14l3-7h4l3 7" />
+      <path d="M8 7h8l3 10" />
+    </svg>
+  ),
+  dollar: (
+    <svg viewBox="0 0 24 24" {...stroke}>
+      <path d="M12 2v20" />
+      <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
+    </svg>
+  ),
+  shield: (
+    <svg viewBox="0 0 24 24" {...stroke}>
+      <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+    </svg>
+  ),
+  skip: (
+    <svg viewBox="0 0 24 24" {...stroke}>
+      <path d="M18 6L6 18" />
+      <path d="M6 6l12 12" />
+    </svg>
+  ),
+  accept: (
+    <svg viewBox="0 0 24 24" {...stroke}>
+      <path d="M20 6L9 17l-5-5" />
+    </svg>
+  ),
+  speed: (
+    <svg viewBox="0 0 24 24" {...stroke}>
+      <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
+    </svg>
+  ),
+  restaurant: (
+    <svg viewBox="0 0 24 24" {...stroke}>
+      <path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2" />
+      <path d="M7 2v20" />
+      <path d="M21 15V2v0a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3Zm0 0v7" />
+    </svg>
+  ),
+  user: (
+    <svg viewBox="0 0 24 24" {...stroke}>
+      <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" />
+      <circle cx="12" cy="7" r="4" />
+    </svg>
+  ),
 }
