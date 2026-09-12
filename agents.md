@@ -577,18 +577,18 @@ Hitos que no se mueven:
 | # | Tarea | Listo cuando |
 |---|---|---|
 | A0 | ~~Grafo de MTY descargado + sanity check~~ | ✅ hecho |
-| A1 | Matriz de tiempos precalculada entre los ~200 puntos de interés (restaurantes, zonas de entrega, anclas) | Consulta O(1), sin tocar el grafo en vivo |
-| A2 | Factor de tráfico por hora del día | Macroplaza→Valle da ~22 min en pico, ~8 en madrugada |
-| A3 | Generador de ofertas con `seed` | Mismo seed = mismo stream, byte por byte |
-| A4 | Reloj de turno + estado del repartidor (posición, mochila, fatiga) | Corre una ventana de 120 min de punta a punta |
+| A1 | ~~Matriz de tiempos precalculada (210 puntos)~~ | ✅ `rutas.minutos()`, consulta O(1) |
+| A2 | ~~Factor de tráfico por hora del día~~ | ✅ perilla en `mundo.TRAFICO_POR_HORA` |
+| A3 | ~~Generador de ofertas con `seed`~~ | ✅ 94 ofertas/turno, reproducible |
+| A4 | ~~Reloj de turno + estado del repartidor~~ | ✅ 5.3 ms por turno de 120 min |
 | A5 | Eventos del mundo: surge por zona/hora, cierre vial, lluvia | Se disparan por config y sí afectan tiempos y pagos |
-| A6 | Capa de riesgo zona-hora (sintética y curada, documentada como tal) | Devuelve riesgo dado (zona, hora) |
+| A6 | ~~Capa de riesgo zona-hora~~ | ✅ `mundo.es_segura()` — **los números hay que ajustarlos** |
 
 ### Carril B — Motor de decisión
 
 | # | Tarea | Listo cuando |
 |---|---|---|
-| B1 | **Baseline greedy** | Da un número de ganancia. **Hora 10.** |
+| B1 | ~~**Baseline greedy**~~ | ✅ **mediana $251 / 4 entregas / 1 de 50 llega tarde** |
 | B2 | Ruta exacta por enumeración + costo marginal en minutos | Responde "¿cuántos minutos extra me cuesta este pedido?" |
 | B3 | Restricciones duras: regreso factible al ancla + seguridad | Rechaza y dice cuál restricción mandó |
 | B4 | Correr 300 turnos → log de decisiones → TigerData | Tabla `decisiones` poblada |
