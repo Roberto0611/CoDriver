@@ -534,9 +534,11 @@
 /* Identifiers */
 .classic-agent .agent-name { color: #1e40af; } /* Blueish */
 .ai-agent .agent-name { color: #a21caf; } /* Purplish */
+.oracle-agent .agent-name { color: #ca8a04; } /* Yellowish */
 
 .dark-theme .classic-agent .agent-name { color: #60a5fa; }
 .dark-theme .ai-agent .agent-name { color: #e879f9; }
+.dark-theme .oracle-agent .agent-name { color: #fde047; }
 
 .agent-stats {
   display: flex;
@@ -584,6 +586,10 @@
   color: #9ca3af; /* Gray for classic */
 }
 
+.oracle-agent .agent-log code {
+  color: #fde047; /* Yellow for oracle */
+}
+
 /* Markers */
 .marker.is-classic-car {
   font-size: 24px;
@@ -593,4 +599,9 @@
 .marker.is-ai-car {
   font-size: 24px;
   filter: drop-shadow(0 0 8px rgba(192,38,211,0.8));
+}
+
+.marker.is-oracle-car {
+  font-size: 24px;
+  filter: drop-shadow(0 0 8px rgba(202,138,4,0.8));
 }

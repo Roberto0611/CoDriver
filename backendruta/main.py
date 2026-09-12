@@ -202,9 +202,17 @@ def get_route(origen: str, destino: str, hora: str | None = None):
         if active_incidents:
             feat_ai["properties"]["alerta_voz"] = active_incidents[0].get("alerta_voz")
 
+        # 3. Ruta Oráculo (Oracle): Distancia más corta absoluta ("length")
+        oracle_geojson = route_to_geojson(G, coord_origen, coord_destino, weight="length")
+        feat_oracle = oracle_geojson["features"][0]
+        feat_oracle["properties"]["agent"] = "oracle"
+        feat_oracle["properties"]["from"] = origen
+        feat_oracle["properties"]["to"] = destino
+        feat_oracle["properties"]["hora"] = hora
+
         return {
             "type": "FeatureCollection",
-            "features": [feat_classic, feat_ai]
+            "features": [feat_classic, feat_ai, feat_oracle]
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e)) from e
