@@ -4,6 +4,40 @@ Documento de contexto del proyecto. Lo que decidimos, por qué, y cómo se traba
 
 ---
 
+## 0. Roadmap — qué se hace y en qué orden
+
+**El proyecto en tres renglones:** un estudiante tiene 2 horas libres entre clases y quiere
+sacar dinero repartiendo. Nuestro agente decide qué aceptar y qué no, le gana a un repartidor
+normal por un margen claro, y explica cada decisión en voz alta.
+
+**La única pregunta que importa:** ¿por cuánto le gana Nuez al greedy? Los seis tracks valen
+cero si ese número es malo. Por eso la Fase 1 bloquea todo lo demás.
+
+| Fase | Qué | Listo cuando |
+|---|---|---|
+| **0** ✅ | El mundo y el rival | Baseline greedy: **mediana $251, 4 entregas** |
+| **1** 🔴 | **EL NÚMERO** — tabla de valor + política de Nuez | Nuez vs greedy en 50 seeds no vistos |
+| **2** | Hacerlo visible — replay y pantalla partida | Dos turnos corriendo lado a lado con contadores |
+| **3** | Hacerlo hablar — Gemini + ElevenLabs | Nuez explica en voz alta por qué rechazó |
+| **4** | Tracks baratos y ensayo | Vultr, Tiger, Solana. Pitch ensayado 8 veces |
+
+### La puerta de la Fase 1
+
+Nada de la Fase 2 en adelante arranca hasta que exista el número. Y el número decide el plan:
+
+| Resultado | Qué significa |
+|---|---|
+| **+20% o más** | Hay hackathon. Todo lo demás es presentación |
+| **+8 a 15%** | Sirve, pero hay que exprimir el motor antes de adornar |
+| **menos de 5%** | La premisa está mal. Pivotear **temprano**, no la última noche |
+
+### Lo congelado hasta que pase la puerta
+
+Tiger, Gemini, ElevenLabs, Solana, Snowflake, Vultr, la mascota, el `turno.json` y el batching.
+Congelado no es cancelado. El mapa del frontend sigue, no estorba y va a hacer falta.
+
+---
+
 ## 1. El reto
 
 > Dado un flujo de ofertas de entrega, tráfico y un turno limitado, ¿puede un agente de IA

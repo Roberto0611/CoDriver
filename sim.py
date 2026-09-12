@@ -57,6 +57,7 @@ class Resultado:
     trayecto: list[tuple[int, int, str]] = field(default_factory=list)  # (minuto, punto, tipo)
     # Tramos recorridos, para que el front anime la moto: (t_salida, t_llegada, desde, hasta)
     tramos: list[tuple[int, float, int, int]] = field(default_factory=list)
+    cobros: list[tuple[int, float]] = field(default_factory=list)   # (minuto, pesos netos)
 
 
 # --- A3: generador de ofertas ------------------------------------------------
@@ -181,7 +182,9 @@ def simular(cfg: ConfigTurno, politica: Politica) -> Resultado:
             if parada.tipo == "dropoff" and parada.oferta_id:
                 o = aceptadas[parada.oferta_id]
                 dist = rutas.km(indice_de(o.pickup), indice_de(o.dropoff))
-                res.ganado += o.pago * o.surge - dist * COSTO_KM[cfg.vehiculo]
+                cobro = o.pago * o.surge - dist * COSTO_KM[cfg.vehiculo]
+                res.cobros.append((t, round(cobro, 2)))
+                res.ganado += cobro
                 res.entregas += 1
 
             if ruta:
