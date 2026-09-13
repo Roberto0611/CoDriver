@@ -338,7 +338,7 @@ ninguna; agrega el `shift_end_infeasible` de Nuez sobre o_045.
 | Hora  | Agente | Restricción            | Razón corta                                              |
 | ----- | ------ | ---------------------- | -------------------------------------------------------- |
 | 14:06 | Nuez   | `vehicle_capacity`     | En moto solo caben 3 pedidos a la vez                    |
-| 14:08 | Greedy | `vehicle_capacity`     | 97 L y en la caja de moto caben 60                       |
+| 14:08 | Greedy | `vehicle_capacity`     | 37 L y en la caja de moto caben 20                       |
 | 14:09 | Greedy | `shift_end_infeasible` | No alcanza a entregar y volver antes del fin             |
 | 14:34 | Greedy | `shift_end_infeasible` | Por el cierre: sin él, la saltaba por `reservation_wage` |
 | 14:43 | Nuez   | `shift_end_infeasible` | Por el cierre: sin él, la primera es a las 15:00         |

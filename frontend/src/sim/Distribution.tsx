@@ -41,7 +41,7 @@ export function Distribution() {
             style={{ fontSize: '0.85rem', color: '#475569', marginBottom: '12px', lineHeight: 1.4 }}
           >
             A single shift can be lucky or unlucky. Over 200 shifts, Navie consistently outperforms
-            Greedy by <strong>+33.5%</strong> on normal days, and <strong>+32.9%</strong> on days
+            Greedy by <strong>+33.5%</strong> on normal days, and <strong>+33.1%</strong> on days
             with disruptions.
           </p>
           <div
