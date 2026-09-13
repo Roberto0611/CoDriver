@@ -4,8 +4,9 @@ Cada sesion vive en `LiveRegistry`, no a nivel de modulo: dos jueces corriendo e
 demo en paralelo no comparten nada. El registro guarda como mucho 8 sesiones (se
 acaba la RAM antes que las probabilidades de un hackathon) y tira la mas vieja.
 
-`LiveDemoSession` habla en espanol (tipo/zona/calle/duracion_min); el protocolo
-HTTP que ve el juez habla en ingles (shock_type/zone/road/duration_min). Este
+`LiveDemoSession` habla en espanol (tipo/zona/calle/duracion_min/oferta_id/retraso_min);
+el protocolo HTTP que ve el juez habla en ingles (shock_type/zone/road/duration_min/
+order_id/slip_min). Este
 archivo es el unico lugar donde se traducen, igual que courier_api.py hace con
 el protocolo Courier.
 """
@@ -20,7 +21,7 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
 from backendruta import zonas
-from backendruta.live_demo import SEED_ENSAYADO, LiveDemoSession, SesionTerminada
+from backendruta.live_demo import DEMO_DELAY, SEED_ENSAYADO, LiveDemoSession, SesionTerminada
 from backendruta.live_geometry import Geometria, linea_recta
 from contrato import ConfigTurno, Vehiculo
 from valor import para_turno
@@ -92,11 +93,15 @@ class TickRequest(BaseModel):
 
 class ShockRequestLive(BaseModel):
     session_id: str
-    shock_type: Literal["closure", "surge", "rain"]
+    shock_type: Literal["closure", "surge", "rain", "delay"]
     zone: int | None = None
-    duration_min: int = Field(ge=1, le=240)
+    # Opcional solo por el delay, que dura hasta el final del turno. Para los demas
+    # la sesion la exige y la falta sale como 422, igual que antes.
+    duration_min: int | None = Field(default=None, ge=1, le=240)
     multiplier: float = Field(default=1.5, ge=1.0, le=3.0)
     road: str | None = None
+    order_id: str | None = None  # delay: None = el siguiente pedido por aparecer
+    slip_min: int | None = Field(default=None, ge=1, le=60)  # delay
 
 
 class SessionRequest(BaseModel):
@@ -114,7 +119,11 @@ def _sesion(session_id: str) -> LiveDemoSession:
 def rehearsal() -> dict[str, int]:
     """El seed y el minuto ensayados para el pitch. Viven en el backend para que el
     boton "Rehearsed seed" del front no se quede con un numero viejo."""
-    return {"seed": SEED_ENSAYADO, "closure_minute": MINUTO_CIERRE_ENSAYADO}
+    return {
+        "seed": SEED_ENSAYADO,
+        "closure_minute": MINUTO_CIERRE_ENSAYADO,
+        "delay_slip_min": DEMO_DELAY["slip_min"],
+    }
 
 
 @router.post("/start")
@@ -158,6 +167,8 @@ def shock(request: ShockRequestLive) -> dict[str, Any]:
                 zona=request.zone,
                 multiplicador=request.multiplier,
                 calle=request.road,
+                oferta_id=request.order_id,
+                retraso_min=request.slip_min,
             )
         except SesionTerminada as exc:
             raise HTTPException(status_code=409, detail=str(exc)) from exc

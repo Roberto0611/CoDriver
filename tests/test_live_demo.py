@@ -7,12 +7,14 @@ from functools import partial
 import pytest
 
 import rutas
+import shocks
 import valor
-from backendruta.live_demo import SEED_ENSAYADO, LiveDemoSession, SesionTerminada
+from backendruta import zonas
+from backendruta.live_demo import AGENTES, SEED_ENSAYADO, LiveDemoSession, SesionTerminada
 from backendruta.live_geometry import linea_recta, por_calles
 from contrato import ConfigTurno, Punto
 from nuez import politica_nuez
-from sim import politica_greedy, simular
+from sim import indice_de, politica_greedy, simular
 
 
 def cfg(seed=SEED_ENSAYADO):
@@ -182,8 +184,122 @@ def test_el_snapshot_viaja_como_json_y_valida_el_shock(tmp_path):
             s.shock(**malo)
     lluvia = s.shock("rain", 20, zona=0, multiplicador=2.0)["shock"]
     assert lluvia["zone"] is None and lluvia["multiplier"] == 1.0, "la lluvia es en toda la ciudad"
+    assert lluvia["order_id"] is None and lluvia["slip_min"] is None, "mismas llaves para todos"
     fin = s.end()
     assert fin["status"] == "ended" and fin["event_log"] == str(s.log.path)
+
+
+# --- delay: el restaurante se atrasa ------------------------------------------
+
+# En el 20 del seed ensayado el siguiente pedido (o_017) no deja ver nada: los dos
+# agentes lo saltan por capacidad y su cola ya llega al restaurante despues de la
+# hora atrasada. En el 59 le toca a o_047: la espera sube los minutos de los dos y
+# Nuez pasa de aceptarlo a saltarlo. Si se recalibra el mundo, volver a buscarlo.
+MINUTO_DELAY = 59
+
+
+def _nuez():
+    return partial(politica_nuez, tabla=valor.para_turno(120))
+
+
+def test_delay_pega_al_siguiente_pedido_y_se_ve_en_sus_terminos(tmp_path):
+    def corrida(con_delay):
+        s = sesion(tmp_path, name=f"d{con_delay}")
+        correr(s, MINUTO_DELAY)
+        fuera = s.shock("delay", retraso_min=15) if con_delay else None
+        snaps = correr(s, 70)
+        return s, fuera, {a: {d["oferta_id"]: d for d in decisiones(snaps, a)} for a in AGENTES}
+
+    s, fuera, con = corrida(True)
+    _, _, sin = corrida(False)
+
+    siguiente = next(o for o in s.ofertas if o.t_aparece >= MINUTO_DELAY)
+    objetivo = fuera["shock"]["order_id"]
+    assert objetivo == siguiente.id == "o_047"
+    zona = rutas.ZONA_DE[indice_de(siguiente.pickup)]
+    assert fuera["shock"] == {
+        "type": "delay",
+        "zone": zonas.ID_POR_NOMBRE[zona],
+        "zone_name": zona,
+        "road": None,
+        "starts_at_min": MINUTO_DELAY,
+        "ends_at_min": 120,  # una vez tarde, tarde hasta el final del turno
+        "multiplier": 1.0,
+        "order_id": objetivo,
+        "slip_min": 15,
+    }
+    assert fuera["snapshot"]["active_shocks"] == [fuera["shock"]]
+
+    # `minutos` es lo que le cuesta ESTE pedido e incluye esperar al restaurante,
+    # en las dos politicas. Antes de ese pedido nada cambia, asi que la diferencia
+    # es solo la espera.
+    for a in AGENTES:
+        assert con[a][objetivo]["terminos"]["minutos"] > sin[a][objetivo]["terminos"]["minutos"], a
+    assert any(con[a][objetivo]["accion"] != sin[a][objetivo]["accion"] for a in AGENTES)
+
+    eventos = [json.loads(linea) for linea in s.log.path.read_text(encoding="utf-8").splitlines()]
+    choque = next(e for e in eventos if e["event"] == "shock")
+    assert choque["order_id"] == objetivo and choque["slip_min"] == 15
+
+
+@pytest.mark.parametrize("minuto", [MINUTO_DELAY, 72], ids=["mueve-nuez", "mueve-greedy"])
+def test_delay_inyectado_es_el_mismo_que_declarado(tmp_path, minuto):
+    s = sesion(tmp_path, name=f"eq{minuto}")
+    correr(s, minuto)
+    objetivo = s.shock("delay", retraso_min=15)["shock"]["order_id"]
+    fin = s.end()
+
+    declarado = (shocks.Shock(minuto, "delay", 120 - minuto, oferta_id=objetivo, retraso_min=15),)
+    cambio = False
+    for a, politica in (("greedy", politica_greedy), ("nuez", _nuez())):
+        res = simular(cfg(), politica, declarado)
+        assert fin[a]["earnings_mxn"] == res.ganado, a
+        assert fin[a]["result"]["entregas"] == res.entregas, a
+        cambio |= res.ganado != simular(cfg(), politica).ganado
+    assert cambio, "el delay tiene que mover el final de alguien, si no el test no prueba nada"
+
+
+def test_delay_con_order_id_explicito(tmp_path):
+    s = sesion(tmp_path)
+    correr(s, MINUTO_DELAY)
+    fuera = s.shock("delay", oferta_id="o_059", retraso_min=10, duracion_min=5)
+    assert fuera["shock"]["order_id"] == "o_059" and fuera["shock"]["slip_min"] == 10
+    assert fuera["shock"]["ends_at_min"] == 120, "la duracion que manden no aplica a un delay"
+
+
+def test_delay_invalido_no_toca_la_sesion(tmp_path):
+    s = sesion(tmp_path)
+    correr(s, MINUTO_DELAY)
+    s.shock("rain", 20)
+    antes = (s.minute, list(s.shocks), {a: t.disrupciones for a, t in s.turnos.items()})
+    log = s.log.path.read_text(encoding="utf-8")
+
+    for malo in (
+        dict(oferta_id="o_000", retraso_min=15),  # ya aparecio
+        dict(oferta_id="o_999", retraso_min=15),  # no existe
+        dict(retraso_min=0),
+        dict(retraso_min=61),
+        dict(retraso_min=None),
+    ):
+        with pytest.raises(ValueError):
+            s.shock("delay", **malo)
+        assert (s.minute, list(s.shocks), {a: t.disrupciones for a, t in s.turnos.items()}) == antes
+        assert s.log.path.read_text(encoding="utf-8") == log
+    with pytest.raises(ValueError, match="ya apareci"):
+        s.shock("delay", oferta_id="o_000", retraso_min=15)
+    with pytest.raises(ValueError):
+        s.shock("closure", zona=0)  # los demas tipos siguen necesitando duracion
+
+
+def test_delay_sin_pedidos_por_venir(tmp_path):
+    # El ultimo pedido del seed 2046 aparece en el 117: del 118 al final ya no hay a quien.
+    s = sesion(tmp_path, seed=2046)
+    assert s.ofertas[-1].t_aparece == 117
+    correr(s, 118)
+    assert s.snapshot()["status"] == "running"
+    with pytest.raises(ValueError):
+        s.shock("delay", retraso_min=15)
+    assert s.shocks == [] and s.minute == 118
 
 
 # --- geometria ----------------------------------------------------------------

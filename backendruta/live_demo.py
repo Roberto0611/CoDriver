@@ -3,6 +3,7 @@
     s = LiveDemoSession("live-2005-ab12", cfg, Path("logs/live-2005-ab12.jsonl"))
     s.tick()                                   # corre un minuto, devuelve el snapshot
     s.shock("closure", 40, zona=0, calle="Constitución")
+    s.shock("delay", retraso_min=15)           # el siguiente pedido por aparecer
     s.end()                                    # adelanta hasta el final y cierra
 
 No es un segundo motor. Cada agente es un `reloj.Turno`, el mismo que corre
@@ -19,9 +20,10 @@ El snapshot (lo espeja `frontend/src/lib/live.ts`, los nombres son contrato):
       "minute": 37,                 # el siguiente minuto a correr; [0, minute) ya corrieron
       "duration_min": 120, "start_hour": 14, "seed": 2005,
       "status": "running",          # running | finished (tick llego al final) | ended (end())
+      # un delay llena order_id y slip_min, y su zone es la del restaurante que se atraso
       "active_shocks": [{"type": "closure", "zone": 0, "zone_name": "Centro",
                          "road": "Constitución", "starts_at_min": 30, "ends_at_min": 70,
-                         "multiplier": 1.0}],
+                         "multiplier": 1.0, "order_id": null, "slip_min": null}],
       "offers_this_tick": [{"order_id": "o_041", "minute": 36, "pickup": 88, "dropoff": 12,
                             "pickup_zone": "Tec", "dropoff_zone": "Contry", "pay_mxn": 48.2}],
       "greedy": {
@@ -63,9 +65,11 @@ from sim import generar_ofertas, indice_de, politica_greedy
 
 # El menor seed >= 2000 donde cerrar Centro en el 30 cambia tramos de los dos y decisiones de Nuez.
 SEED_ENSAYADO = 2005
+# La pregunta del protocolo: "¿y si el restaurante de este pedido va 15 minutos tarde?"
+DEMO_DELAY = {"slip_min": 15}
 
 AGENTES = ("greedy", "nuez")
-TIPOS = {"closure", "surge", "rain"}
+TIPOS = {"closure", "surge", "rain", "delay"}
 CON_ZONA = {"closure", "surge"}
 
 
@@ -104,6 +108,7 @@ class LiveDemoSession:
         self.shocks: list[shocks.Shock] = []
 
         self.ofertas = generar_ofertas(cfg)
+        self._por_id = {o.id: o for o in self.ofertas}
         self.por_minuto: dict[int, list[Oferta]] = {}
         for o in self.ofertas:
             self.por_minuto.setdefault(o.t_aparece, []).append(o)
@@ -168,15 +173,33 @@ class LiveDemoSession:
     def shock(
         self,
         tipo: str,
-        duracion_min: int,
+        duracion_min: int | None = None,
         zona: int | None = None,
         multiplicador: float = 1.0,
         calle: str | None = None,
+        oferta_id: str | None = None,
+        retraso_min: int | None = None,
     ) -> dict[str, Any]:
         self._vivo()
         if tipo not in TIPOS:
             raise ValueError(f"shock {tipo!r} desconocido; usa {sorted(TIPOS)}")
-        if not 1 <= duracion_min <= 240:
+        objetivo: Oferta | None = None
+        retraso = 0
+        if tipo == "delay":
+            # bool es int en Python, y True no es "un minuto tarde".
+            if (
+                not isinstance(retraso_min, int)
+                or isinstance(retraso_min, bool)
+                or not 1 <= retraso_min <= 60
+            ):
+                raise ValueError("slip_min de un delay va de 1 a 60 minutos")
+            retraso = retraso_min
+            objetivo = self._por_venir(oferta_id)
+            # Una vez tarde, tarde hasta el final, como en shocks.generar. La duracion
+            # que manden no aplica: acortarla haria que la politica viera un restaurante
+            # a tiempo en un pedido que sigue atrasado.
+            duracion_min = self.cfg.duracion_min - self.minute
+        elif duracion_min is None or not 1 <= duracion_min <= 240:
             raise ValueError("duration_min va de 1 a 240")
         if tipo in CON_ZONA and zona is None:
             raise ValueError(f"un {tipo} necesita zona")
@@ -196,6 +219,8 @@ class LiveDemoSession:
             zona=nombre,
             multiplicador=multiplicador if tipo == "surge" else 1.0,
             calle=calle if tipo == "closure" else None,
+            oferta_id=objetivo.id if objetivo else None,
+            retraso_min=retraso,
         )
         for turno in self.turnos.values():
             turno.inyectar(s)
@@ -212,6 +237,8 @@ class LiveDemoSession:
                 "duration_min": s.duracion_min,
                 "multiplier": s.multiplicador,
                 "ends_at_min": s.t + s.duracion_min,
+                "order_id": s.oferta_id,
+                "slip_min": s.retraso_min if s.tipo == "delay" else None,
             }
         )
         return {"shock": self._shock(s), "snapshot": self.snapshot()}
@@ -233,6 +260,31 @@ class LiveDemoSession:
     def _vivo(self) -> None:
         if self.status != "running":
             raise SesionTerminada(f"la sesion {self.session_id} ya no corre ({self.status})")
+
+    def _por_venir(self, oferta_id: str | None) -> Oferta:
+        """El pedido al que le pega un delay: uno que todavia no aparece.
+
+        El motor fija la hora en que el pedido esta listo (`listo_en`) al aceptarlo, y
+        la politica lee el retraso al decidir. Atrasar un pedido que ya se ofrecio no
+        moveria nada, y un boton que no mueve nada es de mentira. Sin `oferta_id` va
+        el siguiente del stream, en orden, para que dos corridas atrasen el mismo.
+        """
+        if oferta_id is None:
+            for o in self.ofertas:
+                if o.t_aparece >= self.minute:
+                    return o
+            raise ValueError(
+                "ya no quedan pedidos por aparecer en este turno: nadie a quien atrasar"
+            )
+        pedido = self._por_id.get(oferta_id)
+        if pedido is None:
+            raise ValueError(f"el pedido {oferta_id!r} no existe en este turno")
+        if pedido.t_aparece < self.minute:
+            raise ValueError(
+                f"el pedido {oferta_id} ya aparecio en el minuto {pedido.t_aparece}: el motor fija "
+                "la hora de pickup al aceptarlo, asi que atrasarlo ahora no cambiaria nada"
+            )
+        return pedido
 
     def _minuto(self, frames: dict[str, list[dict[str, Any]]] | None) -> list[dict[str, Any]]:
         """Corre el minuto actual en los dos agentes. Devuelve las ofertas que aparecieron."""
@@ -335,14 +387,22 @@ class LiveDemoSession:
         }
 
     def _shock(self, s: shocks.Shock) -> dict[str, Any]:
+        zona = s.zona
+        if s.tipo == "delay" and s.oferta_id:
+            # El delay no tiene zona en la fisica, pero el banner tiene que decir donde:
+            # es la zona del restaurante que se atraso.
+            zona = rutas.ZONA_DE[indice_de(self._por_id[s.oferta_id].pickup)]
         return {
             "type": s.tipo,
-            "zone": zonas.ID_POR_NOMBRE.get(s.zona) if s.zona else None,
-            "zone_name": s.zona,
+            "zone": zonas.ID_POR_NOMBRE.get(zona) if zona else None,
+            "zone_name": zona,
             "road": s.calle,
             "starts_at_min": s.t,
             "ends_at_min": s.t + s.duracion_min,
             "multiplier": s.multiplicador,
+            # Las mismas llaves para todos los tipos: el tipo de TypeScript queda parejo.
+            "order_id": s.oferta_id,
+            "slip_min": s.retraso_min if s.tipo == "delay" else None,
         }
 
     def _snapshot(

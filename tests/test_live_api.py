@@ -31,7 +31,11 @@ def test_start_arranca_en_cero_los_dos(api):
 def test_rehearsal_da_el_seed_ensayado(api):
     r = api.get("/live/rehearsal")
     assert r.status_code == 200, r.text
-    assert r.json() == {"seed": live_api.SEED_ENSAYADO, "closure_minute": 30}
+    assert r.json() == {
+        "seed": live_api.SEED_ENSAYADO,
+        "closure_minute": 30,
+        "delay_slip_min": 15,
+    }
     assert r.json()["seed"] == 2005
 
 
@@ -57,6 +61,29 @@ def test_shock_y_status(api):
     assert r.status_code == 200, r.text
     assert r.json()["shock"]["ends_at_min"] == 45
     assert api.get(f"/live/status/{sid}").json()["active_shocks"][0]["type"] == "closure"
+
+
+def test_shock_delay(api):
+    sid = start(api, seed=2005)["session_id"]
+    api.post("/live/tick", json={"session_id": sid, "minutes": 5})
+    r = api.post("/live/shock", json={"session_id": sid, "shock_type": "delay", "slip_min": 15})
+    assert r.status_code == 200, r.text
+    choque = r.json()["shock"]
+    assert choque["type"] == "delay" and choque["order_id"] and choque["slip_min"] == 15
+    assert choque["ends_at_min"] == 120
+
+    def shock(**body):
+        return api.post("/live/shock", json={"session_id": sid, "shock_type": "delay", **body})
+
+    ya_aparecio = shock(order_id="o_000", slip_min=15)
+    assert ya_aparecio.status_code == 422 and "o_000" in ya_aparecio.json()["detail"]
+    assert shock(slip_min=0).status_code == 422
+    assert shock(slip_min=61).status_code == 422
+    assert shock().status_code == 422  # un delay sin slip_min no dice cuanto
+    sin_duracion = api.post(
+        "/live/shock", json={"session_id": sid, "shock_type": "closure", "zone": 0}
+    )
+    assert sin_duracion.status_code == 422, "los demas tipos siguen necesitando duration_min"
 
 
 def test_errores(api):
