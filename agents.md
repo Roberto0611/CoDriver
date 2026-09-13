@@ -531,7 +531,7 @@ para pedidos en vuelo, y que lo que ya viene en vuelo sigue sumando tiempo.
   porque es el golden de `tests/test_engine_golden.py`, pero no aparece en `turnos.json`. Al
   regrabar hay que correr los dos: `export_turno.py 1` y luego `export_turno.py 2000 2001 2002`
   (el último gana en `turnos.json`).
-- **La varianza por turno es enorme** (el seed 2002 sale en −26% mientras el 2000 sale en +198%).
+- **La varianza por turno es enorme** (el seed 2002 sale en −26.5% mientras el 2000 sale en +244.8%).
   **Un turno animado no es evidencia.** Ya existe `frontend/src/sim/Distribution.tsx`; hay que
   asegurarse de que se vea al lado del turno bonito, o el juez tiene razón en no creernos.
 - **El front comía ~3 GB de RAM.** La medición es anterior a la carga de calles por zona
