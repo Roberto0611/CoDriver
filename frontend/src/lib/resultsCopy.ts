@@ -20,7 +20,7 @@ export const RIVALES = {
     NearestFirst: 110.9,
     GreedyRate: 140.34,
     OurAgent: 246.31,
-    Oracle: 258.89,
+    Oracle: 258.56,
   },
 } as const
 
