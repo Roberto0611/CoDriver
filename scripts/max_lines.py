@@ -11,7 +11,7 @@ from pathlib import Path
 
 MAX = 500
 EXTS = {".py", ".ts", ".tsx", ".js", ".jsx", ".css"}
-# courier/ y courier-update/ son material de Infosys: se leen, no se tocan ni se parten.
+# Los tres directorios de Courier son material de Infosys: se leen, no se tocan ni se parten.
 SKIP = {
     "node_modules",
     "dist",
@@ -23,6 +23,7 @@ SKIP = {
     "cache",
     "courier",
     "courier-update",
+    "final_cases",
 }
 
 
