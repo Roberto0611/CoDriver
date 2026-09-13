@@ -28,6 +28,13 @@ def test_start_arranca_en_cero_los_dos(api):
     assert snap["greedy"]["earnings_mxn"] == snap["nuez"]["earnings_mxn"] == 0
 
 
+def test_rehearsal_da_el_seed_ensayado(api):
+    r = api.get("/live/rehearsal")
+    assert r.status_code == 200, r.text
+    assert r.json() == {"seed": live_api.SEED_ENSAYADO, "closure_minute": 30}
+    assert r.json()["seed"] == 2005
+
+
 def test_tick_avanza_un_minuto(api):
     sid = start(api)["session_id"]
     snap = api.post("/live/tick", json={"session_id": sid}).json()

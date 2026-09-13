@@ -20,12 +20,14 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
 from backendruta import zonas
-from backendruta.live_demo import LiveDemoSession, SesionTerminada
+from backendruta.live_demo import SEED_ENSAYADO, LiveDemoSession, SesionTerminada
 from backendruta.live_geometry import Geometria, linea_recta
 from contrato import ConfigTurno, Vehiculo
 from valor import para_turno
 
 MAX_SESIONES = 8
+# El minuto en que se ensayo el cierre de Constitucion con SEED_ENSAYADO.
+MINUTO_CIERRE_ENSAYADO = 30
 
 
 class LiveRegistry:
@@ -106,6 +108,13 @@ def _sesion(session_id: str) -> LiveDemoSession:
         return registry.obtener(session_id)
     except KeyError:
         raise HTTPException(status_code=404, detail=f"sesion {session_id!r} no existe") from None
+
+
+@router.get("/rehearsal")
+def rehearsal() -> dict[str, int]:
+    """El seed y el minuto ensayados para el pitch. Viven en el backend para que el
+    boton "Rehearsed seed" del front no se quede con un numero viejo."""
+    return {"seed": SEED_ENSAYADO, "closure_minute": MINUTO_CIERRE_ENSAYADO}
 
 
 @router.post("/start")

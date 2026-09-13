@@ -102,6 +102,17 @@ export interface LiveRehearsal {
   closure_minute: number
 }
 
+/** Los dos shocks del pitch, fijos para que el demo ensayado sea un solo click. */
+export const DEMO_SHOCKS = {
+  closure: { shock_type: 'closure', zone: 0, duration_min: 40, road: 'Constitución' }, // Centro
+  surge: { shock_type: 'surge', zone: 4, duration_min: 30, multiplier: 1.8 }, // Tec
+} as const
+
+export type DemoShockKind = keyof typeof DEMO_SHOCKS
+
+/** Velocidades del autoplay, las mismas del replay: ×1 = un minuto cada 500 ms. */
+export const SPEEDS = [1, 2, 4] as const
+
 export class LiveApiError extends Error {
   /** 0 = no hubo respuesta (backend caído o sin red). */
   status: number

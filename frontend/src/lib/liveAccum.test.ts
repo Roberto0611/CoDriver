@@ -171,6 +171,7 @@ describe('applySnapshot', () => {
       cancelados: 1,
       ofertas_totales: 1,
     })
+    expect(s.offers.map((o) => o.order_id)).toEqual(['o_1'])
 
     const result = { ...s.nuez.meta, ganado: 300, entregas: 9, regreso_en: 112.4 }
     s = applySnapshot(s, snap(120, { status: 'ended', nuez: { result } }))

@@ -7,7 +7,7 @@
 // funcionaría hoy por casualidad.
 
 import type { ConfigTurno, Decision, Vehiculo } from '../contract'
-import type { AgentKey, LiveAgent, LiveShock, LiveSnapshot } from './live'
+import type { AgentKey, LiveAgent, LiveOffer, LiveShock, LiveSnapshot } from './live'
 import type { Contadores } from './sim'
 import type { Frame, TurnoData, TurnoMeta } from './turno'
 
@@ -22,6 +22,8 @@ export interface LiveState {
   nuez: TurnoData
   /** Todos los shocks vistos en la sesión, incluidos los que ya expiraron. */
   shocks: LiveShockSeen[]
+  /** Todas las ofertas que aparecieron, para medir qué hizo un surge. */
+  offers: LiveOffer[]
 }
 
 /** Lo que el snapshot no trae pero el config sí pide. */
@@ -32,12 +34,7 @@ export interface LiveConfigExtra {
 
 const AGENTES: AgentKey[] = ['greedy', 'nuez']
 
-function metaEnVivo(
-  politica: AgentKey,
-  snap: LiveSnapshot,
-  prev: TurnoMeta | null,
-  ofertasNuevas: number
-): TurnoMeta {
+function metaEnVivo(politica: AgentKey, snap: LiveSnapshot, ofertasTotales: number): TurnoMeta {
   const a = snap[politica]
   if (a.result) return a.result
   return {
@@ -46,7 +43,7 @@ function metaEnVivo(
     ganado: a.earnings_mxn,
     entregas: a.deliveries,
     rechazos: a.skipped,
-    ofertas_totales: (prev?.ofertas_totales ?? 0) + ofertasNuevas,
+    ofertas_totales: ofertasTotales,
     violaciones: 0,
     llego_tarde: false,
     regreso_en: 0,
@@ -72,7 +69,7 @@ export function initLiveState(snap: LiveSnapshot, extra: LiveConfigExtra = {}): 
       hora_inicio: snap.start_hour,
     }
     return {
-      meta: metaEnVivo(politica, snap, null, 0),
+      meta: metaEnVivo(politica, snap, 0),
       config,
       tramos: [],
       geometria: {},
@@ -80,7 +77,7 @@ export function initLiveState(snap: LiveSnapshot, extra: LiveConfigExtra = {}): 
     }
   }
   return applySnapshot(
-    { snapshot: snap, greedy: armar('greedy'), nuez: armar('nuez'), shocks: [] },
+    { snapshot: snap, greedy: armar('greedy'), nuez: armar('nuez'), shocks: [], offers: [] },
     snap
   )
 }
@@ -89,14 +86,14 @@ function acumular(
   prev: TurnoData,
   politica: AgentKey,
   snap: LiveSnapshot,
-  ofertasNuevas: number
+  ofertasTotales: number
 ): TurnoData {
   const a: LiveAgent = snap[politica]
   const vistos = prev.frames.at(-1)?.t ?? -1
   // Un frame repetido rompería el índice frames[t] que usan las llegadas del mapa.
   const nuevos = a.frames.filter((f) => f.t > vistos)
   return {
-    meta: metaEnVivo(politica, snap, prev.meta, ofertasNuevas),
+    meta: metaEnVivo(politica, snap, ofertasTotales),
     config: {
       ...prev.config,
       duracion_min: snap.duration_min,
@@ -112,8 +109,10 @@ function acumular(
 }
 
 export function applySnapshot(prev: LiveState, snap: LiveSnapshot): LiveState {
-  const ofertasNuevas = snap.offers_this_tick.length
-  const [greedy, nuez] = AGENTES.map((a) => acumular(prev[a], a, snap, ofertasNuevas))
+  const offers = snap.offers_this_tick.length
+    ? [...prev.offers, ...snap.offers_this_tick]
+    : prev.offers
+  const [greedy, nuez] = AGENTES.map((a) => acumular(prev[a], a, snap, offers.length))
 
   // El banner no se va cuando el shock expira: se guarda todo lo que se vio.
   const conocidos = new Set(prev.shocks.map(claveShock))
@@ -129,6 +128,7 @@ export function applySnapshot(prev: LiveState, snap: LiveSnapshot): LiveState {
     greedy,
     nuez,
     shocks: nuevos.length ? [...prev.shocks, ...nuevos] : prev.shocks,
+    offers,
   }
 }
 

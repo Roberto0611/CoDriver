@@ -104,6 +104,12 @@ export const Icon = {
       <path d="M20 6L9 17l-5-5" />
     </svg>
   ),
+  closure: (
+    <svg viewBox="0 0 24 24" {...stroke}>
+      <circle cx="12" cy="12" r="9" />
+      <path d="M7.5 12h9" />
+    </svg>
+  ),
   speed: (
     <svg viewBox="0 0 24 24" {...stroke}>
       <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
