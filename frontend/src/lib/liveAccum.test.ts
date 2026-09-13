@@ -1,10 +1,16 @@
 import { describe, it, expect } from 'vitest'
 
 import type { Decision } from '../contract'
-import type { Contrafactual } from './contrafactual'
 import { horaDeRegreso } from './countersCopy'
-import type { LiveAgent, LiveShock, LiveSnapshot } from './live'
+import type {
+  LiveAgent,
+  LiveCounterfactualReport,
+  LiveCounterfactualState,
+  LiveShock,
+  LiveSnapshot,
+} from './live'
 import {
+  OTRO_TURNO,
   applySnapshot,
   countersOf,
   firstDecisionFrom,
@@ -270,7 +276,8 @@ describe('countersOf', () => {
 })
 
 describe('withCounterfactual', () => {
-  const reporte = (seed = 2005): Contrafactual => ({
+  const reporte = (seed = 2005, session_id = 'live-2005-ab12'): LiveCounterfactualReport => ({
+    session_id,
     seed,
     policy: 'nuez',
     actual: { earned_mxn: 250.4, deliveries: 6, offers: 90, late: false },
@@ -296,23 +303,36 @@ describe('withCounterfactual', () => {
   const terminada = () =>
     applySnapshot(initLiveState(snap(0)), snap(120, { status: 'ended', event_log: 'x.jsonl' }))
 
-  it('una sesión arranca sin contrafactual y lo recibe al terminar', () => {
-    expect(initLiveState(snap(0)).counterfactual).toBeNull()
-    const s = withCounterfactual(terminada(), 'live-2005-ab12', reporte())
-    expect(s.counterfactual).toEqual(reporte())
+  const listo = (r: LiveCounterfactualReport): LiveCounterfactualState => ({
+    status: 'ready',
+    report: r,
   })
 
-  it('no pega el reporte de otra sesión, de otro seed ni de una que sigue corriendo', () => {
+  it('una sesión arranca sin contrafactual, calcula y lo recibe al terminar', () => {
+    expect(initLiveState(snap(0)).counterfactual).toBeNull()
+    let s = withCounterfactual(terminada(), 'live-2005-ab12', { status: 'computing' })
+    expect(s.counterfactual).toEqual({ status: 'computing' })
+    s = withCounterfactual(s, 'live-2005-ab12', listo(reporte()))
+    expect(s.counterfactual).toEqual(listo(reporte()))
+  })
+
+  it('una respuesta de otra sesión o de una que sigue corriendo no toca el estado', () => {
     const fin = terminada()
-    expect(withCounterfactual(fin, 'live-2005-zz99', reporte())).toBe(fin)
-    expect(withCounterfactual(fin, 'live-2005-ab12', reporte(2006))).toBe(fin)
+    expect(withCounterfactual(fin, 'live-2005-zz99', listo(reporte()))).toBe(fin)
     const corriendo = initLiveState(snap(40))
-    expect(withCounterfactual(corriendo, 'live-2005-ab12', reporte())).toBe(corriendo)
+    expect(withCounterfactual(corriendo, 'live-2005-ab12', listo(reporte()))).toBe(corriendo)
+  })
+
+  it('un reporte de otro seed u otra sesión nunca se pega: queda como falla dicha', () => {
+    for (const ajeno of [reporte(2000), reporte(2005, 'live-2005-zz99')]) {
+      const s = withCounterfactual(terminada(), 'live-2005-ab12', listo(ajeno))
+      expect(s.counterfactual).toEqual({ status: 'failed', message: OTRO_TURNO })
+    }
   })
 
   it('un snapshot que llega después no lo borra', () => {
-    let s = withCounterfactual(terminada(), 'live-2005-ab12', reporte())
+    let s = withCounterfactual(terminada(), 'live-2005-ab12', listo(reporte()))
     s = applySnapshot(s, snap(120, { status: 'ended' }))
-    expect(s.counterfactual?.seed).toBe(2005)
+    expect(s.counterfactual).toEqual(listo(reporte()))
   })
 })

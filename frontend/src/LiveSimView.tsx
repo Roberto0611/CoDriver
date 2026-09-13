@@ -10,11 +10,12 @@ import {
   DEMO_SHOCKS,
   SPEEDS,
   endLive,
-  getCounterfactual,
+  esperarContrafactual,
   shockLive,
   startLive,
   tickLive,
   type DemoShockKind,
+  type LiveCounterfactualState,
   type LiveSnapshot,
   type LiveStartParams,
 } from './lib/live'
@@ -27,12 +28,12 @@ import {
 } from './lib/liveAccum'
 import { zonasDePuntos } from './lib/liveEffect'
 import { resaltarShock } from './map/shocks'
-import { CounterfactualReport } from './sim/Counterfactual'
 import { Counters } from './sim/Counters'
 import { Decisions } from './sim/Decisions'
 import { DecisionToasts } from './sim/DecisionToasts'
 import { LiveControls, LiveStartForm, type LivePending, type LivePhase } from './sim/LiveControls'
 import { GeminiNoteView } from './sim/GeminiStatus'
+import { LiveCounterfactual } from './sim/LiveCounterfactual'
 import { ShockBanner } from './sim/ShockBanner'
 import { useLiveCatalog } from './sim/useLiveCatalog'
 import { useLiveEndScroll } from './sim/useLiveEndScroll'
@@ -213,17 +214,15 @@ export default function LiveSimView() {
     }
   }
 
-  // Fuera de la cola y después del End: en un turno de 8 h el backend tarda segundos en
-  // re-simular cada salto, y ni End ni un Start nuevo deben esperarlo. Si falla, no se
-  // enseña nada, igual que /sim sin su contrafactual_<seed>.json.
+  // Fuera de la cola y después del End: un turno de 8 h tarda segundos en re-simularse, y ni
+  // End ni un Start nuevo lo esperan. Se enseña "calculando" hasta que el backend contesta
+  // con el reporte de ESTA sesión o con su falla; nunca el grabado de otro seed.
   const pedirContrafactual = async (sid: string) => {
-    try {
-      const rep = await getCounterfactual(sid)
-      if (sessionRef.current !== sid) return
-      setLive((prev) => (prev ? withCounterfactual(prev, sid, rep) : prev))
-    } catch {
-      // sin reporte: el resumen del turno se queda como estaba
-    }
+    const poner = (c: LiveCounterfactualState) =>
+      setLive((prev) => (prev ? withCounterfactual(prev, sid, c) : prev))
+    poner({ status: 'computing' })
+    const final = await esperarContrafactual(sid, () => sessionRef.current === sid)
+    if (final) poner(final)
   }
 
   // End a mano calla a Nuez, también para un tick que ya venía en camino. El fin natural
@@ -320,8 +319,8 @@ export default function LiveSimView() {
   }, [minute])
 
   // Al terminar, el resultado y la ruta del JSONL quedan bajo el banner: se baja hasta ahí,
-  // y otra vez cuando llega el contrafactual, que alarga la tarjeta.
-  const conReporte = live?.counterfactual ? '#counterfactual' : ''
+  // y otra vez cada que cambia el contrafactual (calculando, listo o falla): alarga la tarjeta.
+  const conReporte = `#${live?.counterfactual?.status ?? ''}`
   useLiveEndScroll(panelRef, resultadoRef, snap?.event_log && snap.event_log + conReporte)
 
   const enForma =
@@ -401,8 +400,13 @@ export default function LiveSimView() {
               terminado={terminado}
               config={live.nuez.config}
             />
-            {terminado && live.counterfactual && (
-              <CounterfactualReport datos={live.counterfactual} horaInicio={snap.start_hour} />
+            {terminado && (
+              <LiveCounterfactual
+                state={live.counterfactual}
+                sessionId={snap.session_id}
+                seed={snap.seed}
+                horaInicio={snap.start_hour}
+              />
             )}
             {snap.event_log && (
               <div className="live-event-log">

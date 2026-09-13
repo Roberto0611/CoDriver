@@ -7,8 +7,14 @@
 // funcionaría hoy por casualidad.
 
 import type { ConfigTurno, Decision, Vehiculo } from '../contract'
-import type { Contrafactual } from './contrafactual'
-import type { AgentKey, LiveAgent, LiveOffer, LiveShock, LiveSnapshot } from './live'
+import type {
+  AgentKey,
+  LiveAgent,
+  LiveCounterfactualState,
+  LiveOffer,
+  LiveShock,
+  LiveSnapshot,
+} from './live'
 import type { Contadores } from './sim'
 import type { Frame, TurnoData, TurnoMeta } from './turno'
 
@@ -25,9 +31,9 @@ export interface LiveState {
   shocks: LiveShockSeen[]
   /** Todas las ofertas que aparecieron, para medir qué hizo un surge. */
   offers: LiveOffer[]
-  /** El contrafactual de la sesión terminada; null mientras no llega (o si falló).
+  /** El contrafactual de la sesión terminada; null mientras nadie lo ha pedido.
    *  Opcional para que un LiveState armado a mano (los tests del banner) siga valiendo. */
-  counterfactual?: Contrafactual | null
+  counterfactual?: LiveCounterfactualState | null
 }
 
 /** Lo que el snapshot no trae pero el config sí pide. */
@@ -147,18 +153,29 @@ export function applySnapshot(prev: LiveState, snap: LiveSnapshot): LiveState {
   }
 }
 
+/** Lo que se enseña si el backend contesta con el reporte de otro turno. */
+export const OTRO_TURNO =
+  "The backend answered with another shift's counterfactual, so it isn't shown."
+
 /**
- * Pega el contrafactual que se pidió al terminar. Solo si es de ESTA sesión, ya terminada y
- * del mismo seed: la respuesta de una sesión soltada que llega tarde no se pinta en otra.
+ * Pone el estado del contrafactual que se pidió al terminar. Solo en ESTA sesión y ya
+ * terminada: la respuesta de una sesión soltada que llega tarde no toca la vigente. Un
+ * reporte de otra sesión u otro seed nunca se pega: queda como falla, dicha tal cual, en
+ * vez de un "calculando" eterno o de números de otro turno bajo el título de este.
  */
 export function withCounterfactual(
   state: LiveState,
   sessionId: string,
-  rep: Contrafactual
+  next: LiveCounterfactualState
 ): LiveState {
   const s = state.snapshot
-  if (s.session_id !== sessionId || s.status === 'running' || rep.seed !== s.seed) return state
-  return { ...state, counterfactual: rep }
+  if (s.session_id !== sessionId || s.status === 'running') return state
+  const ajeno =
+    next.status === 'ready' && (next.report.session_id !== sessionId || next.report.seed !== s.seed)
+  return {
+    ...state,
+    counterfactual: ajeno ? { status: 'failed', message: OTRO_TURNO } : next,
+  }
 }
 
 /** La primera decisión en un minuto ≥ `minute`: la reacción al shock. */

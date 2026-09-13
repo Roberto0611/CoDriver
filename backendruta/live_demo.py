@@ -66,20 +66,19 @@ Los dicts se arman en `live_log.py`; aqui solo se decide cuando va cada uno.
 
 import time
 from dataclasses import asdict
+from functools import partial
 from pathlib import Path
 from threading import Lock
-from types import SimpleNamespace
 from typing import Any, Literal
 
 import rutas
 import shocks
-import valor
-from backendruta import live_log, strategy, zonas
+from backendruta import live_log, zonas
 from backendruta.event_log import EventLog
 from backendruta.live_geometry import Geometria, linea_recta
+from backendruta.live_nuez import NuezEnVivo, contexto_modelo
 from backendruta.strategy import CapaEstrategia
 from contrato import ConfigTurno, Decision, Oferta
-from nuez import politica_nuez
 from reloj import Turno
 from sim import generar_ofertas, indice_de, politica_greedy
 
@@ -140,16 +139,16 @@ class LiveDemoSession:
         for o in self.ofertas:
             self.por_minuto.setdefault(o.t_aparece, []).append(o)
 
-        self.tabla = valor.para_turno(cfg.duracion_min)
         # Gemini conserva su propio hilo: el reloj live solo le avisa cuando cruza
         # treinta minutos simulados. Nuez lee la ultima estrategia ya disponible,
-        # igual que /decide; nunca espera a una llamada de red.
+        # igual que /decide; nunca espera a una llamada de red (ver live_nuez.py).
         self.estrategia = CapaEstrategia()
-        self.estrategia.contexto = self._contexto_modelo
+        self.nuez = NuezEnVivo(self.estrategia, cfg.duracion_min)
         self.turnos = {
             "greedy": Turno(cfg, politica_greedy, ofertas=self.ofertas),
-            "nuez": Turno(cfg, self._politica_nuez, ofertas=self.ofertas),
+            "nuez": Turno(cfg, self.nuez, ofertas=self.ofertas),
         }
+        self.estrategia.contexto = partial(contexto_modelo, self.turnos["nuez"])
         # Hasta donde ya se reporto cada lista del Resultado. Los Turnos solo crecen
         # sus listas, asi que lo nuevo de un minuto es todo lo que esta despues del cursor.
         # `cancelados` es el que ya salio en un position_update, no el del motor.
@@ -483,29 +482,3 @@ class LiveDemoSession:
             "geometry": geometria,
             "result": self._resultado[a],
         }
-
-    def _politica_nuez(self, oferta, estado, ruta, cfg, *, activos):
-        """La ruta rapida solo lee la propuesta ya publicada por Gemini."""
-        return politica_nuez(
-            oferta,
-            estado,
-            ruta,
-            cfg,
-            tabla=self.tabla,
-            estrategia=self.estrategia.actual,
-            activos=activos,
-        )
-
-    def _contexto_modelo(self) -> dict[str, Any]:
-        """Foto del turno live cuando el hilo lento va a consultar Gemini."""
-        turno = self.turnos["nuez"]
-        estado = SimpleNamespace(
-            config=self.cfg,
-            current_minute=self.minute,
-            position=turno.pos,
-            accepted=turno.aceptadas,
-            offered=len(turno.res.decisiones),
-            completed=turno.res.entregas,
-            earnings_mxn=turno.res.ganado,
-        )
-        return strategy.contexto_del_turno(estado, zonas.NOMBRES, turno.activos())

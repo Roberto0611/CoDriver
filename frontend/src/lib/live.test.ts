@@ -1,7 +1,14 @@
 import { afterEach, describe, it, expect, vi } from 'vitest'
 
 import { API_URL } from './api'
-import { DEMO_SHOCKS, LiveApiError, getCounterfactual, shockLive, tickLive } from './live'
+import {
+  DEMO_SHOCKS,
+  LiveApiError,
+  esperarContrafactual,
+  getCounterfactual,
+  shockLive,
+  tickLive,
+} from './live'
 
 function respuesta(status: number, body: unknown): Response {
   return new Response(JSON.stringify(body), {
@@ -89,10 +96,23 @@ describe('cliente live', () => {
     expect(e.message).toBe(`Can't reach the live backend at ${API_URL}`)
   })
 
-  it('pide el contrafactual de la sesión por GET', async () => {
-    const reporte = { seed: 2005, money_skips: {}, safety_skips: {}, capacity_skips: 0, top: [] }
-    const fetchMock = vi.fn(async () => respuesta(200, reporte))
+  const reporte = {
+    session_id: 'live-2005-ab12',
+    seed: 2005,
+    money_skips: {},
+    safety_skips: {},
+    capacity_skips: 0,
+    top: [],
+  }
+  const calculando = { status: 'computing', session_id: 'live-2005-ab12', seed: 2005 }
+
+  it('pide el contrafactual de la sesión por GET; 202 es "todavía no"', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(respuesta(202, calculando))
+      .mockResolvedValueOnce(respuesta(200, reporte))
     vi.stubGlobal('fetch', fetchMock)
+    expect(await getCounterfactual('live-2005-ab12')).toBeNull()
     expect(await getCounterfactual('live-2005-ab12')).toEqual(reporte)
     expect(fetchMock).toHaveBeenCalledWith(
       `${API_URL}/live/counterfactual/live-2005-ab12`,
@@ -100,12 +120,46 @@ describe('cliente live', () => {
     )
   })
 
-  it('un contrafactual con otra forma truena en vez de pintarse a medias', async () => {
+  it('un contrafactual con otra forma o sin session_id truena en vez de pintarse a medias', async () => {
+    const sinSesion = { ...reporte, session_id: undefined }
+    for (const cuerpo of [{ seed: 2005 }, sinSesion]) {
+      vi.stubGlobal(
+        'fetch',
+        vi.fn(async () => respuesta(200, cuerpo))
+      )
+      const e = await error(getCounterfactual('live-2005-ab12'))
+      expect(e.message).toMatch(/counterfactual/i)
+    }
+  })
+
+  it('esperarContrafactual pregunta hasta que está listo', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(respuesta(202, calculando))
+      .mockResolvedValueOnce(respuesta(202, calculando))
+      .mockResolvedValueOnce(respuesta(200, reporte))
+    vi.stubGlobal('fetch', fetchMock)
+    const final = await esperarContrafactual('live-2005-ab12', () => true, 0)
+    expect(final).toEqual({ status: 'ready', report: reporte })
+    expect(fetchMock).toHaveBeenCalledTimes(3)
+  })
+
+  it('esperarContrafactual dice la falla del backend en vez de quedarse calculando', async () => {
     vi.stubGlobal(
       'fetch',
-      vi.fn(async () => respuesta(200, { seed: 2005 }))
+      vi.fn(async () => respuesta(500, { detail: 're-simulation failed with ValueError: x' }))
     )
-    const e = await error(getCounterfactual('live-2005-ab12'))
-    expect(e.message).toMatch(/counterfactual/i)
+    const final = await esperarContrafactual('live-2005-ab12', () => true, 0)
+    expect(final).toEqual({ status: 'failed', message: 're-simulation failed with ValueError: x' })
+  })
+
+  it('esperarContrafactual suelta la respuesta si la sesión ya no es la vigente', async () => {
+    let vigente = true
+    const fetchMock = vi.fn(async () => {
+      vigente = false // otro Start mientras el backend calculaba
+      return respuesta(200, reporte)
+    })
+    vi.stubGlobal('fetch', fetchMock)
+    expect(await esperarContrafactual('live-2005-ab12', () => vigente, 0)).toBeNull()
   })
 })

@@ -1,7 +1,8 @@
 // El reporte contrafactual al final del turno: renglones extra bajo el "Final Summary".
 // Los datos salen de re-simular el turno, no de adivinar: en /sim los graba
-// data/export_contrafactual.py, en /live los calcula GET /live/counterfactual/{id} con los
-// shocks de la sesión. `Counterfactual` carga el grabado; `CounterfactualReport` solo pinta.
+// data/export_contrafactual.py, en /live los calcula GET /live/counterfactual/{id} para esa
+// sesión (LiveCounterfactual). `Counterfactual` carga el grabado de /sim; `CounterfactualReport`
+// solo pinta, y es lo único que /live comparte con /sim: el grabado nunca se usa en /live.
 // Los saltos por reglas duras solo se cuentan: no tienen precio porque no se venden.
 // Vehículo lleno va en su propio renglón: es un límite físico, no seguridad.
 

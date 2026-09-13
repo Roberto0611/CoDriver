@@ -78,10 +78,21 @@ def test_un_segundo_end_es_409(api):
 
 
 def test_la_novena_sesion_saca_a_la_mas_vieja(api):
-    ids = [start(api, seed=2000 + i) for i in range(live_api.MAX_SESIONES + 1)]
+    ids = [start(api, seed=2000)]
+    primera = live_api.registry.obtener(ids[0])
+    assert primera.estrategia.en_marcha
+    ids += [start(api, seed=2001 + i) for i in range(live_api.MAX_SESIONES)]
     assert api.get(f"/live/status/{ids[0]}").status_code == 404
     for sid in ids[1:]:
         assert api.get(f"/live/status/{sid}").status_code == 200
+    # Nadie le va a mandar /live/end a la que salio: su hilo de Gemini se para solo.
+    parada = threading.Event()
+    for _ in range(40):
+        if not primera.estrategia.en_marcha:
+            parada.set()
+            break
+        parada.wait(0.05)
+    assert parada.is_set(), "la sesion desalojada siguio consultando a Gemini"
 
 
 def test_un_start_que_truena_no_saca_a_nadie(api, tmp_path):

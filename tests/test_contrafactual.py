@@ -83,9 +83,9 @@ def test_forzar_un_salto_por_dinero_lo_acepta(real, rep):
 def test_los_saltos_de_seguridad_nunca_se_simulan(monkeypatch, real):
     forzados: list[str] = []
 
-    def espia(cfg, objetivo, disrupciones=()):
+    def espia(cfg, objetivo, disrupciones=(), estrategias=None):
         forzados.append(objetivo)
-        return con_pedido(cfg, objetivo, disrupciones)
+        return con_pedido(cfg, objetivo, disrupciones, estrategias)
 
     monkeypatch.setattr(contrafactual, "con_pedido", espia)
     rep = reporte(CFG)
