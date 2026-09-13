@@ -222,6 +222,28 @@ def test_se_calcula_una_vez_por_sesion(api, monkeypatch):
     assert len(llamadas) == 1
 
 
+def test_turno_de_ocho_horas_y_media_de_punta_a_punta(api):
+    """La jornada de 8.5 h del practice pack por /live: arranca, End la adelanta hasta el
+    minuto 510 (22:30 si empieza a las 14) y su contrafactual llega por la ruta de 202,
+    porque re-simular 510 min tarda segundos."""
+    r = api.post("/live/start", json={"seed": 3141, "duracion_min": 510})
+    assert r.status_code == 200, r.text
+    sid = r.json()["session_id"]
+    assert r.json()["duration_min"] == 510 and r.json()["start_hour"] == 14
+    assert api.post("/live/tick", json={"session_id": sid, "minutes": 5}).status_code == 200
+
+    fin = api.post("/live/end", json={"session_id": sid})
+    assert fin.status_code == 200, fin.text
+    assert fin.json()["status"] == "ended" and fin.json()["minute"] == 510
+    assert divmod(14 * 60 + fin.json()["minute"], 60) == (22, 30)
+    assert api.get(f"/live/counterfactual/{sid}").status_code == 202, "End no espera al calculo"
+
+    rep = _esperar(api, sid, segundos=120)
+    assert rep.status_code == 200, rep.text
+    assert rep.json()["seed"] == 3141 and rep.json()["session_id"] == sid
+    assert rep.json()["actual"]["earned_mxn"] == fin.json()["nuez"]["earnings_mxn"]
+
+
 def test_si_el_calculo_truena_es_500_y_no_202_para_siempre(api, monkeypatch):
     def truena(*_args, **_kwargs):
         raise ValueError("salto sin restriccion reconocida")
