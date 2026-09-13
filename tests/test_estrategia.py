@@ -11,6 +11,7 @@ doble. El codigo que corre en el demo llama a Gemini; esto es solo el banco de p
 """
 
 import json
+import threading
 import time
 
 import pytest
@@ -43,6 +44,42 @@ def test_el_motor_no_espera_al_modelo():
 
     capa.refrescar()
     assert capa.actual.margen_mxn == 7.0, "la vuelta lenta si actualiza, pero aparte"
+
+
+def test_el_hilo_se_despierta_cada_treinta_minutos_simulados():
+    """El demo dura segundos reales: 300 s de pared no alcanzan para volver a consultar."""
+    llamadas: list[int] = []
+    respondio = threading.Event()
+
+    def proveedor(contexto):
+        llamadas.append(contexto["elapsed_min"])
+        respondio.set()
+        return {"margen_mxn": 2.0, "nota": "refresh"}
+
+    minuto = 0
+    capa = CapaEstrategia(proveedor, fuente="doble", intervalo=3600)
+    capa.contexto = lambda: {"elapsed_min": minuto}
+    capa.arrancar()
+    try:
+        assert respondio.wait(1), "arrancar conserva la primera consulta asincrona"
+        respondio.clear()
+
+        assert not capa.notificar_minuto_simulado(29)
+        assert not respondio.wait(0.05)
+
+        minuto = 30
+        assert capa.notificar_minuto_simulado(minuto)
+        assert respondio.wait(1), "el minuto 30 despierta al hilo, sin bloquear al tick"
+        assert llamadas == [0, 30]
+
+        respondio.clear()
+        assert not capa.notificar_minuto_simulado(59)
+        minuto = 60
+        assert capa.notificar_minuto_simulado(minuto)
+        assert respondio.wait(1)
+        assert llamadas == [0, 30, 60]
+    finally:
+        capa.detener()
 
 
 def test_sin_credencial_sigue_decidiendo_y_lo_dice():

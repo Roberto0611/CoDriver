@@ -254,6 +254,9 @@ class CourierService:
         self._advance(elapsed)
 
         if overrides is None:
+            # La ruta rapida solo despierta al hilo ya existente al cruzar treinta
+            # minutos simulados. Nunca espera a Gemini ni hace una llamada de red.
+            self.estrategia.notificar_minuto_simulado(self.state.current_minute)
             return
         if overrides.shift_end_time is not None:
             self.state.end_time = overrides.shift_end_time
@@ -270,6 +273,7 @@ class CourierService:
             self.state.position = zonas.indice(overrides.position_zone)
         if overrides.in_flight_orders is not None:
             self._replace_in_flight(overrides.in_flight_orders)
+        self.estrategia.notificar_minuto_simulado(self.state.current_minute)
 
     def _advance(self, target_minute: int) -> None:
         assert self.state is not None

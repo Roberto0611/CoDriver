@@ -6,6 +6,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 
 import { cargarPuntos } from './lib/loader'
+import { GEMINI_IDLE, vistaGemini } from './lib/gemini-status'
 import {
   DEMO_SHOCKS,
   SPEEDS,
@@ -28,6 +29,7 @@ import { Counters } from './sim/Counters'
 import { Decisions } from './sim/Decisions'
 import { DecisionToasts } from './sim/DecisionToasts'
 import { LiveControls, LiveStartForm, type LivePending, type LivePhase } from './sim/LiveControls'
+import { GeminiNoteView } from './sim/GeminiStatus'
 import { ShockBanner } from './sim/ShockBanner'
 import { useSimMap } from './sim/useSimMap'
 
@@ -368,6 +370,9 @@ export default function LiveSimView() {
   // Tras /live/end el minuto salta al final sin frames: el mapa se queda en el último pintado.
   const t = snap ? Math.max(0, Math.min(snap.minute - 1, ultimoFrame?.t ?? 0)) : 0
   const minute = snap?.minute ?? 0
+  const gemini = snap
+    ? vistaGemini({ active: snap.status === 'running', ...snap.strategy })
+    : GEMINI_IDLE
   const zonaDe = useMemo(() => (puntos ? zonasDePuntos(puntos) : []), [puntos])
 
   const { mapContainer, mapRef } = useSimMap({
@@ -413,6 +418,7 @@ export default function LiveSimView() {
       <DecisionToasts frame={ultimoFrame} seed={snap?.seed ?? null} t={ultimoFrame?.t ?? 0} />
 
       <LiveControls
+        gemini={gemini}
         phase={phase}
         hasSession={live !== null && !terminado}
         startHour={enForma ? params.hora_inicio : (snap?.start_hour ?? params.hora_inicio)}
@@ -431,6 +437,7 @@ export default function LiveSimView() {
       />
 
       <div ref={panelRef} className="overlay-panel">
+        <GeminiNoteView view={gemini} />
         {error && (
           <div className="glass-card live-error" role="alert">
             <span className="caps">Live backend error</span>

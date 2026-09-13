@@ -81,7 +81,12 @@ function useGemini(): GeminiView {
 }
 
 export function GeminiBadge() {
-  const { state, label } = useGemini()
+  return <GeminiBadgeView view={useGemini()} />
+}
+
+/** Presentación reutilizable: /live entrega su propio estado de Gemini en cada snapshot. */
+export function GeminiBadgeView({ view }: { view: GeminiView }) {
+  const { state, label } = view
   return (
     <div className={`gemini-badge is-${state}`} role="status" aria-live="polite">
       <span className="gemini-badge-dot" aria-hidden="true" />
@@ -91,7 +96,12 @@ export function GeminiBadge() {
 }
 
 export function GeminiNote() {
-  const { state, note, placeholder } = useGemini()
+  return <GeminiNoteView view={useGemini()} />
+}
+
+/** La misma nota del replay, alimentada por el turno que el juez está viendo en vivo. */
+export function GeminiNoteView({ view }: { view: GeminiView }) {
+  const { state, note, placeholder } = view
   return (
     <div className="glass-card gemini-note">
       <div className="gemini-note-head">

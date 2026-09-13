@@ -62,6 +62,14 @@ export interface LiveOffer {
   pay_mxn: number
 }
 
+/** Estado de la capa lenta que pertenece exclusivamente a esta sesión en vivo. */
+export interface LiveStrategy {
+  degraded: boolean
+  strategy_source: string | null
+  strategy_note: string | null
+  strategy_running: boolean
+}
+
 export interface LiveSnapshot {
   session_id: string
   /** El siguiente minuto a correr; [0, minute) ya corrieron. */
@@ -70,6 +78,7 @@ export interface LiveSnapshot {
   start_hour: number
   seed: number
   status: 'running' | 'finished' | 'ended'
+  strategy: LiveStrategy
   active_shocks: LiveShock[]
   offers_this_tick: LiveOffer[]
   greedy: LiveAgent

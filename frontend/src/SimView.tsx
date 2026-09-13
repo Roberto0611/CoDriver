@@ -16,7 +16,6 @@ import { Decisions } from './sim/Decisions'
 import { Distribution } from './sim/Distribution'
 import { DecisionToasts } from './sim/DecisionToasts'
 import { DecisionHistory } from './sim/DecisionHistory'
-import { GeminiBadge, GeminiNote } from './sim/GeminiStatus'
 import { ModeSwitch } from './sim/ModeSwitch'
 import { useSimMap } from './sim/useSimMap'
 import { VozToggle } from './voice/VozToggle'
@@ -130,7 +129,6 @@ export default function SimView() {
       {/* Timeline */}
       <div className="timeline-panel">
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px', paddingRight: '12px', borderRight: '1px solid var(--hairline)' }}>
-          <GeminiBadge />
           <div style={{ width: '38px', height: '38px', borderRadius: '50%', background: 'var(--plum)', position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
             <div style={{ transform: 'scale(0.22)', transformOrigin: 'center center', position: 'absolute' }}>
               <NavieCompass mode="idle" />
@@ -207,9 +205,6 @@ export default function SimView() {
 
       {/* Panel izquierdo */}
       <div className="overlay-panel">
-        {/* Nota de Gemini */}
-        <GeminiNote />
-
         {/* Selector de seed */}
         {indice && (
           <div className="glass-card">
