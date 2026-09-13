@@ -50,15 +50,17 @@ def _cargar_grafo():
     return _grafo
 
 
-def geometria_de_tramos(tramos, cache: dict) -> dict:
+def geometria_de_tramos(tramos, cache: dict, grafo=None) -> dict:
     """La calle real de cada tramo, para que la moto no atraviese edificios.
 
     El cache se comparte entre turnos: muchos tramos se repiten entre politicas.
+    `grafo` lo pasa el demo en vivo, que ya lo tiene cargado en main.py; el export
+    grabado lo deja en None y aqui se carga del pickle como siempre.
     """
     if not tramos:
         return {}
 
-    G = _cargar_grafo()
+    G = grafo if grafo is not None else _cargar_grafo()
     nodo = {i: n for i, (_, n, _, _) in enumerate(rutas.PUNTOS)}
 
     geo = {}

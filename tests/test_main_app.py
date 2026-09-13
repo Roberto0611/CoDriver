@@ -30,6 +30,7 @@ def test_main_monta_el_protocolo_courier():
     }
     faltan = RUTAS_DEL_PROTOCOLO - montadas
     assert not faltan, f"main.py no monta estas rutas del protocolo: {sorted(faltan)}"
+    assert ("POST", "/live/start") in montadas, "main.py no monta el router del demo en vivo"
 
 
 def test_main_responde_zones_sin_levantar_nada():

@@ -12,6 +12,9 @@ export const ROUTE_COLOR = '#4F46E5'
 export const ROUTE_CASING = '#FFFFFF'
 export const PLUM = '#684959'
 export const AMBER = '#F59E0B'
+// Shocks (map/shocks.ts): calle cerrada en rojo; la lluvia oscurece el fondo al tono --hairline.
+export const CLOSURE_RED = '#EF4444'
+export const MAP_BG_DIM = '#D8CCCA'
 
 export const ROAD = {
   highway: '#F3DFA2',

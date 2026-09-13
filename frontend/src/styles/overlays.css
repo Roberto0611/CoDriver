@@ -338,3 +338,24 @@
   color: var(--plum);
   font-weight: 700;
 }
+
+/* Replay grabado / live: enlaces con la forma de .speed-btn (sim.css) */
+.mode-switch {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding-left: 14px;
+  border-left: 1px solid var(--hairline);
+}
+
+.mode-switch .speed-btn {
+  display: inline-flex;
+  align-items: center;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.mode-switch .speed-btn:focus-visible {
+  outline: 2px solid var(--plum);
+  outline-offset: 2px;
+}

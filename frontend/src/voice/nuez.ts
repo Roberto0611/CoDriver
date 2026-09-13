@@ -46,11 +46,11 @@ export function unlock(): void {
 }
 
 /** Voz del sistema. Sin red y sin cuota: el seguro para que el demo nunca quede mudo. */
-function hablarNavegador(text: string): Promise<void> {
+function hablarNavegador(text: string, lang: string): Promise<void> {
   if (typeof speechSynthesis === 'undefined') return Promise.resolve()
   return new Promise((resolve) => {
     const u = new SpeechSynthesisUtterance(text)
-    u.lang = 'en-US'
+    u.lang = lang
     u.rate = 1.05
     u.onend = () => resolve()
     u.onerror = () => resolve()
@@ -58,7 +58,7 @@ function hablarNavegador(text: string): Promise<void> {
   })
 }
 
-function reproducir(text: string): Promise<void> {
+function reproducir(text: string, lang: string): Promise<void> {
   return new Promise((resolve) => {
     const audio = new Audio(sayUrl(text))
     // `pause()` no dispara onended: sin esto, callar() dejaría la cola trabada para siempre.
@@ -74,7 +74,7 @@ function reproducir(text: string): Promise<void> {
       if (cayo || sonando?.audio !== audio) return // ya cayó, o callar() la descartó
       cayo = true
       avisar('browser')
-      void hablarNavegador(text).then(resolve)
+      void hablarNavegador(text, lang).then(resolve)
     }
     audio.onerror = caer
     void audio.play().catch((e: unknown) => {
@@ -84,12 +84,15 @@ function reproducir(text: string): Promise<void> {
   })
 }
 
-/** Habla una frase. Las frases se encolan en orden; la promesa resuelve al terminar esa frase. */
-export function say(text: string): Promise<void> {
+/**
+ * Habla una frase. Las frases se encolan en orden; la promesa resuelve al terminar esa frase.
+ * `lang` es el idioma de la voz del navegador si ElevenLabs no responde (/live pasa es-MX).
+ */
+export function say(text: string, { lang = 'en-US' }: { lang?: string } = {}): Promise<void> {
   const t = text.trim()
   if (!t) return Promise.resolve()
   const mia = generacion
-  const turno = cola.then(() => (mia === generacion ? reproducir(t) : undefined))
+  const turno = cola.then(() => (mia === generacion ? reproducir(t, lang) : undefined))
   cola = turno.catch(() => undefined)
   return turno
 }
