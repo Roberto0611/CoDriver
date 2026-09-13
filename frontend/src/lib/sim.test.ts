@@ -18,6 +18,7 @@ const config: ConfigTurno = {
   vehiculo: 'moto',
   seed: 42,
   hora_inicio: 14,
+  regresar_al_ancla: true,
 }
 
 // Puntos falsos (GeoJSON con 3 features)

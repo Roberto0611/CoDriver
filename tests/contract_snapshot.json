@@ -57,6 +57,11 @@
           "name": "hora_inicio",
           "type": "number",
           "required": false
+        },
+        {
+          "name": "regresar_al_ancla",
+          "type": "boolean",
+          "required": false
         }
       ]
     },

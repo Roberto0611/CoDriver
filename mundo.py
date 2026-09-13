@@ -223,8 +223,12 @@ def es_segura(zona: str, hora: int) -> bool:
     La línea es de reloj, no de promedio: a las 21:59 se puede y a las 22:00 no.
     `riesgo()` sigue existiendo para pintar el mapa, pero la que decide es ésta.
     """
-    de_noche = hora % 24 >= HORA_NOCHE or hora % 24 < 5
-    return not (de_noche and zona in ZONAS_MARCADAS)
+    return not (es_de_noche(hora) and zona in ZONAS_MARCADAS)
+
+
+def es_de_noche(hora: int) -> bool:
+    """De las 22:00 a las 5:00. La misma linea para nuestro mapa y para el protocolo."""
+    return hora % 24 >= HORA_NOCHE or hora % 24 < 5
 
 
 def demo():

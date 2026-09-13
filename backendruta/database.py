@@ -9,6 +9,7 @@ from time import monotonic, sleep
 from typing import Any
 
 from dotenv import load_dotenv
+from psycopg2.extras import execute_values
 from sqlalchemy import create_engine, text
 from sqlalchemy.engine import URL, Engine
 
@@ -206,6 +207,17 @@ def init_db() -> bool:
         return False
 
 
+def clear_traffic() -> None:
+    """Vacia trafico_calles: solo la llena el seed, que la regenera completa al arrancar."""
+    engine = get_engine()
+    if engine and is_connected():
+        try:
+            with engine.begin() as conn:
+                conn.execute(text("TRUNCATE trafico_calles"))
+        except Exception as e:
+            logger.error(f"Error al vaciar trafico_calles en TigerData: {e}")
+
+
 def save_traffic_batch(records: list[dict[str, Any]]) -> None:
     """Guarda un lote de registros de tráfico (tanto en DB como en fallback de memoria)."""
     engine = get_engine()
@@ -219,28 +231,32 @@ def save_traffic_batch(records: list[dict[str, Any]]) -> None:
             _MEMORY_TRAFFIC.setdefault(hora_str, []).append(r)
 
     if engine and is_connected():
+        filas = [
+            (
+                r["tiempo"],
+                r["calle_nombre"],
+                r.get("factor_retraso", 1.0),
+                r.get("delay_segundos", 0),
+                r.get("velocidad_kmh", 50),
+                r.get("motivo", "Fluido"),
+                json.dumps(r.get("coords", [])),
+            )
+            for r in records
+        ]
         try:
+            # Un INSERT multi-fila por pagina: fila por fila eran 155k viajes a la nube.
             with engine.begin() as conn:
-                for r in records:
-                    conn.execute(
-                        text("""
-                            INSERT INTO trafico_calles
-                                (tiempo, calle_nombre, factor_retraso, delay_segundos,
-                                 velocidad_kmh, motivo, coords)
-                            VALUES
-                                (:tiempo, :calle_nombre, :factor_retraso, :delay_segundos,
-                                 :velocidad_kmh, :motivo, :coords)
-                        """),
-                        {
-                            "tiempo": r["tiempo"],
-                            "calle_nombre": r["calle_nombre"],
-                            "factor_retraso": r.get("factor_retraso", 1.0),
-                            "delay_segundos": r.get("delay_segundos", 0),
-                            "velocidad_kmh": r.get("velocidad_kmh", 50),
-                            "motivo": r.get("motivo", "Fluido"),
-                            "coords": json.dumps(r.get("coords", [])),
-                        },
-                    )
+                execute_values(
+                    conn.connection.cursor(),
+                    """
+                    INSERT INTO trafico_calles
+                        (tiempo, calle_nombre, factor_retraso, delay_segundos,
+                         velocidad_kmh, motivo, coords)
+                    VALUES %s
+                    """,
+                    filas,
+                    page_size=5000,
+                )
         except Exception as e:
             logger.error(f"Error al guardar lote en TigerData: {e}")
 

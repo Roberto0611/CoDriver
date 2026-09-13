@@ -47,7 +47,11 @@ def _fin_de_pedido(pos: int, desde: int, oferta: Oferta, cfg: ConfigTurno) -> in
         recoge + rutas.minutos(pickup, dropoff, cfg.hora_inicio + recoge // 60, cfg.vehiculo)
     )
     ancla = rutas.indice_mas_cercano(cfg.ancla.lat, cfg.ancla.lon)
-    regreso = ceil(rutas.minutos(dropoff, ancla, cfg.hora_inicio + entrega // 60, cfg.vehiculo))
+    regreso = (
+        ceil(rutas.minutos(dropoff, ancla, cfg.hora_inicio + entrega // 60, cfg.vehiculo))
+        if cfg.regresar_al_ancla
+        else 0
+    )
     limite = cfg.duracion_min - cfg.margen_min
     if entrega + regreso >= limite:
         return None

@@ -19,7 +19,7 @@ from typing import Any
 BASE_DIR = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(BASE_DIR))
 
-from backendruta.database import init_db, save_traffic_batch  # noqa: E402
+from backendruta.database import clear_traffic, init_db, save_traffic_batch  # noqa: E402
 from mundo import CURVAS_CORREDOR, ZONAS  # noqa: E402
 
 logger = logging.getLogger("seed_traffic")
@@ -142,6 +142,8 @@ def generar_datos_simulacion():
             )
 
     logger.info(f"Guardando {len(registros)} registros derivados de mundo.CURVAS_CORREDOR...")
+    # La consulta filtra por HH:MI sin fecha: sin vaciar, cada arranque duplica el mapa.
+    clear_traffic()
     for i in range(0, len(registros), 5000):
         save_traffic_batch(registros[i : i + 5000])
 

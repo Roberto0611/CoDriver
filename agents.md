@@ -402,6 +402,115 @@ en minuto; planear al segundo exacto convierte el fin de turno en un volado. Med
 Todo junto movió el ratchet a propósito: **23.34 → 28.65**. El motor no se volvió más agresivo; se
 le quitó una demora que nunca existió.
 
+### El practice pack de Infosys: 14 de 14
+
+`courier-update/` trae un examen con respuestas: 14 pedidos, su clave y `run_probe_pack.py`,
+**el mismo script que corren los jueces** con un pack más largo que no hemos visto.
+
+```bash
+python courier-update/run_probe_pack.py --pack courier-update/practice_pack/practice_pack.csv   --key courier-update/practice_pack/practice_pack_key.json --endpoint http://127.0.0.1:8000/decide
+```
+
+```
+RESULT: PASS — 14/14, razones que nombran la restricción correcta 8/8
+latencia autorreportada p99 6.4 ms · con red p99 43.5 ms (presupuesto 50)
+```
+
+Recorrido: **11/14 → 12/14** (caja de la moto a 20 L) **→ 13/14** (el regreso como opción)
+**→ 14/14** (zona marcada según el protocolo + reloj anclado a la hora en punto).
+
+**Tres trampas al correrlo:**
+
+- **`127.0.0.1`, no `localhost`.** En Windows `localhost` prueba IPv6 primero y cada decisión
+  parece tardar 2 segundos.
+- **Esperar a que el servidor responda antes de lanzar el runner.** Si PP-001 pega antes de
+  que uvicorn termine de arrancar, falla con conexión rechazada, los anclas no se aceptan y el
+  resto del pack se califica en modo override. Parece un 13/14 que no existe. Esperar con
+  `curl --retry 30 --retry-connrefused --retry-delay 1 http://127.0.0.1:8000/zones`.
+- **Medir la latencia sin nada más corriendo.** Con 14 pedidos el p99 es prácticamente el más
+  lento; con los tests del front en paralelo llegó a 98 ms, y era ruido.
+
+### PP-013: la zona marcada la decide el protocolo, no nuestro mapa
+
+PP-013 entrega en **Santa Catarina** a las 22:12. La decisión era correcta (SKIP), pero
+culpábamos a `flagged_zone_night`, porque nuestro mapa de riesgo la marca de noche. La clave
+esperaba `shift_end_infeasible`: para Infosys es una zona normal y lo único que falla es el
+tiempo. Una decisión correcta con la restricción equivocada no da crédito de Judgment.
+
+Al investigarlo salió algo peor: **PP-012 y PP-014 pasaban de chiripa.** Sus números de zona
+no son los nuestros (su 8 es Mitras, nuestro 8 es San Nicolás; su 1 es Centro, nuestro 1 es
+Obispado). Confiábamos en el número, los mandábamos a otra zona y esa zona no estaba marcada.
+Traducidos bien, los dos habrían caído en zonas que nuestro mapa marca, y habríamos reprobado.
+
+El fondo del problema: nuestro mapa marca **7 de 14 zonas**, capa de riesgo hecha a ojo. El
+protocolo solo documenta **la 99**, y los números y nombres de zona de un stream externo no son
+confiables (el nombre es opcional *"for display"*).
+
+**El arreglo:** en `/decide`, la zona está marcada **solo si el número que llega es 99**, y se
+decide **antes de traducirlo** (`backendruta/zonas.py → MARCADAS_PROTOCOLO`). Así no importa qué
+lugar real signifique su número. El simulador conserva nuestro mapa: el +33.5% no se mueve.
+
+**Riesgo declarado:** si el examen oculto marca otra zona distinta de la 99, no la veríamos. Su
+README solo documenta la 99 y ellos no conocen nuestro mapa. Está escrito en el README del repo
+para que no parezca que lo escondimos.
+
+### Un bug de reloj que salió escribiendo los tests de PP-013
+
+**Si el turno no empezaba en hora cerrada, el reloj del motor se atrasaba hasta 59 minutos.**
+El motor calcula la hora como `hora_inicio + minuto // 60` con `hora_inicio` entero: un turno
+que arrancaba a las 15:30 contaba su minuto 0 a las 15:30, y a las 22:00 el motor creía que eran
+las 21. **Aceptaba entregas en zona marcada**, y aplicaba la regla del calor y el tráfico con una
+hora de atraso. Los jueces varían la hora de arranque. El practice pack empieza a las 14:00 en
+punto, por eso no lo destapaba.
+
+**El arreglo, solo en la frontera de la API:** el reloj del turno se ancla a la hora en punto
+(15:30 → origen 15:00, el turno arranca en el minuto 30). Así la fórmula del motor da la hora
+real sin tocar sus 34 usos ni el contrato. Vive en `courier_models.origen_del_turno` y
+`ShiftState.anclar`. `ShiftState.duracion_real` (sin el desfase) escoge la tabla de valor:
+con la duración anclada, un turno de 8 h que arranca a las 18:42 pedía la tabla de 8.5 h y el
+primer `/decide` la cargaba del disco y se pasaba de 50 ms.
+
+Tests: `tests/test_zona_marcada.py` — la línea exacta de las 22:00 con la zona 99, que nuestro
+mapa ya no marque zonas en `/decide`, y el arranque a las 15:30 por el camino del runner.
+
+### Volver al punto de partida: una opción, no la regla
+
+PP-012 salía rechazado: a las 22:07, con 23 min de turno, sumábamos 18 min de trabajo **más
+13 de regreso** al punto de partida. El spec dice *"refuse orders that cannot be **completed**
+before shift end"*: terminar la entrega, no regresar. Su clave suma solo el trabajo (PP-014:
+*"7 + 5 = 12, fits in 14"*).
+
+El regreso venía de nuestra historia del estudiante con clase después. Tiene sentido como
+producto, así que quedó como **opción del turno**:
+
+| Dónde | Por omisión |
+|---|---|
+| `/shift/start` → `return_to_start` | **`false`**, la regla del spec |
+| `ConfigTurno.regresar_al_ancla` (simulador, `comparar.py`, turnos grabados) | **`true`**, el estudiante |
+
+**La regla que no se puede romper: sin la opción, no se exige regreso.** El runner de los jueces
+llama `/decide` directo y nunca pasa por `/shift/start`. Si el valor por omisión fuera "regresar",
+volveríamos a reprobar PP-012 en el examen oculto.
+
+El número del simulador no se movió: el ratchet quedó idéntico (`25.961`).
+
+**Un bug que estaba escondido detrás:** al empezar a aceptar PP-012, el runner nos mandó ese pedido
+en vuelo como `{"order_id", "minutes_remaining", "dropoff_zone"}`, y nuestra API exigía
+`zone_dropoff` y tronaba con **422**. Un crash es una falla dura de Feasibility. Ahora se aceptan
+los dos nombres, y si el runner declara `minutes_remaining` **se usa su número, no nuestra matriz**:
+*"neither side has to guess the other's travel model"*.
+
+Tests: `tests/test_regreso.py`, con la forma PP-012 con y sin la opción, la forma exacta del runner
+para pedidos en vuelo, y que lo que ya viene en vuelo sigue sumando tiempo.
+
+**Para el demo:** con un clic, el mismo pedido cambia de decisión y la razón explica por qué:
+
+```
+22:07, pedido de $98, quedan 23 minutos
+  return_to_start = true   →  SKIP    "the order and return route cannot finish..."
+  return_to_start = false  →  ACCEPT
+```
+
 ### Detalles del spec que se olvidan fácil
 
 - **50 ms de presupuesto** en la ruta rápida. Nuestro motor tarda microsegundos, así que esto
@@ -1176,6 +1285,13 @@ son cuatro inputs, no una app.
   recalibrar la tabla de valor y el ratchet desde cero. Dado aparte y el número no se mueve.
 - **Una global "está lloviendo"** → el replay deja de reproducirse y no hay forma de auditar por
   qué. Las disrupciones van como argumento, siempre.
+- **Usar nuestro mapa de riesgo para marcar zonas en `/decide`** → sus números de zona no son los
+  nuestros y nuestro mapa marca media ciudad. Culpas la restricción equivocada, o pasas de chiripa.
+- **Asumir que el turno empieza en hora cerrada** → el reloj del motor se atrasa hasta 59 min y la
+  regla nocturna y la del calor se aplican una hora tarde.
+- **Exigir un regreso que el spec no pide** → la restricción de fin de turno dispara de más y
+  rechaza dinero bueno. Infosys lo llama *"a bug that costs the courier real money"*.
+- **Medir la latencia con `localhost` en Windows** → 2 segundos falsos por IPv6. `127.0.0.1`.
 - **Reportar sobre los seeds que tuneaste** → el protocolo topa Results en 3 sin importar el
   margen. Los dos conjuntos están en `seeds.py` y `comparar.py` revienta si se cruzan.
 - **Un turno animado como evidencia** → la varianza por turno es enorme. El turno bonito va al

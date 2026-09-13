@@ -152,8 +152,10 @@ def _constraint_detail(constraint: str, inputs: dict[str, Any]) -> str:
             f"limit; a {seguridad.DESCANSO_MIN}-min break is due."
         )
     if constraint == "shift_end_infeasible":
+        regresa = inputs.get("engine_terms", {}).get("minutos_regreso", 0) > 0
         return (
-            f"delivering and returning needs {inputs['time_to_completion_min']} min, "
+            f"{'delivering and returning' if regresa else 'delivering'} needs "
+            f"{inputs['time_to_completion_min']} min, "
             f"only {inputs['shift_minutes_available']} min remain."
         )
     if constraint == "flagged_zone_night":

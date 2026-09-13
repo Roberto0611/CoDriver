@@ -73,7 +73,8 @@ def evaluar(
         carga_kg=sum(parada.peso_kg for parada in ruta if parada.tipo == "dropoff") + o.peso_kg,
         carga_l=sum(parada.volumen_l for parada in ruta if parada.tipo == "dropoff") + o.volumen_l,
         pedidos_en_vuelo=len({parada.oferta_id for parada in ruta if parada.oferta_id}) + 1,
-        minutos_para_terminar=minutos_totales + tramo(i_drop, ancla, minutos_totales),
+        minutos_para_terminar=minutos_totales
+        + (tramo(i_drop, ancla, minutos_totales) if cfg.regresar_al_ancla else 0.0),
         minutos_de_turno=est.t_restante - cfg.margen_min,
     )
     nueva_ruta = ruta + [

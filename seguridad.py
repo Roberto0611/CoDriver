@@ -17,7 +17,7 @@ oferta que rompe una regla la sigue rompiendo aunque suba el surge.
 from dataclasses import dataclass
 from typing import Any
 
-from mundo import es_segura
+from mundo import es_de_noche, es_segura
 
 # --- 2 y 3: manejar seguido cansa, y a las 3 de la tarde en MTY cansa mas -----
 TOLERANCIA_MIN = 1.0  # holgura minima del plan contra el fin de turno
@@ -71,15 +71,26 @@ def revisar(
     pedidos_en_vuelo: int,
     minutos_para_terminar: float,
     minutos_de_turno: float,
+    zona_marcada: bool | None = None,
 ) -> tuple[str, str] | None:
     """La unica puerta. Devuelve (binding_constraint, frase) o None si no bloquea.
 
     `carga_*` y `pedidos_en_vuelo` YA incluyen el pedido nuevo; `minutos_para_terminar`
     es lo que falta para dejar el ultimo paquete y estar de vuelta en el ancla.
+
+    `zona_marcada` es quien decide si la zona de entrega esta marcada. None usa nuestro
+    mapa de riesgo (`mundo.ZONAS_MARCADAS`), que es lo que corre el simulador. El
+    endpoint del protocolo lo decide con la convencion de Infosys y lo pasa explicito:
+    ahi nuestro mapa inventado no puede marcar zonas que para ellos son normales.
     """
     v = VEHICULOS[vehiculo]
 
-    if not es_segura(zona_dropoff, hora):
+    marcada = (
+        not es_segura(zona_dropoff, hora)
+        if zona_marcada is None
+        else zona_marcada and es_de_noche(hora)
+    )
+    if marcada:
         return "flagged_zone_night", f"No te mando a {zona_dropoff} despues de las 10 de la noche."
 
     if pedidos_en_vuelo > v.pedidos:

@@ -218,7 +218,8 @@ def _no_alcanza(
         if parada.tipo == "pickup":
             reloj = max(reloj, parada.listo_en)
         desde = parada.punto
-    return reloj + tramo(desde, ancla, reloj) > cfg.duracion_min - cfg.margen_min
+    regreso = tramo(desde, ancla, reloj) if cfg.regresar_al_ancla else 0.0
+    return reloj + regreso > cfg.duracion_min - cfg.margen_min
 
 
 def simular(
@@ -243,6 +244,7 @@ def simular(
     descansando = 0  # minutos seguidos parado; DESCANSO_MIN de estos resetean
     t_llegada = 0.0  # minuto en que se llega a la primera parada de la ruta
     regreso_en: float = 0.0  # arranca en el ancla, asi que a los 0 minutos ya esta
+    termino_en: float = 0.0  # ultima vez que quedo libre; sin regreso, ahi acaba
     listo_en: dict[str, int] = {}  # cuando esta listo cada pedido en el restaurante
     aceptadas: dict[str, Oferta] = {}
     carga_en_mochila: set[str] = set()
@@ -338,6 +340,8 @@ def simular(
             res.trayecto.append((t, pos, parada.tipo))
             if pos == ancla:
                 regreso_en = t_llegada  # el minuto exacto, no el entero del reloj
+            if not ruta:
+                termino_en = libre_en
 
             if parada.tipo == "pickup" and parada.oferta_id:
                 carga_en_mochila.add(parada.oferta_id)
@@ -370,7 +374,7 @@ def simular(
 
         # Regresar al ancla es obligacion de cualquier politica: si ya no queda
         # tiempo mas que para volver, el simulador encamina de regreso.
-        if not ruta and pos != ancla:
+        if cfg.regresar_al_ancla and not ruta and pos != ancla:
             regreso = viaje(pos, ancla, t)
             # Sale cuando esperar UN MINUTO MAS ya no lo dejaria volver a tiempo, no
             # cuando salir ahora apenas alcanza: lo segundo hace que llegue justo
@@ -396,9 +400,13 @@ def simular(
     res.ganado = round(res.ganado, 2)
     res.km_con_carga = round(res.km_con_carga, 3)
     res.km_sin_carga = round(res.km_sin_carga, 3)
-    res.regreso_en = regreso_en if pos == ancla and not ruta else None
     limite = cfg.duracion_min - cfg.margen_min
-    res.llego_tarde = res.regreso_en is None or res.regreso_en > limite
+    if cfg.regresar_al_ancla:
+        res.regreso_en = regreso_en if pos == ancla and not ruta else None
+        res.llego_tarde = res.regreso_en is None or res.regreso_en > limite
+    else:
+        # Sin regreso el turno acaba con la ultima entrega, donde sea que quede.
+        res.llego_tarde = bool(ruta) or termino_en > limite
     return res
 
 
@@ -446,7 +454,8 @@ def politica_greedy(
     pago = o.pago * o.surge * activos.factor_pago(rutas.ZONA_DE[i_pick])
     neto = pago - rutas.km(i_pick, i_drop) * seguridad.VEHICULOS[cfg.vehiculo].costo_km
     propios = minutos - cola  # lo que cuesta ESTE pedido, sin la cola de adelante
-    para_terminar = minutos + leg(i_drop, ancla, minutos)
+    regreso = leg(i_drop, ancla, minutos) if cfg.regresar_al_ancla else 0.0
+    para_terminar = minutos + regreso
     terminos = {
         "pago_neto": round(neto, 1),
         "minutos": round(propios, 1),
