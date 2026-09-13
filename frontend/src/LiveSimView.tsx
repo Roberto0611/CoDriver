@@ -31,7 +31,8 @@ import { LiveControls, LiveStartForm, type LivePending, type LivePhase } from '.
 import { ShockBanner } from './sim/ShockBanner'
 import { useSimMap } from './sim/useSimMap'
 import { Icon } from './ui/icons'
-import { unlock } from './voice/nuez'
+import { phrasesToSay } from './voice/liveNarration'
+import { callar, onFuente, say, unlock, type FuenteVoz } from './voice/nuez'
 import './styles/live.css'
 
 const MS_POR_TICK = 500 // 1 min simulado cada 0.5 s a ×1, igual que el replay
@@ -40,6 +41,13 @@ type Reintento = 'catalog' | 'start' | 'tick' | 'end'
 
 const semillaNueva = () => 2000 + Math.floor(Math.random() * 98000)
 const mensaje = (e: unknown) => (e instanceof Error ? e.message : String(e))
+const narracionNueva = () => ({
+  ultimoShock: null as number | null,
+  narrado: null as number | null,
+  callada: false,
+  /** La última frase encolada mientras no termine; null si Nuez está en silencio. */
+  hablando: null as Promise<void> | null,
+})
 
 export default function LiveSimView() {
   const [phase, setPhase] = useState<LivePhase>('idle')
@@ -50,6 +58,8 @@ export default function LiveSimView() {
   const [puntos, setPuntos] = useState<GeoJSON.FeatureCollection | null>(null)
   const [zones, setZones] = useState<LiveZone[]>([])
   const [rehearsal, setRehearsal] = useState<LiveRehearsal | null>(null)
+  const [voz, setVoz] = useState(true)
+  const [fuenteVoz, setFuenteVoz] = useState<FuenteVoz>('elevenlabs')
   const [params, setParams] = useState<LiveStartParams>(() => ({
     seed: semillaNueva(),
     duracion_min: 120,
@@ -76,6 +86,11 @@ export default function LiveSimView() {
   // llegan en el orden en que el backend las corrió.
   const colaRef = useRef<Promise<unknown>>(Promise.resolve())
   const resaltados = useRef<{ endsAt: number; cleanup: () => void }[]>([])
+  // Voz: el tick decide qué decir leyendo refs. `ultimoShock` es el starts_at_min más
+  // reciente visto en la sesión; `narrado` el del shock cuya reacción ya se dijo;
+  // `callada` si la sesión se terminó a mano; `hablando` si Nuez no ha terminado.
+  const vozRef = useRef(true)
+  const narracion = useRef(narracionNueva())
 
   const cambiarFase = (f: LivePhase) => {
     phaseRef.current = f
@@ -99,6 +114,9 @@ export default function LiveSimView() {
     generacion.current++
     detenerTimer()
     sessionRef.current = null
+    // Lo que Nuez tenía en cola habla de la sesión que se suelta.
+    callar()
+    narracion.current = narracionNueva()
     return generacion.current
   }
 
@@ -110,10 +128,46 @@ export default function LiveSimView() {
     })
   }
 
-  const aplicar = (snap: LiveSnapshot) =>
+  // Solo se llama con una respuesta de la sesión vigente (cada llamada va tras su guarda).
+  const aplicar = (snap: LiveSnapshot) => {
+    const n = narracion.current
+    for (const s of snap.active_shocks) {
+      n.ultimoShock = Math.max(n.ultimoShock ?? s.starts_at_min, s.starts_at_min)
+    }
     setLive((prev) =>
       prev && prev.snapshot.session_id === snap.session_id ? applySnapshot(prev, snap) : prev
     )
+  }
+
+  // Las decisiones nuevas llegan en los frames del tick. Con la voz apagada se sigue
+  // llevando la cuenta: al encenderla no se dice tarde la reacción a un shock viejo.
+  const narrar = (snap: LiveSnapshot) => {
+    const n = narracion.current
+    const decisiones = snap.nuez.frames.flatMap((f) => f.decisiones)
+    const { phrases, narratedShock } = phrasesToSay(decisiones, n.ultimoShock, n.narrado)
+    const reaccion = narratedShock !== n.narrado
+    n.narrado = narratedShock
+    if (!vozRef.current || n.callada || !phrases.length) return
+    // Como en /sim (VozToggle): si Nuez sigue hablando se omite en vez de amontonar. Hay
+    // turnos con un bloqueo por seguridad casi cada minuto y cada frase dura varios
+    // minutos simulados; en cola, la reacción al shock sonaría con el turno ya terminado.
+    // Por eso la reacción no espera: corta lo que suena.
+    if (reaccion) callar()
+    else if (n.hablando) return
+    let ultima = Promise.resolve()
+    for (const p of phrases) ultima = say(p)
+    const esta = ultima
+    n.hablando = esta
+    void esta.then(() => {
+      if (n.hablando === esta) n.hablando = null
+    })
+  }
+
+  // Calla a Nuez y suelta la marca de "hablando" (las frases calladas resuelven tarde).
+  const callarVoz = () => {
+    callar()
+    narracion.current.hablando = null
+  }
 
   const fallar = (e: unknown, retry: Reintento) => {
     detenerTimer()
@@ -160,6 +214,7 @@ export default function LiveSimView() {
       const snap = await enCola(() => tickLive(sid))
       if (sessionRef.current !== sid) return
       aplicar(snap)
+      narrar(snap)
       if (snap.status !== 'running') void terminar(sid)
       else if (phaseRef.current === 'running') programar(MS_POR_TICK / SPEEDS[speedRef.current])
     } catch (e) {
@@ -209,6 +264,16 @@ export default function LiveSimView() {
     } finally {
       setPending(null)
     }
+  }
+
+  // End a mano calla a Nuez, también para un tick que ya venía en camino. El fin natural
+  // del turno no: ahí llegan los bloqueos de fin de turno y se dejan terminar.
+  const terminarAMano = () => {
+    const sid = sessionRef.current
+    if (!sid) return
+    narracion.current.callada = true
+    callarVoz()
+    void terminar(sid)
   }
 
   const disparar = async (kind: DemoShockKind) => {
@@ -267,6 +332,16 @@ export default function LiveSimView() {
     setSpeedIdx(i)
   }
 
+  const alternarVoz = () => {
+    unlock()
+    const encendida = !vozRef.current
+    vozRef.current = encendida
+    setVoz(encendida)
+    if (!encendida) callarVoz()
+  }
+
+  useEffect(() => onFuente(setFuenteVoz), [])
+
   // ── Derivados ──
   const snap = live?.snapshot
   const ultimoFrame = live?.nuez.frames.at(-1)
@@ -313,11 +388,14 @@ export default function LiveSimView() {
         minute={enForma ? 0 : minute}
         duration={enForma ? params.duracion_min : (snap?.duration_min ?? params.duracion_min)}
         speedIdx={speedIdx}
+        voice={voz}
+        voiceSource={fuenteVoz}
         pending={pending}
         onPlayPause={playPause}
         onSpeed={cambiarVelocidad}
+        onVoice={alternarVoz}
         onShock={(k) => void disparar(k)}
-        onEnd={() => sessionRef.current && void terminar(sessionRef.current)}
+        onEnd={terminarAMano}
         onNewShift={nuevoTurno}
       />
 

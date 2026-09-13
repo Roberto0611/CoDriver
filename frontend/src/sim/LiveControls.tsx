@@ -12,6 +12,7 @@ import {
 } from '../lib/live'
 import { minutosAHora } from '../lib/sim'
 import { Icon } from '../ui/icons'
+import type { FuenteVoz } from '../voice/nuez'
 import { ModeSwitch } from './ModeSwitch'
 
 export type LivePhase = 'idle' | 'starting' | 'running' | 'paused' | 'finished' | 'error'
@@ -33,9 +34,12 @@ interface ControlsProps {
   minute: number
   duration: number
   speedIdx: number
+  voice: boolean
+  voiceSource: FuenteVoz
   pending: LivePending
   onPlayPause: () => void
   onSpeed: (idx: number) => void
+  onVoice: () => void
   onShock: (kind: DemoShockKind) => void
   onEnd: () => void
   onNewShift: () => void
@@ -46,6 +50,11 @@ export function LiveControls(p: ControlsProps) {
   const ocupado = p.pending !== null
   const shockListo = vivo && !ocupado
   const terminado = p.phase === 'finished'
+  const vozTitulo = !p.voice
+    ? 'Nuez voice off'
+    : p.voiceSource === 'browser'
+      ? 'Nuez voice on (ElevenLabs unavailable, using browser voice)'
+      : 'Nuez voice on (ElevenLabs)'
 
   const play = {
     idle: { title: 'Start live shift', icon: Icon.play, disabled: false },
@@ -96,6 +105,17 @@ export function LiveControls(p: ControlsProps) {
             {s}x
           </button>
         ))}
+        {/* El mismo botón de voz que /sim (VozToggle), sin su lógica de replay. Solo icono:
+            con el texto la píldora se mete bajo el logo a 1280. */}
+        <button
+          className={`speed-btn voz-toggle ${p.voice ? 'is-active' : ''}`}
+          title={vozTitulo}
+          aria-label={vozTitulo}
+          aria-pressed={p.voice}
+          onClick={p.onVoice}
+        >
+          {p.voice ? Icon.voice : Icon.voiceOff}
+        </button>
       </div>
 
       <div className="live-actions">
