@@ -207,8 +207,6 @@ export function LiveStartForm({
 
   return (
     <div className="glass-card live-form">
-      <span className="caps">New live shift</span>
-
       <div className="field">
         <label htmlFor="live-seed">Seed</label>
         <div className="live-seed-row">

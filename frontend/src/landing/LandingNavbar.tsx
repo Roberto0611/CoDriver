@@ -50,7 +50,7 @@ export function LandingNavbar() {
             letterSpacing: '-0.02em',
           }}
         >
-          CoDrive
+          CoDriver
         </span>
       </div>
 
