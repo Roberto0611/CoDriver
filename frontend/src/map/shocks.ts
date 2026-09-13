@@ -1,59 +1,80 @@
-// Disparo de shocks en vivo (cierre vial, lluvia): avisa al backend y lo
-// refleja en el mapa durante 15 segundos.
+// Resaltado visual de un shock en el mapa. Solo pinta: no llama al backend ni
+// programa su propio fin. Quien lo usa (la vista live) lo invoca cuando el
+// backend confirma el shock y corre la limpieza cuando el shock expira.
 
-import type { Map as MLMap } from 'maplibre-gl'
+import type { ExpressionSpecification, Map as MLMap } from 'maplibre-gl'
 
-import { API_URL } from '../lib/api'
-import { MTY_CENTER } from './style'
+import { CLOSURE_RED, MAP_BG_DIM } from './style'
 
-export type ShockType = 'closure' | 'rain'
+export interface ShockVisual {
+  type: 'closure' | 'surge' | 'rain'
+  /** Centro de la zona afectada, `[lon, lat]`. */
+  zoneCenter?: [number, number]
+  /** Nombre (o parte del nombre) de la calle cerrada. */
+  road?: string
+}
 
-export async function dispararShock(map: MLMap | null, type: ShockType) {
-  try {
-    const payload =
-      type === 'closure'
-        ? { shock_type: 'closure', zone: 2, duration_min: 40, road: 'Constitución' }
-        : { shock_type: 'rain', duration_min: 45 }
+const ZOOM_CLOSURE = 15
+const ZOOM_SURGE = 14
+const FLY_MS = 2000
 
-    await fetch(`${API_URL}/shock`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
-    })
+// Capas de calles de relleno (`roads-<clase>-<zona>`); el casing no se pinta.
+const esCapaDeCalle = (id: string) => id.startsWith('roads-') && !id.includes('-casing')
 
-    if (!map) return
-    if (type === 'closure') {
-      map.flyTo({ center: [-100.315, 25.668], zoom: 15, pitch: 45, duration: 2000 })
+/** Resalta el shock y devuelve la función que deja el mapa como estaba. */
+export function resaltarShock(map: MLMap | null, shock: ShockVisual): () => void {
+  if (!map) return () => {}
 
-      const roadLayers = map
-        .getStyle()
-        .layers.filter((l: any) => l.id.startsWith('roads-') && !l.id.includes('-casing'))
-      for (const layer of roadLayers) {
-        const originalColor = map.getPaintProperty(layer.id, 'line-color')
-        if (originalColor && (!Array.isArray(originalColor) || originalColor[0] !== 'case')) {
-          map.setPaintProperty(layer.id, 'line-color', [
-            'case',
-            ['in', 'Constitución', ['coalesce', ['get', 'name'], '']],
-            '#ef4444', // Red
-            originalColor,
-          ] as any)
+  if (shock.zoneCenter) {
+    const zoom = shock.type === 'closure' ? ZOOM_CLOSURE : ZOOM_SURGE
+    map.flyTo({ center: shock.zoneCenter, zoom, duration: FLY_MS })
+  }
 
-          setTimeout(() => {
-            if (map.getLayer(layer.id)) map.setPaintProperty(layer.id, 'line-color', originalColor)
-          }, 15000)
-        }
-      }
-    } else {
-      // Lluvia
-      map.flyTo({ center: MTY_CENTER, zoom: 12, pitch: 0, duration: 2000 })
-      const originalBg = map.getPaintProperty('background', 'background-color')
-      map.setPaintProperty('background', 'background-color', '#94a3b8') // Rainy blue-gray
-      setTimeout(() => {
-        if (map.getLayer('background'))
-          map.setPaintProperty('background', 'background-color', originalBg)
-      }, 15000)
+  if (shock.type === 'closure' && shock.road) return pintarCierre(map, shock.road)
+  if (shock.type === 'rain') return oscurecerFondo(map)
+  return () => {}
+}
+
+/** Pinta de rojo las calles cuyo nombre contiene `road`, incluidas las que carguen después. */
+function pintarCierre(map: MLMap, road: string): () => void {
+  const leerColor = (id: string) => map.getPaintProperty(id, 'line-color')
+  const originales = new Map<string, NonNullable<ReturnType<typeof leerColor>>>()
+
+  const pintar = () => {
+    for (const id of map.getLayersOrder()) {
+      if (!esCapaDeCalle(id) || originales.has(id)) continue
+      const original = leerColor(id)
+      if (original === undefined) continue
+      originales.set(id, original)
+      const expr: ExpressionSpecification = [
+        'case',
+        ['in', road, ['coalesce', ['get', 'name'], '']],
+        CLOSURE_RED,
+        original as ExpressionSpecification,
+      ]
+      map.setPaintProperty(id, 'line-color', expr)
     }
-  } catch (e) {
-    console.error('Error triggering shock:', e)
+  }
+
+  pintar()
+  // Las calles se cargan por zona al mover el mapa (el flyTo trae zonas nuevas).
+  map.on('styledata', pintar)
+
+  return () => {
+    map.off('styledata', pintar)
+    for (const [id, original] of originales) {
+      if (map.getLayer(id)) map.setPaintProperty(id, 'line-color', original)
+    }
+  }
+}
+
+function oscurecerFondo(map: MLMap): () => void {
+  if (!map.getLayer('background')) return () => {}
+  const original = map.getPaintProperty('background', 'background-color')
+  map.setPaintProperty('background', 'background-color', MAP_BG_DIM)
+  return () => {
+    if (map.getLayer('background')) {
+      map.setPaintProperty('background', 'background-color', original)
+    }
   }
 }
