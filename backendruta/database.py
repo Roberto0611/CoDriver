@@ -76,10 +76,13 @@ def init_db() -> bool:
 
     try:
         with engine.begin() as conn:
-            # 1. Intentar activar la extensión TimescaleDB
+            # 1. Intentar activar la extensión TimescaleDB. Va en un SAVEPOINT: en
+            # Postgres una orden que falla aborta la transacción entera, y sin él las
+            # tablas de abajo tronaban con "transacción abortada" en un Postgres sin Timescale.
             has_timescale = False
             try:
-                conn.execute(text("CREATE EXTENSION IF NOT EXISTS timescaledb CASCADE;"))
+                with conn.begin_nested():
+                    conn.execute(text("CREATE EXTENSION IF NOT EXISTS timescaledb CASCADE;"))
                 has_timescale = True
                 logger.info("Extensión TimescaleDB detectada y activa.")
             except Exception as e:
@@ -105,12 +108,13 @@ def init_db() -> bool:
             # Si TimescaleDB está presente, convertirla a hypertable
             if has_timescale:
                 try:
-                    conn.execute(
-                        text(
-                            "SELECT create_hypertable("
-                            "'trafico_calles', 'tiempo', if_not_exists => TRUE);"
+                    with conn.begin_nested():  # mismo motivo: un fallo no aborta el resto
+                        conn.execute(
+                            text(
+                                "SELECT create_hypertable("
+                                "'trafico_calles', 'tiempo', if_not_exists => TRUE);"
+                            )
                         )
-                    )
                 except Exception as e:
                     logger.debug(f"Hipertabla ya existente o no requerida: {e}")
 
