@@ -14,7 +14,8 @@ import { API_URL } from '../lib/api'
 
 /** URL que reproduce una frase. Sirve tal cual en `<audio src>`. */
 export function sayUrl(text: string, apiUrl: string = API_URL): string {
-  return `${apiUrl}/api/voice/say?text=${encodeURIComponent(text.trim())}`
+  const base = `${apiUrl}/api/voice/say?text=${encodeURIComponent(text.trim())}`
+  return elevenLabsLang !== 'en' ? `${base}&lang=${elevenLabsLang}` : base
 }
 
 /** Quién sonó la última frase. `browser` = ElevenLabs no respondió y habló el navegador. */
@@ -23,6 +24,24 @@ export type FuenteVoz = 'elevenlabs' | 'browser'
 let cola: Promise<void> = Promise.resolve()
 let desbloqueado = false
 let generacion = 0
+let elevenLabsLang = 'en'
+let browserLang = 'en-US'
+let langListeners: Array<() => void> = []
+
+export function setVoiceLanguage(elLang: string, bLang: string) {
+  elevenLabsLang = elLang
+  browserLang = bLang
+  langListeners.forEach((cb) => cb())
+}
+
+export function getVoiceLanguage() {
+  return { elLang: elevenLabsLang, bLang: browserLang }
+}
+
+export function onVoiceLanguage(cb: () => void) {
+  langListeners.push(cb)
+  return () => { langListeners = langListeners.filter((l) => l !== cb) }
+}
 let sonando: { audio: HTMLAudioElement; soltar: () => void } | null = null
 const oyentes = new Set<(f: FuenteVoz) => void>()
 
@@ -88,11 +107,12 @@ function reproducir(text: string, lang: string): Promise<void> {
  * Habla una frase. Las frases se encolan en orden; la promesa resuelve al terminar esa frase.
  * `lang` es el idioma de la voz del navegador si ElevenLabs no responde (/live pasa en-US).
  */
-export function say(text: string, { lang = 'en-US' }: { lang?: string } = {}): Promise<void> {
+export function say(text: string, { lang }: { lang?: string } = {}): Promise<void> {
   const t = text.trim()
   if (!t) return Promise.resolve()
   const mia = generacion
-  const turno = cola.then(() => (mia === generacion ? reproducir(t, lang) : undefined))
+  const actualLang = lang ?? browserLang
+  const turno = cola.then(() => (mia === generacion ? reproducir(t, actualLang) : undefined))
   cola = turno.catch(() => undefined)
   return turno
 }

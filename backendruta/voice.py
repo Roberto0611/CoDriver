@@ -34,14 +34,20 @@ def _ahora() -> float:
     return time.monotonic()
 
 
+from dataclasses import replace
+
 @router.get("/say")
-def say(text: str = Query(..., min_length=1, max_length=MAX_CHARS)) -> StreamingResponse:
+def say(
+    text: str = Query(..., min_length=1, max_length=MAX_CHARS),
+    lang: str | None = Query(None)
+) -> StreamingResponse:
     global _caida_hasta, _ultima_falla
-    hit = tts.en_cache(text)
+    cfg = replace(config, language=lang) if lang else config
+    hit = tts.en_cache(text, cfg=cfg)
     if not hit and _ahora() < _caida_hasta:
         raise HTTPException(status_code=502, detail=f"ElevenLabs en pausa: {_ultima_falla}")
     try:
-        chunks = tts.stream(text)
+        chunks = tts.stream(text, cfg=cfg)
         # Se fuerza la primera llamada aqui: un error debe ser un 502, no un stream roto.
         primero = next(chunks)
     except tts.VozError as e:
