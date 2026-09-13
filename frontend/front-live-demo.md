@@ -101,8 +101,10 @@ POST /live/end
   response: resultado final + ruta del JSONL
 
 GET /live/counterfactual/{session_id}
-  response: el contrafactual de Nuez sobre el turno ya terminado, con sus shocks
-  (409 si sigue corriendo; mismo esquema que contrafactual_<seed>.json)
+  response: 202 { status: "computing", session_id, seed } mientras re-simula;
+  200 el contrafactual de Nuez sobre ESE turno ya terminado (mismo esquema que
+  contrafactual_<seed>.json, más session_id); 500 si el cálculo tronó;
+  409 si sigue corriendo; 404 si la sesión no existe
 ```
 
 Para el primer corte, el navegador puede hacer `tick` cada 500 ms (1 minuto simulado
@@ -242,11 +244,26 @@ Una persona que no escribió el código puede hacer esto sin modificar archivos:
 - **JSONL live** usa los nombres oficiales del esquema; se valida con
   `courier/validate_format (2).py`. Es para auditar el turno live; el replay del
   protocolo §6 usa la bitácora de `/decide` (ver [La bitácora JSONL](#la-bitácora-jsonl)).
-- **Contrafactual aparte de End.** `GET /live/counterfactual/{session_id}` re-simula el turno
-  con los mismos shocks, una corrida por salto por dinero (`contrafactual.py`). 2 h tarda
-  ~0.3 s, pero 8 h tarda ~4 s: dentro de `/live/end` dejaría el botón colgado. Se calcula al
-  pedirlo, sin el candado del registro, y se guarda por sesión. El front lo pide al terminar y
-  lo pinta con el mismo bloque que `/sim` (`CounterfactualReport`), bajo el resumen final.
+- **Contrafactual de la sesión, aparte de End.** El contrafactual de `/live` es el de **ese**
+  turno: re-simula el seed y la config de la sesión con los shocks que metió el juez y con la
+  estrategia que Gemini tenía publicada cuando Nuez decidió cada pedido (`live_nuez.py` la
+  anota; `contrafactual.reporte(..., disrupciones=, estrategias=)`), una corrida por salto por
+  dinero. Así su "real" es exactamente el turno que se vio. En las corridas forzadas la
+  estrategia de cada pedido se queda como estaba: no se inventa qué habría contestado Gemini.
+  No hay grabado ni referencia: nunca cae a `contrafactual_2000.json` ni a otro seed; los
+  `contrafactual_<seed>.json` son solo de `/sim`.
+- **Tiempos.** Crece con los saltos por dinero. Medido en proceso, 2 h tarda 0.1-0.25 s (seeds
+  2000, 2005, 3141) y 8 h tarda 3.0 s (seed 2000, 12 saltos), 4.0 s (2005, 15) y 8.0 s (3141,
+  34), hasta ~11 s la primera vez en frío. Con el API de dev corriendo (uvicorn, grafo cargado),
+  3141 a 8 h tardó 16.6 s entre _Re-simulating_ y el reporte. Por eso corre en un hilo
+  aparte: `/live/end` lo arranca al soltar el candado de la sesión y contesta enseguida;
+  `GET /live/counterfactual/{id}` da 202 mientras calcula y el front vuelve a preguntar cada
+  700 ms. Ningún candado queda tomado durante el cálculo, y se calcula una vez por sesión.
+- **En el panel** (`sim/LiveCounterfactual.tsx`): mientras calcula, _Re-simulating this
+  shift, one skipped order at a time…_ con un spinner; al llegar, el mismo bloque que `/sim`
+  (`CounterfactualReport`) titulado _If Navie had taken its skips · Seed N_; si falla,
+  _Couldn't compute this shift's counterfactual: …_ con el motivo. Un reporte de otra sesión u
+  otro seed no se pinta nunca (`withCounterfactual` y el componente lo revisan).
 
 ## Cómo correr el demo live
 
@@ -299,10 +316,13 @@ VITE_API_URL=http://127.0.0.1:9000 npm --prefix frontend run dev
    **End shift**. El panel baja solo al resultado final y a la ruta del **Event log**. Con el
    cierre a las 14:30 y el retraso a las 14:56 termina en Greedy $353.63 / 4 entregas y Nuez
    $428.65 / 7 entregas (solo con el cierre, Nuez termina en $395.94).
-10. Un momento después aparece **If Nuez had taken its skips** en la misma tarjeta: el
-    contrafactual re-simula el turno con el cierre y el retraso puestos. En el guion: 5 saltos
-    por dinero; tomando cualquiera solo, 3 habrían ganado menos y 2 lo mismo. Cada renglón es una
-    corrida aparte: los deltas no se suman.
+10. En la misma tarjeta aparece **If Navie had taken its skips · Seed 2005**: primero
+    _Re-simulating this shift…_ y, en menos de un segundo, el contrafactual de **esta** sesión,
+    re-simulada con el cierre y el retraso puestos. En el guion: 5 saltos por dinero; tomando
+    cualquiera solo, 3 habrían ganado menos y 2 lo mismo. Los renglones son 14:02 (o_002,
+    −MXN 117), 14:03 (o_003, −MXN 30) y 14:58 (o_046, −MXN 21); seguridad: Heat rule 23 ·
+    Shift ends 15; vehículo lleno 46. Cada renglón es una corrida aparte: los deltas no se suman.
+    Con otro seed sale el de ese seed, calculado igual; nunca el de otro.
 
 Un cierre entre 14:27 y 14:33 sigue cambiando los tramos por Centro de los dos, así que
 pasarse un minuto no arruina el demo; solo cambia la corrida para repetirla. El retraso no
