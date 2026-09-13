@@ -232,6 +232,21 @@
   animation: navieSearching 4.8s ease-in-out infinite;
 }
 
+/* Modo: Logo (como Buscando, pero sin ningún desplazamiento vertical) */
+.navie-stage.navie-logo .navie-body-wrap {
+  animation: none;
+  transform: translateY(0) scale(1);
+}
+.navie-stage.navie-logo .navie-eyes-wrap {
+  animation: none;
+  opacity: 0;
+  transform: scale(0.85);
+  pointer-events: none;
+}
+.navie-stage.navie-logo .navie-needle-wrap {
+  animation: navieSearching 4.8s ease-in-out infinite;
+}
+
 /* Modo: Error (Ojos de error entran con fade-in) */
 .navie-stage.navie-error {
   animation: navieErrorSway 0.95s ease-in-out infinite;

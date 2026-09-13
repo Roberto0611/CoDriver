@@ -5,7 +5,7 @@ import eyesImage from './assets/eyes.png'
 import eyesHappyImage from './assets/eyes-happy.png'
 import eyesErrorImage from './assets/eyes-error.png'
 
-export type CompassMode = 'idle' | 'wink' | 'happy' | 'searching' | 'error'
+export type CompassMode = 'idle' | 'wink' | 'happy' | 'searching' | 'error' | 'logo'
 
 interface NavieCompassProps {
   mode?: CompassMode

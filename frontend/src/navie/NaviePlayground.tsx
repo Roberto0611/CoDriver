@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { NavieCompass, type CompassMode } from './NavieCompass'
 
-const modes: CompassMode[] = ['idle', 'wink', 'happy', 'searching', 'error']
+const modes: CompassMode[] = ['idle', 'wink', 'happy', 'searching', 'error', 'logo']
 
 export function NaviePlayground() {
   const [mode, setMode] = useState<CompassMode>('idle')
