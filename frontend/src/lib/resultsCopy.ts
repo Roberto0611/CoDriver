@@ -1,0 +1,44 @@
+// Los números del panel de distribución, cada uno con su fuente. Nada aquí se
+// escribe a ojo: si el motor cambia, se regeneran con los comandos de abajo y
+// resultsCopy.test.ts compara RIVALES contra results_table.csv.
+
+/** seeds.py: TUNEO es donde se construyó la tabla de valor y se barrieron parámetros. */
+export const SEEDS_TUNEO: readonly [number, number] = [0, 1999]
+
+/**
+ * `python scripts/results_table.py` → results_table.csv: 50 turnos de REPORTE,
+ * 120 min, moto, 14:00, ancla Tec, margen 10. Medias de `mean_earnings_mxn`.
+ */
+export const RIVALES = {
+  turnos: 50,
+  seedsReporte: [2000, 2049] as readonly [number, number],
+  media: {
+    AcceptAll: 180.36,
+    HighestPay: 133.19,
+    NearestFirst: 128.38,
+    GreedyRate: 206.15,
+    OurAgent: 265.21,
+    Oracle: 280.57,
+  },
+} as const
+
+/**
+ * `python comparar.py 200` y `python comparar.py 200 --shocks`: Nuez contra
+ * greedy en 200 turnos de REPORTE, misma config. No hay CSV de esto; si cambia
+ * el motor hay que volver a correrlos y copiar el DELTA y el "ganó en".
+ */
+export const DELTA_200 = {
+  turnos: 200,
+  seedsReporte: [2000, 2199] as readonly [number, number],
+  normal: { deltaPct: 33.5, gana: 152 },
+  shocks: { deltaPct: 32.9, gana: 154 },
+} as const
+
+/**
+ * Qué fracción del Oracle captura Nuez. El Oracle (`oracle.resolver`) se queda con
+ * lo mejor entre su búsqueda en haz y las cinco políticas online, OurAgent
+ * incluida: es el mejor plan offline que conocemos, no una cota demostrada.
+ */
+export function porcentajeDelOracle(): number {
+  return Math.round((RIVALES.media.OurAgent / RIVALES.media.Oracle) * 1000) / 10
+}
