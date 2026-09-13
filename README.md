@@ -62,6 +62,10 @@ npm install
 npm run dev               # http://localhost:5173
 ```
 
+Demo en vivo en `/live` (Greedy y Nuez en el mismo turno, con cierre o surge a media
+corrida): cómo correrlo y el guion ensayado en
+[`frontend/front-live-demo.md`](frontend/front-live-demo.md#cómo-correr-el-demo-live).
+
 ## Antes de subir cambios
 
 CI corre en cada push y PR a `main`. Lo mismo, local:

@@ -12,6 +12,10 @@ turno fresco, contadores que cambian y una disrupción a mitad de la demostraci�
 
 ## Estado actual (importante)
 
+> Esta sección describe lo que había **antes** del demo live. Ya se implementó: `/sim`
+> no tiene botones de shock y el demo vive en `/live`. Ver
+> [Cómo correr el demo live](#cómo-correr-el-demo-live).
+
 `frontend/src/SimView.tsx` es un **reproductor de turnos grabados**. Carga
 `/turnos.json` y los archivos JSON exportados; mapa, rutas, decisiones y contadores
 no se calculan en el navegador ni llegan desde una simulación activa.
@@ -143,25 +147,25 @@ llegar completa: no volver a sintetizarla y perder la restricción que mandó.
 
 ### 1. Backend: sesión doble y determinista
 
-- [ ] Leer `sim.py` y extraer/reutilizar el avance de un minuto sin alterar el
+- [x] Leer `sim.py` y extraer/reutilizar el avance de un minuto sin alterar el
       resultado de `simular()` ni los benchmarks de `comparar.py`.
-- [ ] Crear `LiveDemoSession` con un estado independiente para cada política.
-- [ ] Generar las ofertas una sola vez a partir del seed; entregar la misma instancia
+- [x] Crear `LiveDemoSession` con un estado independiente para cada política.
+- [x] Generar las ofertas una sola vez a partir del seed; entregar la misma instancia
       lógica/oferta equivalente a Greedy y Nuez en el mismo minuto.
-- [ ] Al inyectar un shock, aplicarlo a los dos agentes desde el mismo minuto. La
+- [x] Al inyectar un shock, aplicarlo a los dos agentes desde el mismo minuto. La
       física siempre debe usar `shocks.py`; Gemini no decide si un cierre ralentiza
       una calle.
-- [ ] Escribir `shock`, ofertas, decisiones y resultados en JSONL para que el turno
+- [x] Escribir `shock`, ofertas, decisiones y resultados en JSONL para que el turno
       pueda auditarse y eventualmente exportarse como replay.
-- [ ] Garantizar que una sesión nueva no comparte rutas, dinero, ofertas aceptadas ni
+- [x] Garantizar que una sesión nueva no comparte rutas, dinero, ofertas aceptadas ni
       shocks con una sesión anterior.
 
 ### 2. Backend: endpoints y pruebas
 
-- [ ] Implementar las rutas `/live/*` anteriores en un router separado.
-- [ ] Validar que no se pueda hacer `tick` después de terminar ni inyectar shock sin
+- [x] Implementar las rutas `/live/*` anteriores en un router separado.
+- [x] Validar que no se pueda hacer `tick` después de terminar ni inyectar shock sin
       sesión activa.
-- [ ] Agregar tests que fijen:
+- [x] Agregar tests que fijen:
   - mismo seed + mismos ticks => mismo snapshot/decisiones;
   - Greedy y Nuez ven exactamente las mismas ofertas;
   - closure cambia los tiempos de ruta de ambos;
@@ -171,27 +175,28 @@ llegar completa: no volver a sintetizarla y perder la restricción que mandó.
 
 ### 3. Frontend: separar replay de live
 
-- [ ] Conservar `/sim` como **Recorded replay**. Quitar de esta vista los botones que
+- [x] Conservar `/sim` como **Recorded replay**. Quitar de esta vista los botones que
       llaman `/shock`, o dejarlos deshabilitados con una explicación; nunca deben
       aparentar que alteran el JSON grabado.
-- [ ] Crear una ruta, por ejemplo `/live`, con `LiveSimView.tsx`.
-- [ ] Reusar, cuando sea posible, mapa, marcadores, `Counters`, `Decisions` y estilos
+- [x] Crear una ruta, por ejemplo `/live`, con `LiveSimView.tsx`.
+- [x] Reusar, cuando sea posible, mapa, marcadores, `Counters`, `Decisions` y estilos
       de `SimView.tsx`; no duplicar componentes visuales.
-- [ ] Agregar formulario mínimo de inicio: seed (por defecto 2000 o aleatorio),
+- [x] Agregar formulario mínimo de inicio: seed (por defecto 2000 o aleatorio),
       vehículo, duración, ancla y botón **Start live shift**.
-- [ ] Mientras corre, llamar `/live/tick` según la velocidad elegida y pintar el
+- [x] Mientras corre, llamar `/live/tick` según la velocidad elegida y pintar el
       `snapshot` recibido. El backend es la fuente de verdad.
-- [ ] Habilitar solo con sesión activa:
-  - **Close Constitución** (zone 2, 40 min, road `Constitución`);
+- [x] Habilitar solo con sesión activa:
+  - **Close Constitución** (zone 2, 40 min, road `Constitución`) → quedó en zona 0,
+    ver [Desviaciones decididas](#desviaciones-decididas);
   - **Trigger surge** (zona visible, multiplicador y duración fijos para el demo).
-- [ ] Al recibir el resultado, mostrar un banner persistente con el shock, cuándo
+- [x] Al recibir el resultado, mostrar un banner persistente con el shock, cuándo
       expira y el cambio que provocó. No ocultarlo automáticamente a los 10 segundos.
-- [ ] Mostrar en ambas tarjetas la decisión inmediatamente posterior al shock y la
+- [x] Mostrar en ambas tarjetas la decisión inmediatamente posterior al shock y la
       razón de Nuez. Ese es el momento que se va a narrar durante el pitch.
-- [ ] Manejar errores de red con mensaje visible y detener el autoplay; no limitarse
+- [x] Manejar errores de red con mensaje visible y detener el autoplay; no limitarse
       a `console.error`.
 
-### 4. Voz (solo después de que live funcione)
+### 4. Voz (solo después de que live funcione) (en curso en esta rama)
 
 - [ ] Al recibir una decisión nueva de Nuez, llamar `say(reason)` de
       `frontend/src/voice/nuez.ts` si la decisión merece ser narrada.
@@ -211,6 +216,127 @@ Una persona que no escribió el código puede hacer esto sin modificar archivos:
 5. Terminar el turno; ver ganancias y entregas de ambos.
 6. Abrir el JSONL producido y encontrar el evento `shock` y las decisiones posteriores.
 7. Repetir con el mismo seed y el mismo minuto de shock; obtener las mismas decisiones.
+
+## Desviaciones decididas
+
+- **Cierre en zona 0 (Centro) + "Constitución", no zona 2.** La zona 2 es Valle; JP
+  eligió exactitud geográfica. Como no todo seed pasa por Centro, hay un seed ensayado.
+- **Surge: Tec (zona 4), ×1.8, 30 min.** Fijo en `DEMO_SHOCKS`
+  (`frontend/src/lib/live.ts`) para que el demo sea un click, en la zona del ancla.
+- **Sin botón de lluvia.** El backend acepta `rain` en `/live/shock`; la UI solo muestra
+  cierre y surge, que es lo que pide el reto y lo que se ve en el mapa.
+- **Tramos sobre calles reales.** Se usa el grafo que `main.py` ya carga
+  (`live_api.registry.usar_grafo(G)`), sin cargarlo dos veces. Sin
+  `data/mty_graph.pkl` los tramos caen a línea recta; las decisiones no cambian.
+- **JSONL live** usa los nombres oficiales del esquema; se valida con
+  `courier/validate_format (2).py`.
+- **`delay` no está en `/live/shock` (pendiente).** `shocks.py` lo modela, pero necesita
+  `order_id` y minutos de retraso que el endpoint todavía no recibe.
+
+## Cómo correr el demo live
+
+Requisitos: dependencias instaladas como en el `README.md` (`pip install` y
+`npm install` en `frontend`). `data/mty_graph.pkl` no está en git; sin él todo funciona,
+pero los tramos se dibujan en línea recta.
+
+**1. Backend**, desde la raíz del repo (ahí se resuelve `cache/live/`):
+
+```bash
+python -m uvicorn backendruta.main:app --host 127.0.0.1 --port 8000
+```
+
+**2. Frontend.** Llama a `http://127.0.0.1:8000` por defecto (`frontend/src/lib/api.ts`):
+
+```bash
+npm --prefix frontend run dev
+```
+
+Si la API corre en otro host o puerto:
+
+```bash
+VITE_API_URL=http://127.0.0.1:9000 npm --prefix frontend run dev
+```
+
+**3.** Abrir `http://localhost:5173/live`.
+
+### Guion ensayado
+
+1. En **New live shift**, pulsar **Rehearsed** (seed 2005). Lo demás por defecto:
+   Motorcycle, 2 h, Tec.
+2. **Start live shift**: los dos arrancan en $0 y avanzan juntos.
+3. Pausar en la píldora cuando el reloj marque **14:29–14:30** y esperar a que se
+   detenga: el shock entra en el minuto que marca el reloj.
+4. **Close Constitución**. El banner dice _Injected at 14:30_.
+5. Reanudar. A las 14:32 llega la primera oferta tras el cierre: Nuez la acepta y Greedy
+   la salta por capacidad. Señalar el banner: tramos por Centro de ambos y la razón de
+   Nuez.
+6. Dejar correr al menos hasta 14:45 (ver
+   [Momentos de seguridad](#momentos-de-seguridad-en-el-seed-ensayado)) y pulsar
+   **End shift**. Con el cierre a las 14:30 termina en Greedy $353.63 / 4 entregas y
+   Nuez $395.94 / 7 entregas.
+
+Un cierre entre 14:27 y 14:33 sigue cambiando los tramos por Centro de los dos, así que
+pasarse un minuto no arruina el demo; solo cambia la corrida para repetirla.
+
+### La bitácora JSONL
+
+Cada sesión escribe `cache/live/<session_id>.jsonl` (o `$NUEZ_LIVE_DIR/<session_id>.jsonl`
+si esa variable está definida al arrancar la API). El `session_id` es
+`live-<seed>-<6 hex>` y el panel muestra la ruta en **Event log** al terminar. Las más
+recientes:
+
+```bash
+ls -t cache/live | head -n 2
+```
+
+El evento `shock` con su número de línea; las decisiones posteriores son las líneas de
+abajo:
+
+```bash
+python -c "import json,sys; [print(n, l, end='') for n, l in enumerate(open(sys.argv[1], encoding='utf-8'), 1) if json.loads(l).get('event') == 'shock']" cache/live/live-2005-AAAAAA.jsonl
+```
+
+### Repetir y comprobar determinismo
+
+Repetir el guion con el mismo seed y el shock en el mismo minuto (mismo _Injected at_).
+Después comparar las decisiones de las dos bitácoras, ignorando `session_id` y
+`latency_ms`:
+
+```bash
+python -c "import json,sys; ign={'session_id','latency_ms'}; d=lambda p: [{k: v for k, v in e.items() if k not in ign} for e in map(json.loads, open(p, encoding='utf-8')) if e.get('event') == 'decision']; a, b = d(sys.argv[1]), d(sys.argv[2]); print('iguales' if a == b else 'DISTINTAS', len(a), len(b))" cache/live/live-2005-AAAAAA.jsonl cache/live/live-2005-BBBBBB.jsonl
+```
+
+Debe imprimir `iguales` con el mismo número de decisiones. Si dice `DISTINTAS`, revisar
+primero con el comando anterior que el `shock` esté en el mismo minuto en los dos
+archivos. La velocidad (×1, ×2, ×4) no afecta: cada tick es un minuto.
+
+## Momentos de seguridad en el seed ensayado
+
+El protocolo pide ver al menos dos restricciones de seguridad disparándose en vivo. En el
+seed 2005 (2 h desde 14:00, moto, Tec, margen 10, cierre a las 14:30, sin surge) los dos
+agentes disparan **tres distintas**: `vehicle_capacity`, `shift_end_infeasible` y
+`heat_rule`. No hace falta otro seed.
+
+| Hora  | Agente | Restricción            | Razón corta                                              |
+| ----- | ------ | ---------------------- | -------------------------------------------------------- |
+| 14:06 | Nuez   | `vehicle_capacity`     | En moto solo caben 3 pedidos a la vez                    |
+| 14:08 | Greedy | `vehicle_capacity`     | 97 L y en la caja de moto caben 60                       |
+| 14:09 | Greedy | `shift_end_infeasible` | No alcanza a entregar y volver antes del fin             |
+| 14:34 | Greedy | `shift_end_infeasible` | Por el cierre: sin él, la saltaba por `reservation_wage` |
+| 14:43 | Nuez   | `shift_end_infeasible` | Por el cierre: sin él, la primera es a las 15:00         |
+| 15:30 | Nuez   | `heat_rule`            | 90 min seguidos bajo el sol de las 15; para 20 min       |
+| 15:33 | Greedy | `heat_rule`            | 91 min seguidos; sin cierre, la primera es a las 15:47   |
+
+- Nuez repite `vehicle_capacity` en la mayoría de las ofertas entre 14:06 y 14:42,
+  mientras lleva 3 pedidos. Llegar a 14:45 antes de **End shift** ya muestra dos
+  restricciones; la tercera pide dejar correr hasta 15:30.
+- La lista de decisiones y los avisos en pantalla son de Nuez; los rechazos de Greedy
+  quedan en el JSONL.
+- `flagged_zone_night` (después de las 22:00) y `mandatory_break` (4 h seguidas) no
+  caben en un turno de 14:00 a 16:00.
+- Se midió con `LiveDemoSession` y geometría `linea_recta`, contando las decisiones con
+  `binding_constraint` distinto de `null` y de `reservation_wage`, y comparando con la
+  misma corrida sin cierre.
 
 ## Fuera de alcance para este corte
 
