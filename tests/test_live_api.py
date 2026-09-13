@@ -149,3 +149,11 @@ def test_errores(api):
         ).status_code
         == 409
     )
+
+
+def test_start_acepta_la_jornada_de_ocho_horas_y_media(api):
+    """El live corre las mismas jornadas que /shift/start: hasta 510 min, no mas."""
+    r = api.post("/live/start", json={"seed": 2000, "duracion_min": 510})
+    assert r.status_code == 200, r.text
+    assert r.json()["duration_min"] == 510
+    assert api.post("/live/start", json={"seed": 2000, "duracion_min": 511}).status_code == 422
