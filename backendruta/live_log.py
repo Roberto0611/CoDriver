@@ -176,13 +176,16 @@ def earnings_update(
 
 def shock(s: Shock, cfg: ConfigTurno, zone_id: int | None) -> dict[str, Any]:
     """La misma forma que el `shock` del /shock oficial: se arma con su funcion para
-    que un campo que solo aplica a un tipo (road, multiplier) no aparezca en otro."""
+    que un campo que solo aplica a un tipo (road, multiplier, order_id/slip_min) no
+    aparezca en otro. Un delay no trae zona: el esquema la pide solo a surge y closure."""
     peticion = ShockRequest(
         shock_type=s.tipo,
         duration_min=s.duracion_min,
         zone=zone_id,
         multiplier=s.multiplicador,
         road=s.calle,
+        order_id=s.oferta_id,
+        slip_min=s.retraso_min,
     )
     evento = courier_format.shock_event(peticion, momento(cfg, s.t), zone_id)
     evento.update({"minute": s.t, "ends_at_min": s.t + s.duracion_min})

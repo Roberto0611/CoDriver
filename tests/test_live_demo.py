@@ -353,9 +353,30 @@ def test_delay_pega_al_siguiente_pedido_y_se_ve_en_sus_terminos(tmp_path):
         assert con[a][objetivo]["terminos"]["minutos"] > sin[a][objetivo]["terminos"]["minutos"], a
     assert any(con[a][objetivo]["accion"] != sin[a][objetivo]["accion"] for a in AGENTES)
 
-    eventos = [json.loads(linea) for linea in s.log.path.read_text(encoding="utf-8").splitlines()]
-    choque = next(e for e in eventos if e["event"] == "shock")
+    choque = next(e for e in eventos_de(s) if e["event"] == "shock")
     assert choque["order_id"] == objetivo and choque["slip_min"] == 15
+
+
+def test_closure_surge_y_delay_pasan_el_validador_oficial(tmp_path):
+    """Los tres shocks del ensayo en una sola sesion: el log sigue siendo del formato
+    oficial y el delay lleva los nombres del esquema (order_id, slip_min) sin zona."""
+    s = sesion(tmp_path)
+    correr(s, 30)
+    s.shock("closure", 40, zona=0, calle="Constitución")
+    correr(s, 50)
+    s.shock("surge", 30, zona=4, multiplicador=1.8)
+    correr(s, MINUTO_DELAY)
+    objetivo = s.shock("delay", retraso_min=15)["shock"]["order_id"]
+    correr(s, 120)
+    s.end()
+
+    formato, counts = errores_de_formato(s)
+    assert formato == [] and counts["shock"] == 3 and counts["shift_end"] == 2
+    choques = [e for e in eventos_de(s) if e["event"] == "shock"]
+    assert [e["shock_type"] for e in choques] == ["closure", "surge", "delay"]
+    delay = choques[2]
+    assert delay["order_id"] == objetivo and delay["slip_min"] == 15
+    assert delay.get("zone") is None and delay["sim_time"] == "2026-03-21T14:59:00"
 
 
 @pytest.mark.parametrize("minuto", [MINUTO_DELAY, 72], ids=["mueve-nuez", "mueve-greedy"])
@@ -383,12 +404,18 @@ def test_delay_con_order_id_explicito(tmp_path):
     assert fuera["shock"]["ends_at_min"] == 120, "la duracion que manden no aplica a un delay"
 
 
-def test_delay_invalido_no_toca_la_sesion(tmp_path):
+def test_delay_invalido_no_toca_la_sesion(tmp_path, monkeypatch):
     s = sesion(tmp_path)
     correr(s, MINUTO_DELAY)
     s.shock("rain", 20)
     antes = (s.minute, list(s.shocks), {a: t.disrupciones for a, t in s.turnos.items()})
     log = s.log.path.read_text(encoding="utf-8")
+
+    def no_se_arma(*_args, **_kwargs):
+        raise AssertionError("un delay invalido no llega a armar su evento")
+
+    # La validacion truena antes de armar el evento, y el evento antes de inyectar.
+    monkeypatch.setattr("backendruta.live_demo.live_log.shock", no_se_arma)
 
     for malo in (
         dict(oferta_id="o_000", retraso_min=15),  # ya aparecio
