@@ -2,7 +2,7 @@
   "seed": 2001,
   "policy": "nuez",
   "actual": {
-    "earned_mxn": 276.56,
+    "earned_mxn": 245.62,
     "deliveries": 6,
     "offers": 95,
     "late": false
@@ -17,9 +17,9 @@
     "no_change": 0,
     "late_runs": 0,
     "cancelled_runs": 0,
-    "avg_delta_mxn": -38.89,
+    "avg_delta_mxn": -32.98,
     "max_gain_mxn": null,
-    "max_loss_mxn": -44.42
+    "max_loss_mxn": -41.56
   },
   "safety_skips": {
     "flagged_zone_night": 0,
@@ -32,11 +32,11 @@
     {
       "order_id": "o_016",
       "minute": 20,
-      "net_pay_mxn": 52.8,
+      "net_pay_mxn": 47.3,
       "minutes": 22.6,
-      "time_value_mxn": 68.8,
-      "delta_mxn": -44.42,
-      "forced_earned_mxn": 232.14,
+      "time_value_mxn": 52.3,
+      "delta_mxn": -41.56,
+      "forced_earned_mxn": 204.06,
       "forced_deliveries": 5,
       "late": false,
       "cancelled": 0
@@ -44,11 +44,11 @@
     {
       "order_id": "o_015",
       "minute": 19,
-      "net_pay_mxn": 61.1,
+      "net_pay_mxn": 45.1,
       "minutes": 27.7,
-      "time_value_mxn": 82.2,
-      "delta_mxn": -33.35,
-      "forced_earned_mxn": 243.21,
+      "time_value_mxn": 62.7,
+      "delta_mxn": -24.39,
+      "forced_earned_mxn": 221.23,
       "forced_deliveries": 6,
       "late": false,
       "cancelled": 0

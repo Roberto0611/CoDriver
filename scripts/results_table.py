@@ -143,6 +143,8 @@ def escribir_tabla(filas: Sequence[dict[str, str | int]], args: argparse.Namespa
         f"{args.duracion}-min shift, {MARGEN_MIN}-min margin.",
         f"Limits ({args.vehiculo}): {limites.peso_kg:g} kg, {limites.volumen_l:g} L, "
         f"{limites.pedidos} orders. Shift end: {fin_de_turno}.",
+        "Earnings are net: platform payouts minus fuel on every driven km, including pickup,",
+        "delivery, deadhead, and return to anchor.",
         "Oracle: best-known offline plan (sees the whole order stream; best of a beam search",
         "and the five online policies), not a proven upper bound.",
     )

@@ -88,7 +88,11 @@ def config(seed: int) -> ConfigTurno:
 def a_frames(res: Resultado, duracion: int) -> list[dict[str, Any]]:
     """Un frame por minuto: el front hace replay con frames[t] y ya."""
     llegadas = {t: (p, tipo) for t, p, tipo in res.trayecto}
-    cobros = dict(res.cobros)  # minuto -> pesos exactos de esa entrega
+    # Puede haber gasolina negativa y pago positivo en el mismo minuto. `dict`
+    # perdería uno de los dos y el contador dejaría de cuadrar con la utilidad neta.
+    cobros: dict[int, float] = {}
+    for minuto, monto in res.cobros:
+        cobros[minuto] = cobros.get(minuto, 0.0) + monto
 
     por_minuto: dict[int, list[dict]] = {}
     for d in res.decisiones:
@@ -127,6 +131,8 @@ def grabar(seed: int, nombre: str, politica, cache: dict) -> dict:
             "politica": nombre,
             "seed": seed,
             "ganado": res.ganado,
+            "ingreso_bruto": res.ingreso_bruto,
+            "gasto_combustible": res.gasto_combustible,
             "entregas": res.entregas,
             "rechazos": res.rechazos,
             # Dos cosas distintas: `violaciones` es aceptar algo infactible (romper

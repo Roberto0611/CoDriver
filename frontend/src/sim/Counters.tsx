@@ -11,6 +11,8 @@ interface Props {
   greedyMeta: TurnoMeta
   nuezMeta: TurnoMeta
   terminado: boolean
+  /** Solo Live: deja explícito que el número grande ya es utilidad neta. */
+  fuel?: { greedy: number; nuez: number; grossGreedy: number; grossNuez: number }
   /**
    * El config del turno, para decir a qué hora hay que volver. Opcional para que
    * /live siga compilando sin tocarlo: sin config no se inventa una hora, se dice
@@ -19,14 +21,15 @@ interface Props {
   config?: ConfigRegreso
 }
 
-export function Counters({ greedy, nuez, greedyMeta, nuezMeta, terminado, config }: Props) {
+export function Counters({ greedy, nuez, greedyMeta, nuezMeta, terminado, config, fuel }: Props) {
   const diff = nuez.ganado - greedy.ganado
   const diffClass = diff > 0 ? 'is-positive' : diff < 0 ? 'is-negative' : 'is-neutral'
   const diffSign = diff > 0 ? '+' : ''
 
   return (
     <div className="counters">
-      <div className="counters-title">Earnings</div>
+      <div className="counters-title">{fuel ? 'Net earnings' : 'Earnings'}</div>
+      {fuel && <div className="counter-net-note">Fuel included: every driven km</div>}
 
       {/* Ganancia */}
       <div className="counter-row">
@@ -69,6 +72,18 @@ export function Counters({ greedy, nuez, greedyMeta, nuezMeta, terminado, config
             <span>Navie total</span>
             <strong className="num">{nuezMeta.ganado.toFixed(2)} MXN</strong>
           </div>
+          {fuel && (
+            <>
+              <div className="turno-summary-row">
+                <span>Gross payouts</span>
+                <strong className="num">{fuel.grossNuez.toFixed(2)} MXN</strong>
+              </div>
+              <div className="turno-summary-row">
+                <span>Fuel, all driven km</span>
+                <strong className="num">−{fuel.nuez.toFixed(2)} MXN</strong>
+              </div>
+            </>
+          )}
           <div className="turno-summary-row">
             <span>Safety violations</span>
             <strong>{nuezMeta.violaciones ?? 0}</strong>

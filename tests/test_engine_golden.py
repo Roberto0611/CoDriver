@@ -24,7 +24,7 @@ from nuez import politica_nuez  # noqa: E402
 from sim import politica_greedy, simular  # noqa: E402
 
 # Lo que da hoy el turno grabado para el front (frontend/public/turno_greedy_1.json).
-GOLDEN_SEED_1 = {"ganado": 66.76, "entregas": 1, "rechazos": 89, "ofertas": 90}
+GOLDEN_SEED_1 = {"ganado": 79.95, "entregas": 1, "rechazos": 89, "ofertas": 90}
 
 
 def test_golden_seed_1_greedy():

@@ -65,6 +65,10 @@ class Parada:
 @dataclass
 class Resultado:
     ganado: float = 0.0
+    # Ingreso que prometieron las plataformas y gasto real del vehículo. `ganado`
+    # siempre es la utilidad: bruto menos combustible de TODOS los tramos.
+    ingreso_bruto: float = 0.0
+    gasto_combustible: float = 0.0
     entregas: int = 0
     rechazos: int = 0
     # LA linea es el ancla MENOS el margen, no el fin del turno: los 10 minutos de
@@ -82,7 +86,8 @@ class Resultado:
     trayecto: list[tuple[int, int, str]] = field(default_factory=list)  # (minuto, punto, tipo)
     # Tramos recorridos, para que el front anime la moto: (t_salida, t_llegada, desde, hasta)
     tramos: list[tuple[float, float, int, int]] = field(default_factory=list)
-    cobros: list[tuple[int, float]] = field(default_factory=list)  # (minuto, pesos netos)
+    # Flujo neto por minuto: pago positivo al entregar y gasolina negativa al salir.
+    cobros: list[tuple[int, float]] = field(default_factory=list)
     cancelados: int = 0  # pedidos soltados porque una disrupcion los volvio infactibles
     # Distancia recorrida con y sin pedidos ya recogidos. La segunda es el
     # deadhead que pide la tabla de Results; ir al pickup y volver al ancla sin
@@ -283,12 +288,26 @@ def politica_greedy(
     minutos = max(minutos, listo - est.t)
     minutos += leg(i_pick, i_drop, minutos)
     pago = o.pago * o.surge * activos.factor_pago(rutas.ZONA_DE[i_pick])
-    neto = pago - rutas.km(i_pick, i_drop) * seguridad.VEHICULOS[cfg.vehiculo].costo_km
+    nueva = ruta + [
+        Parada("pickup", i_pick, o.id, listo),
+        Parada("dropoff", i_drop, o.id, peso_kg=o.peso_kg, volumen_l=o.volumen_l),
+    ]
+    # Igual que Nuez: gasolina de pickup, entrega y regreso, no solo la parte
+    # bonita de la ruta donde ya trae comida.
+    import ruteo
+
+    km_actual = ruteo.distancia_con_regreso(pos, ruta, ancla, cfg.regresar_al_ancla)
+    km_nueva = ruteo.distancia_con_regreso(pos, nueva, ancla, cfg.regresar_al_ancla)
+    km_marginal = km_nueva - km_actual
+    costo_combustible = km_marginal * seguridad.VEHICULOS[cfg.vehiculo].costo_km
+    neto = pago - costo_combustible
     propios = minutos - cola  # lo que cuesta ESTE pedido, sin la cola de adelante
     regreso = leg(i_drop, ancla, minutos) if cfg.regresar_al_ancla else 0.0
     para_terminar = minutos + regreso
     terminos = {
         "pago_neto": round(neto, 1),
+        "km_marginal": round(km_marginal, 2),
+        "costo_combustible": round(costo_combustible, 1),
         "minutos": round(propios, 1),
         "por_minuto": round(neto / max(propios, 1), 2),
         # La cuenta del fin de turno, para que se pueda auditar despues.
@@ -319,8 +338,4 @@ def politica_greedy(
     if terminos["por_minuto"] < 3.0:
         return no("Paga muy poco por el tiempo.", "reservation_wage")
 
-    nueva = ruta + [
-        Parada("pickup", i_pick, o.id, listo),
-        Parada("dropoff", i_drop, o.id, peso_kg=o.peso_kg, volumen_l=o.volumen_l),
-    ]
     return nueva, Decision(est.t, o.id, "aceptar", terminos, f"Van {neto:.0f} pesos.")

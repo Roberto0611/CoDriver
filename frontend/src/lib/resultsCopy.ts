@@ -15,12 +15,12 @@ export const RIVALES = {
   seedsReporte: [2000, 2049] as readonly [number, number],
   config: { duracionMin: 120, vehiculo: 'moto', horaInicio: 14 },
   media: {
-    AcceptAll: 181.75,
-    HighestPay: 133.19,
-    NearestFirst: 128.68,
-    GreedyRate: 206.05,
-    OurAgent: 259.54,
-    Oracle: 277.33,
+    AcceptAll: 153.73,
+    HighestPay: 69.58,
+    NearestFirst: 110.9,
+    GreedyRate: 140.34,
+    OurAgent: 246.31,
+    Oracle: 258.89,
   },
 } as const
 
@@ -32,8 +32,8 @@ export const RIVALES = {
 export const DELTA_200 = {
   turnos: 200,
   seedsReporte: [2000, 2199] as readonly [number, number],
-  normal: { deltaPct: 33.5, gana: 154 },
-  shocks: { deltaPct: 33.1, gana: 153 },
+  normal: { deltaPct: 81.6, gana: 175 },
+  shocks: { deltaPct: 83.8, gana: 172 },
 } as const
 
 /**

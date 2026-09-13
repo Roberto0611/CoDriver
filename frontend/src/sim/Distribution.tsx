@@ -73,6 +73,12 @@ export function Distribution({ abierto = false }: Props) {
             · {RIVALES.config.duracionMin} min, {RIVALES.config.vehiculo},{' '}
             {String(RIVALES.config.horaInicio).padStart(2, '0')}:00
           </p>
+          <p
+            style={{ fontSize: '0.75rem', color: '#475569', marginBottom: '8px', lineHeight: 1.4 }}
+          >
+            Net earnings: platform payouts minus fuel for every driven km — pickup, delivery,
+            deadhead, and return to anchor.
+          </p>
           <div
             style={{
               display: 'grid',

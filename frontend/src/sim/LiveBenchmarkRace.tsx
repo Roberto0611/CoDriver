@@ -64,7 +64,7 @@ export function LiveBenchmarkRace({ snapshot }: { snapshot: LiveSnapshot }) {
       <div className="live-benchmark-head">
         <div>
           <span className="caps">Live benchmark race</span>
-          <p>Same offers and disruptions for every online policy.</p>
+          <p>Same offers, disruptions, and all-km fuel cost for every online policy.</p>
         </div>
         <span className="live-benchmark-live">LIVE</span>
       </div>
@@ -80,8 +80,8 @@ export function LiveBenchmarkRace({ snapshot }: { snapshot: LiveSnapshot }) {
         ))}
       </div>
       <p className="live-benchmark-note">
-        Oracle is the $277 offline average across 50 held-out shifts; it sees the entire shift in
-        advance and does not compete live.
+        Every live score is net of fuel for pickup, delivery, deadhead, and return. Oracle is the
+        $259 reported offline average across 50 held-out shifts; it does not compete live.
       </p>
     </section>
   )

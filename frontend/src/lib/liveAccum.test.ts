@@ -45,6 +45,8 @@ function agent(overrides: Partial<LiveAgent> = {}): LiveAgent {
     position: 4,
     coords: [-100.29, 25.65],
     earnings_mxn: 0,
+    gross_earnings_mxn: 0,
+    fuel_cost_mxn: 0,
     deliveries: 0,
     skipped: 0,
     cancelled: 0,
@@ -60,9 +62,30 @@ function agent(overrides: Partial<LiveAgent> = {}): LiveAgent {
 
 function benchmarks() {
   return {
-    accept_all: { earnings_mxn: 0, deliveries: 0, skipped: 0, cancelled: 0 },
-    highest_pay: { earnings_mxn: 0, deliveries: 0, skipped: 0, cancelled: 0 },
-    nearest_first: { earnings_mxn: 0, deliveries: 0, skipped: 0, cancelled: 0 },
+    accept_all: {
+      earnings_mxn: 0,
+      gross_earnings_mxn: 0,
+      fuel_cost_mxn: 0,
+      deliveries: 0,
+      skipped: 0,
+      cancelled: 0,
+    },
+    highest_pay: {
+      earnings_mxn: 0,
+      gross_earnings_mxn: 0,
+      fuel_cost_mxn: 0,
+      deliveries: 0,
+      skipped: 0,
+      cancelled: 0,
+    },
+    nearest_first: {
+      earnings_mxn: 0,
+      gross_earnings_mxn: 0,
+      fuel_cost_mxn: 0,
+      deliveries: 0,
+      skipped: 0,
+      cancelled: 0,
+    },
   }
 }
 

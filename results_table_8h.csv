@@ -3,12 +3,14 @@
 # Reporting seeds (REPORTE): 2000-2049, n=50 held-out shifts.
 # Config: vehicle moto, start 14:00, anchor Tec, 480-min shift, 10-min margin.
 # Limits (moto): 20 kg, 20 L, 3 orders. Shift end: deliver and be back at anchor Tec by shift end minus margin.
+# Earnings are net: platform payouts minus fuel on every driven km, including pickup,
+# delivery, deadhead, and return to anchor.
 # Oracle: best-known offline plan (sees the whole order stream; best of a beam search
 # and the five online policies), not a proven upper bound.
 policy,mean_earnings_mxn,median_earnings_mxn,mean_mxn_per_hr,accept_rate_pct,orders_completed,deadhead_pct_of_km,deadline_misses,safety_violations
-AcceptAll,660.37,649.84,82.55,3.72,14.20,52.98,1,0
-HighestPay,758.59,741.74,94.82,1.95,7.46,50.02,0,0
-NearestFirst,397.53,434.67,49.69,2.14,8.18,43.66,0,0
-GreedyRate,808.00,855.22,101.00,2.91,11.16,46.82,0,0
-OurAgent,1082.08,1069.90,135.26,5.36,20.52,27.91,0,0
-Oracle,1099.27,1087.78,137.41,5.30,20.32,29.30,0,0
+AcceptAll,557.42,549.19,69.68,3.72,14.20,52.98,1,0
+HighestPay,670.47,657.27,83.81,1.72,6.60,48.59,0,0
+NearestFirst,354.01,385.12,44.25,2.14,8.18,43.66,0,0
+GreedyRate,568.30,572.13,71.04,2.19,8.40,46.15,0,0
+OurAgent,1021.44,1010.62,127.68,5.33,20.40,26.89,0,0
+Oracle,1024.61,1010.62,128.08,5.27,20.18,27.53,0,0

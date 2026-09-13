@@ -387,6 +387,8 @@ class LiveDemoSession:
                 "politica": a,
                 "seed": self.cfg.seed,
                 "ganado": res.ganado,
+                "ingreso_bruto": res.ingreso_bruto,
+                "gasto_combustible": res.gasto_combustible,
                 "entregas": res.entregas,
                 "rechazos": res.rechazos,
                 "violaciones": res.violaciones,
@@ -481,6 +483,8 @@ class LiveDemoSession:
             "position": turno.pos,
             "coords": [lon, lat],
             "earnings_mxn": round(res.ganado, 2),
+            "gross_earnings_mxn": round(res.ingreso_bruto, 2),
+            "fuel_cost_mxn": round(res.gasto_combustible, 2),
             "deliveries": res.entregas,
             "skipped": res.rechazos,
             "cancelled": res.cancelados,
@@ -512,6 +516,8 @@ class LiveDemoSession:
         res = self.turnos[a].res
         return {
             "earnings_mxn": round(res.ganado, 2),
+            "gross_earnings_mxn": round(res.ingreso_bruto, 2),
+            "fuel_cost_mxn": round(res.gasto_combustible, 2),
             "deliveries": res.entregas,
             "skipped": res.rechazos,
             "cancelled": res.cancelados,

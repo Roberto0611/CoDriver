@@ -400,6 +400,12 @@ export default function LiveSimView() {
               nuezMeta={live.nuez.meta}
               terminado={terminado}
               config={live.nuez.config}
+              fuel={{
+                greedy: snap.greedy.fuel_cost_mxn,
+                nuez: snap.nuez.fuel_cost_mxn,
+                grossGreedy: snap.greedy.gross_earnings_mxn,
+                grossNuez: snap.nuez.gross_earnings_mxn,
+              }}
             />
             <LiveBenchmarkRace snapshot={snap} />
             {terminado && (

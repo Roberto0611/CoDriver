@@ -19,6 +19,8 @@ se agrega despues es invisible para todos los minutos que ya corrieron, asi que
 inyectar en el minuto m produce la misma historia que declararlo desde el inicio.
 """
 
+import math
+
 import rutas
 import seguridad
 import shocks
@@ -90,10 +92,18 @@ class Turno:
     ) -> None:
         """Registra un tramo y sus km segun la carga al momento de salir."""
         self.res.tramos.append((salida, llegada, origen, destino))
+        km = rutas.km(origen, destino)
         if con_carga:
-            self.res.km_con_carga += rutas.km(origen, destino)
+            self.res.km_con_carga += km
         else:
-            self.res.km_sin_carga += rutas.km(origen, destino)
+            self.res.km_sin_carga += km
+        # El conductor paga cada km que recorre: llegar al restaurante y volver al
+        # ancla también consumen combustible. Se registra al salir para que el
+        # contador live enseñe utilidad neta, incluso antes del primer cobro.
+        costo = km * seguridad.VEHICULOS[self.cfg.vehiculo].costo_km
+        self.res.gasto_combustible += costo
+        self.res.ganado -= costo
+        self.res.cobros.append((math.ceil(salida), -round(costo, 2)))
 
     def _viaje(self, a: int, b: int, cuando: float, act: shocks.Activos) -> float:
         """Minutos reales de un tramo que SALE en `cuando`: el mapa, mas la disrupcion.
@@ -204,14 +214,13 @@ class Turno:
 
             if parada.tipo == "dropoff" and parada.oferta_id:
                 o = self.aceptadas[parada.oferta_id]
-                dist = rutas.km(indice_de(o.pickup), indice_de(o.dropoff))
                 # El surge se cotiza al aparecer el ping, no al entregar: es lo que
                 # la app le prometio al repartidor cuando acepto.
                 cuando = shocks.en(o.t_aparece, self.disrupciones)
                 pago = o.pago * o.surge * cuando.factor_pago(rutas.ZONA_DE[indice_de(o.pickup)])
-                cobro = pago - dist * seguridad.VEHICULOS[cfg.vehiculo].costo_km
-                res.cobros.append((t, round(cobro, 2)))
-                res.ganado += cobro
+                res.ingreso_bruto += pago
+                res.cobros.append((t, round(pago, 2)))
+                res.ganado += pago
                 res.entregas += 1
                 self.carga_en_mochila.remove(parada.oferta_id)
 
@@ -264,6 +273,8 @@ class Turno:
             return self.res
         res = self.res
         res.ganado = round(res.ganado, 2)
+        res.ingreso_bruto = round(res.ingreso_bruto, 2)
+        res.gasto_combustible = round(res.gasto_combustible, 2)
         res.km_con_carga = round(res.km_con_carga, 3)
         res.km_sin_carga = round(res.km_sin_carga, 3)
         limite = self.cfg.duracion_min - self.cfg.margen_min

@@ -4,12 +4,33 @@ import { benchmarkRows } from './LiveBenchmarkRace'
 import type { LiveSnapshot } from '../lib/live'
 
 const snapshot = {
-  nuez: { earnings_mxn: 260, deliveries: 5 },
-  greedy: { earnings_mxn: 206, deliveries: 3 },
+  nuez: { earnings_mxn: 260, gross_earnings_mxn: 290, fuel_cost_mxn: 30, deliveries: 5 },
+  greedy: { earnings_mxn: 206, gross_earnings_mxn: 250, fuel_cost_mxn: 44, deliveries: 3 },
   benchmarks: {
-    accept_all: { earnings_mxn: 182, deliveries: 3, skipped: 0, cancelled: 0 },
-    highest_pay: { earnings_mxn: 133, deliveries: 2, skipped: 0, cancelled: 0 },
-    nearest_first: { earnings_mxn: 129, deliveries: 2, skipped: 0, cancelled: 0 },
+    accept_all: {
+      earnings_mxn: 182,
+      gross_earnings_mxn: 210,
+      fuel_cost_mxn: 28,
+      deliveries: 3,
+      skipped: 0,
+      cancelled: 0,
+    },
+    highest_pay: {
+      earnings_mxn: 133,
+      gross_earnings_mxn: 150,
+      fuel_cost_mxn: 17,
+      deliveries: 2,
+      skipped: 0,
+      cancelled: 0,
+    },
+    nearest_first: {
+      earnings_mxn: 129,
+      gross_earnings_mxn: 149,
+      fuel_cost_mxn: 20,
+      deliveries: 2,
+      skipped: 0,
+      cancelled: 0,
+    },
   },
 } as LiveSnapshot
 
@@ -21,7 +42,7 @@ describe('LiveBenchmarkRace', () => {
       { key: 'accept_all', earnings: 182, kind: 'baseline' },
       { key: 'highest_pay', earnings: 133, kind: 'baseline' },
       { key: 'nearest_first', earnings: 129, kind: 'baseline' },
-      { key: 'oracle', earnings: 277.33, deliveries: null, kind: 'oracle' },
+      { key: 'oracle', earnings: 258.89, deliveries: null, kind: 'oracle' },
     ])
   })
 })

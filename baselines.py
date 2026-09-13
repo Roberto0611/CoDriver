@@ -8,6 +8,7 @@ fijas, declaradas aqui; no se ajustan contra los seeds de REPORTE.
 from dataclasses import dataclass
 
 import rutas
+import ruteo
 import seguridad
 import shocks
 from contrato import ConfigTurno, Decision, EstadoRepartidor, Oferta
@@ -58,9 +59,19 @@ def evaluar(
     minutos_hasta_pickup = max(minutos_hasta_pickup, o.t_aparece + o.t_prep - est.t)
     minutos_totales = minutos_hasta_pickup + tramo(i_pick, i_drop, minutos_hasta_pickup)
     propios = minutos_totales - cola
-    neto = o.pago * o.surge - rutas.km(i_pick, i_drop) * seguridad.VEHICULOS[cfg.vehiculo].costo_km
+    nueva_ruta = ruta + [
+        Parada("pickup", i_pick, o.id, o.t_aparece + o.t_prep),
+        Parada("dropoff", i_drop, o.id, peso_kg=o.peso_kg, volumen_l=o.volumen_l),
+    ]
+    km_actual = ruteo.distancia_con_regreso(pos, ruta, ancla, cfg.regresar_al_ancla)
+    km_nueva = ruteo.distancia_con_regreso(pos, nueva_ruta, ancla, cfg.regresar_al_ancla)
+    km_marginal = km_nueva - km_actual
+    costo_combustible = km_marginal * seguridad.VEHICULOS[cfg.vehiculo].costo_km
+    neto = o.pago * o.surge - costo_combustible
     terminos = {
         "pago_neto": round(neto, 1),
+        "km_marginal": round(km_marginal, 2),
+        "costo_combustible": round(costo_combustible, 1),
         "minutos": round(propios, 1),
         "por_minuto": round(neto / max(propios, 1), 2),
         "minutos_hasta_pickup": round(minutos_hasta_pickup, 1),
@@ -77,10 +88,6 @@ def evaluar(
         + (tramo(i_drop, ancla, minutos_totales) if cfg.regresar_al_ancla else 0.0),
         minutos_de_turno=est.t_restante - cfg.margen_min,
     )
-    nueva_ruta = ruta + [
-        Parada("pickup", i_pick, o.id, o.t_aparece + o.t_prep),
-        Parada("dropoff", i_drop, o.id, peso_kg=o.peso_kg, volumen_l=o.volumen_l),
-    ]
     return Evaluacion(nueva_ruta, terminos, bloqueo, minutos_hasta_pickup)
 
 

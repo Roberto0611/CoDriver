@@ -75,14 +75,14 @@ def test_un_surge_voltea_la_decision_al_reves():
     apodaca = rutas.puntos_de("Apodaca")[0]
     o = oferta(apodaca, pago=40.0)
 
-    nueva, _ = decidir(o)
+    nueva, sin = decidir(o)
     assert nueva is None, "sin surge este pedido no vale la pena"
 
     surge = shocks.Shock(0, "surge", 30, zona=rutas.ZONA_DE[TEC_I], multiplicador=1.9)
     nueva, con = decidir(o, shocks.en(0, (surge,)))
 
     assert nueva is not None, "con el surge si sale"
-    assert con.terminos["pago_neto"] > 40.0
+    assert con.terminos["pago_neto"] > sin.terminos["pago_neto"]
 
 
 def test_la_seguridad_no_se_compra_ni_con_surge():

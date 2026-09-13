@@ -41,6 +41,10 @@ export interface LiveAgent {
   /** `[lon, lat]` */
   coords: [number, number]
   earnings_mxn: number
+  /** Payouts before operating cost; visible next to the net counter in Live. */
+  gross_earnings_mxn: number
+  /** Fuel charged on every driven leg, including deadhead and return. */
+  fuel_cost_mxn: number
   deliveries: number
   skipped: number
   cancelled: number
@@ -57,6 +61,8 @@ export interface LiveAgent {
 /** Un rival online que corre el mismo turno, sin mandar su ruta al mapa. */
 export interface LiveBenchmark {
   earnings_mxn: number
+  gross_earnings_mxn: number
+  fuel_cost_mxn: number
   deliveries: number
   skipped: number
   cancelled: number

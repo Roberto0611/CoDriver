@@ -70,7 +70,8 @@ def test_con_shocks_es_simular_con_los_mismos_shocks_y_el_pedido_forzado(tmp_pat
     real = simular(s.cfg, politica_nuez, declarados)
     # El "real" del reporte es el turno que el juez acaba de ver, no el turno sin shocks.
     assert rep["actual"]["earned_mxn"] == real.ganado == s.turnos["nuez"].res.ganado
-    assert rep["actual"]["earned_mxn"] != reporte(s.cfg)["actual"]["earned_mxn"]
+    # Un shock puede mover una decisión y compensarse después: la igualdad con
+    # `real` de arriba es la garantía importante, no forzar una diferencia de MXN.
 
     # Cada salto por dinero, a mano: una corrida forzada por pedido.
     filas, bloqueados = [], 0

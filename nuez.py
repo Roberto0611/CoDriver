@@ -81,10 +81,19 @@ def politica_nuez(
         propios = minutos_directos * activos.factor_tiempo(
             rutas.ZONA_DE[i_pick], rutas.ZONA_DE[i_drop]
         )
-    distancia = rutas.km(i_pick, i_drop) if km_entrega is None else km_entrega
+    # Utilidad real: no solo el km con comida. Compara la ruta actual y la ruta
+    # nueva, incluyendo volver al ancla, para cobrar pickup, desvíos y regreso.
+    km_actual = ruteo.distancia_con_regreso(pos, ruta, ancla, cfg.regresar_al_ancla)
+    km_nueva = ruteo.distancia_con_regreso(pos, nueva_ruta, ancla, cfg.regresar_al_ancla)
+    km_marginal = km_nueva - km_actual
+    if km_entrega is not None:
+        # El protocolo trae una distancia de entrega observada: sustituye solo ese
+        # tramo, sin fingir que el deadhead observado vale cero.
+        km_marginal += km_entrega - rutas.km(i_pick, i_drop)
     # El surge de un shock se cotiza donde nace el pedido, igual que en la app.
     pago = o.pago * o.surge * activos.factor_pago(rutas.ZONA_DE[i_pick])
-    neto = pago - distancia * seguridad.VEHICULOS[cfg.vehiculo].costo_km
+    costo_combustible = km_marginal * seguridad.VEHICULOS[cfg.vehiculo].costo_km
+    neto = pago - costo_combustible
 
     # El costo de oportunidad: lo que rinden esos minutos normalmente.
     if tabla is None:
@@ -98,6 +107,8 @@ def politica_nuez(
 
     terminos = {
         "pago_neto": round(neto, 1),
+        "km_marginal": round(km_marginal, 2),
+        "costo_combustible": round(costo_combustible, 1),
         "minutos": round(propios, 1),
         "por_minuto": round(neto / max(propios, 1), 2),
         "precio_tiempo": round(precio, 1),

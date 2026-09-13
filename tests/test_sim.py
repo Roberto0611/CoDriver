@@ -63,14 +63,22 @@ def test_resultado_es_coherente_consigo_mismo():
     assert len(res.decisiones) == len(res.ofertas), "cada oferta recibe una decision"
     aceptadas = sum(1 for d in res.decisiones if d.accion == "aceptar")
     assert res.rechazos == len(res.ofertas) - aceptadas
-    assert res.entregas == len(res.cobros)
-    # Cada cobro se redondea al registrarlo; el total se redondea al final.
+    assert len(res.cobros) >= res.entregas  # pagos y cargos de gasolina por tramo
+    # Cada flujo se redondea al registrarlo; el total se redondea al final.
     assert abs(res.ganado - sum(m for _, m in res.cobros)) < 0.05
     assert 0 <= res.minutos_ocupado <= 120
     assert res.km_con_carga >= 0
     assert res.km_sin_carga >= 0
     assert res.km_con_carga + res.km_sin_carga == pytest.approx(
         sum(rutas.km(origen, destino) for _, _, origen, destino in res.tramos), abs=0.01
+    )
+    km_totales = res.km_con_carga + res.km_sin_carga
+    assert res.gasto_combustible == pytest.approx(
+        km_totales * seguridad.VEHICULOS["moto"].costo_km, abs=0.05
+    )
+    assert res.ganado == pytest.approx(res.ingreso_bruto - res.gasto_combustible, abs=0.05)
+    assert any(monto < 0 for _, monto in res.cobros), (
+        "debe cobrar pickup y regreso, no solo entrega"
     )
     for d in res.decisiones:
         assert {"pago_neto", "minutos", "por_minuto"} <= set(d.terminos)

@@ -8,7 +8,7 @@ from fastapi.testclient import TestClient
 
 import valor
 from backendruta import live_api, zonas
-from backendruta.live_demo import SEED_ENSAYADO, LiveDemoSession
+from backendruta.live_demo import AGENTES, SEED_ENSAYADO, LiveDemoSession
 from backendruta.live_geometry import linea_recta
 from contrato import ConfigTurno
 
@@ -144,7 +144,8 @@ def test_si_la_geometria_truena_los_tramos_no_se_pierden(tmp_path, falla_en):
         for a in mandados:
             mandados[a] += [(x["t_salida"], x["clave"]) for x in snap[a]["new_legs"]]
     assert tronó
-    for a, turno in s.turnos.items():
+    for a in AGENTES:
+        turno = s.turnos[a]
         assert mandados[a] == [(x[0], f"{x[2]}-{x[3]}") for x in turno.res.tramos], a
 
 

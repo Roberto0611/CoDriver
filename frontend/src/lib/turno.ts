@@ -9,6 +9,9 @@ export interface TurnoMeta {
   politica: 'greedy' | 'nuez'
   seed: number
   ganado: number
+  /** Opcionales para que los turnos grabados previos sigan reproduciéndose. */
+  ingreso_bruto?: number
+  gasto_combustible?: number
   entregas: number
   rechazos: number
   ofertas_totales: number

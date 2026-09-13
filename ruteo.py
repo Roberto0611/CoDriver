@@ -133,6 +133,31 @@ def costo_marginal(
     return con_ruta, con - sin
 
 
+def distancia(pos: int, orden: list[Parada]) -> float:
+    """Kilómetros de una ruta ya ordenada, sin inventar una línea recta.
+
+    La matriz de ``rutas.km`` es también la fuente de verdad de los costos de
+    combustible del reloj, así que la decisión y el resultado final hablan de los
+    mismos kilómetros.
+    """
+    total, desde = 0.0, pos
+    for parada in orden:
+        total += rutas.km(desde, parada.punto)
+        desde = parada.punto
+    return total
+
+
+def distancia_con_regreso(
+    pos: int, orden: list[Parada], ancla: int, regresar_al_ancla: bool
+) -> float:
+    """Km de completar una ruta y, cuando aplica, volver al ancla."""
+    total = distancia(pos, orden)
+    if regresar_al_ancla:
+        ultimo = orden[-1].punto if orden else pos
+        total += rutas.km(ultimo, ancla)
+    return total
+
+
 def demo():
     """Dos pedidos al mismo rumbo deben salir mas baratos juntos que por separado."""
     tec = rutas.puntos_de("Tec")

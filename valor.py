@@ -66,7 +66,16 @@ def construir(
             futuro = sum(monto for minuto, monto in res.cobros if minuto >= t)
             muestras.setdefault(restante, []).append(futuro)
 
-    return {k: round(statistics.mean(v), 2) for k, v in sorted(muestras.items())}
+    # Monte Carlo puede invertir dos cubetas vecinas por ruido (p. ej. 120 min
+    # medidos $143 y 110 min $145). Más tiempo no puede valer menos: a esa ruta
+    # se le puede dedicar el mismo plan y esperar. Proyectamos la media a una
+    # curva monótona antes de que Nuez calcule un costo de oportunidad negativo.
+    valores: dict[int, float] = {}
+    anterior = 0.0
+    for restante, muestras_de_cubeta in sorted(muestras.items()):
+        anterior = max(anterior, round(statistics.mean(muestras_de_cubeta), 2))
+        valores[restante] = anterior
+    return valores
 
 
 @cache

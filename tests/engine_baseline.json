@@ -1,10 +1,10 @@
 {
   "seed_base": 2000,
   "n": 50,
-  "greedy_mean": 206.0502,
-  "nuez_mean": 259.5438,
-  "delta_pct": 25.961,
-  "nuez_gana_en": 36,
+  "greedy_mean": 140.3366,
+  "nuez_mean": 246.3116,
+  "delta_pct": 75.515,
+  "nuez_gana_en": 43,
   "nuez_tarde": 0,
   "greedy_tarde": 0
 }
