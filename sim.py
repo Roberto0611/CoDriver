@@ -31,11 +31,15 @@ PREP_MIN, PREP_MAX = 4, 15  # minutos que tarda el restaurante
 
 # Que tan grande viene el pedido. Casi todo es comida y no pesa nada; la cola son
 # los paquetes, que es donde el vehiculo empieza a importar (en bici no caben).
+# Los litros van contra la caja de la moto (20 L, ver seguridad.VEHICULOS): una
+# pizza no son 25 litros. Con comida de 1-8 L caben ~3 pedidos en la caja, igual que
+# antes con 2-25 L en 60 L, y por eso la economia del turno no se entera del cambio.
+# Los paquetes SI desbordan a proposito: es lo que hace que el vehiculo importe.
 PESO_KG = (0.3, 6.0)
-VOLUMEN_L = (2.0, 25.0)
+VOLUMEN_L = (1.0, 8.0)
 PROB_PAQUETE = 0.10
 PESO_PAQUETE = (5.0, 28.0)
-VOLUMEN_PAQUETE = (20.0, 90.0)
+VOLUMEN_PAQUETE = (12.0, 35.0)
 
 # Un estudiante con 2 horas trabaja SU zona. Los pings normales salen cerca;
 # la fraccion de trampas son los lejanos bien pagados que el motor debe rechazar.

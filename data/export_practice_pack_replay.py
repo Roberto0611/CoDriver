@@ -71,7 +71,7 @@ def construir(pack: Path, key: Path, scorecard: Path | None) -> dict[str, Any]:
     inicio = datetime.fromisoformat(manifest["shift_start_time"])
     fin = datetime.fromisoformat(manifest["shift_end_time"])
     resultados = cargar_resultados(scorecard)
-    pruebas = []
+    pruebas: list[dict[str, Any]] = []
 
     for orden in leer_csv(pack):
         order_id = str(orden["order_id"])

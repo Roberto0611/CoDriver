@@ -37,12 +37,21 @@ class Perfil:
     costo_km: float  # pesos de gasolina
 
 
-# ponytail: numeros a ojo (una caja de moto real son ~45 L). Perilla de calibracion.
-# rutas.minutos aplica velocidad tanto al planear como al recorrer cada tramo.
+# Los litros de la moto son 20 POR CONVENCION del practice pack de Infosys
+# (`courier-update/practice_pack/README.md`: "Moto limits are 20 kg and 20 L"), y el
+# runner que usan los jueces es el mismo. Los otros dos se escalaron contra ese 20:
+# una mochila de bici carga menos que la caja de una moto, y una cajuela mucho mas.
+#
+# IMPORTANTE: este numero y los litros que genera `sim.VOLUMEN_L` se mueven JUNTOS.
+# Bajar la caja sin encoger los pedidos hace que un solo pedido de comida ya no quepa:
+# medido, los dos agentes pierden ~30% y la capacidad se vuelve la restriccion
+# dominante. Alineando ambos, el numero no se mueve.
+#
+# ponytail: rutas.minutos aplica velocidad tanto al planear como al recorrer cada tramo.
 VEHICULOS = {
-    "moto": Perfil(peso_kg=20, volumen_l=60, pedidos=3, velocidad=1.00, costo_km=1.8),
-    "car": Perfil(peso_kg=100, volumen_l=400, pedidos=6, velocidad=1.15, costo_km=3.2),
-    "bike": Perfil(peso_kg=8, volumen_l=30, pedidos=2, velocidad=1.80, costo_km=0.0),
+    "moto": Perfil(peso_kg=20, volumen_l=20, pedidos=3, velocidad=1.00, costo_km=1.8),
+    "car": Perfil(peso_kg=100, volumen_l=120, pedidos=6, velocidad=1.15, costo_km=3.2),
+    "bike": Perfil(peso_kg=8, volumen_l=12, pedidos=2, velocidad=1.80, costo_km=0.0),
 }
 
 

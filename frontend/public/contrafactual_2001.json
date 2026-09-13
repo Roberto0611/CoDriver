@@ -17,7 +17,7 @@
     "no_change": 0,
     "late_runs": 0,
     "cancelled_runs": 0,
-    "avg_delta_mxn": -26.16,
+    "avg_delta_mxn": -38.89,
     "max_gain_mxn": null,
     "max_loss_mxn": -44.42
   },
@@ -25,16 +25,16 @@
     "flagged_zone_night": 0,
     "mandatory_break": 0,
     "heat_rule": 19,
-    "shift_end_infeasible": 20
+    "shift_end_infeasible": 21
   },
-  "capacity_skips": 48,
+  "capacity_skips": 47,
   "top": [
     {
       "order_id": "o_016",
       "minute": 20,
       "net_pay_mxn": 52.8,
       "minutes": 22.6,
-      "time_value_mxn": 66.5,
+      "time_value_mxn": 68.8,
       "delta_mxn": -44.42,
       "forced_earned_mxn": 232.14,
       "forced_deliveries": 5,
@@ -46,10 +46,10 @@
       "minute": 19,
       "net_pay_mxn": 61.1,
       "minutes": 27.7,
-      "time_value_mxn": 79.7,
-      "delta_mxn": -7.91,
-      "forced_earned_mxn": 268.65,
-      "forced_deliveries": 7,
+      "time_value_mxn": 82.2,
+      "delta_mxn": -33.35,
+      "forced_earned_mxn": 243.21,
+      "forced_deliveries": 6,
       "late": false,
       "cancelled": 0
     }
