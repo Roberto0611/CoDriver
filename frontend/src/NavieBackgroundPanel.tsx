@@ -38,7 +38,26 @@ export default function NavieBackgroundPanel({
           justifyContent: 'center',
         }}
       >
-        <div
+      <div
+        style={{
+          position: 'absolute',
+          inset: 0,
+          zIndex: 0,
+          pointerEvents: 'none',
+          animation: 'navieFloatImage 9s ease-in-out infinite alternate',
+          willChange: 'transform',
+        }}
+      >
+        <PixelCanvasBackground
+          src={bgImage}
+          pixelSize={5}
+          shapeMode="circles"
+          colorMode="greyscale"
+          contrast={100}
+          lightness={100}
+          interactive={false}
+          overlayOpacity={0.12}
+          overlayBlur={0}
           style={{
             position: 'absolute',
             inset: 0,
@@ -47,25 +66,7 @@ export default function NavieBackgroundPanel({
             animation: 'navieFloatImage 9s ease-in-out infinite alternate',
             willChange: 'transform',
           }}
-        >
-          <PixelCanvasBackground
-            src={bgImage}
-            pixelSize={5}
-            shapeMode="circles"
-            colorMode="greyscale"
-            contrast={100}
-            lightness={100}
-            interactive
-            overlayOpacity={0.12}
-            overlayBlur={0}
-            style={{
-              position: 'absolute',
-              inset: 0,
-              zIndex: 0,
-              pointerEvents: 'none',
-            }}
-          />
-        </div>
+        />
 
         <div
           style={{
@@ -92,6 +93,7 @@ export default function NavieBackgroundPanel({
         >
           <NavieCompass mode={mode} />
         </div>
+      </div>
       </div>
     </>
   )

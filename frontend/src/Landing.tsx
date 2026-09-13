@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom'
 import PixelCanvasBackground from './PixelCanvasBackground'
 import NavieBackgroundPanel from './NavieBackgroundPanel'
-import tecFondoGif from './tec-fondo-compact.gif'
+import { NavieCompass } from './navie/NavieCompass'
 
 export default function LandingPage() {
   return (
@@ -38,18 +38,83 @@ export default function LandingPage() {
           minHeight: '100vh',
         }}
       >
+        {/* ── Navbar (Estilo Browserbase) ── */}
+        <header
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            padding: '16px 24px',
+            backgroundColor: 'var(--card)',
+            borderBottom: '1px solid var(--hairline)',
+            width: '100%',
+            boxSizing: 'border-box',
+            zIndex: 50,
+            overflowX: 'auto',
+          }}
+        >
+          {/* Logo y Nombre */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <div style={{ width: '40px', height: '40px', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', position: 'relative' }}>
+              <div style={{ transform: 'scale(0.2)', transformOrigin: 'center center', position: 'absolute' }}>
+                <NavieCompass mode="idle" />
+              </div>
+            </div>
+            <span style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--ink)', letterSpacing: '-0.02em' }}>
+              Codrive
+            </span>
+          </div>
+
+          {/* Enlaces de Navegación (Centro) */}
+          <nav 
+            style={{ 
+              display: 'flex', 
+              alignItems: 'center', 
+              gap: '24px', 
+              fontWeight: 600, 
+              fontSize: '0.9rem', 
+              color: 'var(--ink)',
+            }}
+          >
+            <a href="#" style={{ textDecoration: 'none', color: 'inherit' }}>Platform</a>
+            <a href="#" style={{ textDecoration: 'none', color: 'inherit' }}>Solutions</a>
+            <a href="#" style={{ textDecoration: 'none', color: 'inherit' }}>Resources</a>
+            <a href="#" style={{ textDecoration: 'none', color: 'inherit' }}>Pricing</a>
+            <a href="#" style={{ textDecoration: 'none', color: 'inherit' }}>Docs</a>
+          </nav>
+
+          {/* Botones Derecha */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '16px', fontWeight: 600, fontSize: '0.9rem' }}>
+            <a href="#" style={{ textDecoration: 'none', color: 'var(--ink)' }}>Log in</a>
+            <a href="#" style={{ textDecoration: 'none', color: 'var(--ink)' }}>Sign up</a>
+            <a href="#" style={{
+              backgroundColor: 'var(--ink)',
+              color: 'var(--canvas)',
+              padding: '8px 18px',
+              borderRadius: '9999px',
+              textDecoration: 'none',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px'
+            }}>
+              Get a demo 
+              <span style={{ fontSize: '1.1em' }}>›</span>
+            </a>
+          </div>
+        </header>
+
         {/* ── Hero Section (con USA Map Canvas de fondo y Grid Style) ── */}
         <section
           style={{
             position: 'relative',
             width: '100%',
-            height: 'clamp(460px, 60vh, 580px)',
-            minHeight: '460px',
+            height: 'clamp(600px, 80vh, 800px)',
+            minHeight: '600px',
             display: 'flex',
             flexDirection: 'column',
             alignItems: 'center',
             justifyContent: 'flex-start',
-            paddingTop: 'clamp(36px, 6vh, 60px)',
+            paddingTop: 'clamp(70px, 15vh, 120px)',
             paddingLeft: '20px',
             paddingRight: '20px',
             textAlign: 'center',
@@ -64,7 +129,7 @@ export default function LandingPage() {
         >
           {/* Fondo interactivo de Video (.mp4) con PixelCanvas */}
           <PixelCanvasBackground
-            src={tecFondoGif}
+            src='/tec-fondo-compact-ezgif.com-gif-to-mp4-converter.mp4'
             pixelSize={8}
             overlayOpacity={0}
             style={{
@@ -122,7 +187,7 @@ export default function LandingPage() {
             <p
               style={{
                 color: 'var(--ink)',
-                fontSize: 'clamp(1rem, 2vw, 1.25rem)',
+                fontSize: 'clamp(0.85rem, 1.5vw, 1.2rem)',
                 fontWeight: 600,
                 maxWidth: '560px',
                 marginTop: '26px',
@@ -132,8 +197,7 @@ export default function LandingPage() {
                 backgroundColor: 'var(--card)',
               }}
             >
-              Un copiloto de entrega para estudiantes: calcula el costo de oportunidad, revisa si
-              puedes volver a clase y explica cada decisión en voz alta.
+              Un copiloto de entrega para estudiantes: calcula el costo de oportunidad, revisa si puedes volver a clase y explica cada decisión en voz alta.
             </p>
 
             {/* ── CTA Buttons ── */}
@@ -176,6 +240,7 @@ export default function LandingPage() {
             </div>
           </div>
         </section>
+
 
         {/* ── Sección de Contenido Grid y Columna de 2 ── */}
         <section
@@ -399,3 +464,4 @@ export default function LandingPage() {
     </div>
   )
 }
+

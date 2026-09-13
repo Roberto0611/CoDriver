@@ -1,5 +1,4 @@
 """Adaptador HTTP entre el protocolo oficial de Infosys y el motor de Nuez.
-
 El protocolo usa fechas ISO, zonas enteras y ACCEPT/SKIP. El motor conserva su
 contrato interno en minutos, puntos del mapa y aceptar/saltar. Esta frontera es
 el unico lugar donde se traducen ambos formatos.
@@ -20,6 +19,7 @@ import rutas
 import shocks
 import valor
 from backendruta import courier_format, explain, strategy, zonas
+from backendruta import database as db
 from backendruta.courier_models import (
     DecideRequest,
     DecideResponse,
@@ -41,7 +41,7 @@ class CourierService:
     """Una sesion determinista. El lock evita dos pings mutando el turno a la vez."""
 
     def __init__(self, log_path: Path):
-        self.log = EventLog(log_path)
+        self.log = EventLog(log_path, after_append=db.enqueue_decision)
         self.state: ShiftState | None = None
         self.explanations = explain.ExplainIndex()
         self._lock = RLock()
@@ -103,7 +103,7 @@ class CourierService:
     def explain(self, order_id: str) -> dict[str, Any]:
         """Busca en memoria; si el proceso se reinicio, lee el JSONL. Nunca re-decide."""
         with self._lock:
-            record = self.explanations.get(order_id)
+            record = self.explanations.get(order_id) or db.get_decision(self.log.path, order_id)
             if record is None and self.log.path.exists():
                 record = explain.ExplainIndex.from_log(self.log.path).get(order_id)
             if record is None:
