@@ -33,6 +33,7 @@ def test_uso_acumula_llamadas_tokens_y_costo_configurable(monkeypatch):
         "estimated_cost_mxn": 0.000432,
         "cost_configured": True,
         "interval_s": 300.0,
+        "interval_simulated_min": 30,
     }
 
 

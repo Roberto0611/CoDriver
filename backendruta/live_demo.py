@@ -66,16 +66,17 @@ Los dicts se arman en `live_log.py`; aqui solo se decide cuando va cada uno.
 
 import time
 from dataclasses import asdict
-from functools import partial
 from pathlib import Path
+from types import SimpleNamespace
 from typing import Any, Literal
 
 import rutas
 import shocks
 import valor
-from backendruta import live_log, zonas
+from backendruta import live_log, strategy, zonas
 from backendruta.event_log import EventLog
 from backendruta.live_geometry import Geometria, linea_recta
+from backendruta.strategy import CapaEstrategia
 from contrato import ConfigTurno, Decision, Oferta
 from nuez import politica_nuez
 from reloj import Turno
@@ -134,10 +135,15 @@ class LiveDemoSession:
         for o in self.ofertas:
             self.por_minuto.setdefault(o.t_aparece, []).append(o)
 
-        tabla = valor.para_turno(cfg.duracion_min)
+        self.tabla = valor.para_turno(cfg.duracion_min)
+        # Gemini conserva su propio hilo: el reloj live solo le avisa cuando cruza
+        # treinta minutos simulados. Nuez lee la ultima estrategia ya disponible,
+        # igual que /decide; nunca espera a una llamada de red.
+        self.estrategia = CapaEstrategia()
+        self.estrategia.contexto = self._contexto_modelo
         self.turnos = {
             "greedy": Turno(cfg, politica_greedy, ofertas=self.ofertas),
-            "nuez": Turno(cfg, partial(politica_nuez, tabla=tabla), ofertas=self.ofertas),
+            "nuez": Turno(cfg, self._politica_nuez, ofertas=self.ofertas),
         }
         # Hasta donde ya se reporto cada lista del Resultado. Los Turnos solo crecen
         # sus listas, asi que lo nuevo de un minuto es todo lo que esta despues del cursor.
@@ -156,6 +162,7 @@ class LiveDemoSession:
         # lee con cp1252 en Windows (ver EventLog).
         self.log = EventLog(log_path, ascii=True)
         self.log.start(live_log.shift_start(session_id, cfg, self.ancla))
+        self.estrategia.arrancar()  # primera consulta; las siguientes van con el reloj simulado
 
     @property
     def minute(self) -> int:
@@ -341,10 +348,15 @@ class LiveDemoSession:
                         "ganado": round(self._ganado_frames[a], 2),
                     }
                 )
+        # El minuto que acaba de correr es parte del contexto. Esta llamada solo
+        # despierta el hilo lento al llegar a 30, 60, 90…; no toca la red ni frena
+        # este tick ni las decisiones que acabamos de registrar.
+        self.estrategia.notificar_minuto_simulado(self.minute)
         return ofertas
 
     def _cerrar(self, status: Literal["finished", "ended"]) -> None:
         self.status = status
+        self.estrategia.detener()
         for a, turno in self.turnos.items():
             res = turno.cerrar()
             # El mismo `meta` que graba data/export_turno.py: el front lo pinta igual.
@@ -416,6 +428,7 @@ class LiveDemoSession:
             "start_hour": self.cfg.hora_inicio,
             "seed": self.cfg.seed,
             "status": self.status,
+            "strategy": self.estrategia.estado_publico(en_turno=self.status == "running"),
             "active_shocks": [self._shock(s) for s in vigentes],
             "offers_this_tick": ofertas,
             **{a: self._agente(a, frames[a], nuevos) for a in AGENTES},
@@ -458,3 +471,29 @@ class LiveDemoSession:
             "geometry": geometria,
             "result": self._resultado[a],
         }
+
+    def _politica_nuez(self, oferta, estado, ruta, cfg, *, activos):
+        """La ruta rapida solo lee la propuesta ya publicada por Gemini."""
+        return politica_nuez(
+            oferta,
+            estado,
+            ruta,
+            cfg,
+            tabla=self.tabla,
+            estrategia=self.estrategia.actual,
+            activos=activos,
+        )
+
+    def _contexto_modelo(self) -> dict[str, Any]:
+        """Foto del turno live cuando el hilo lento va a consultar Gemini."""
+        turno = self.turnos["nuez"]
+        estado = SimpleNamespace(
+            config=self.cfg,
+            current_minute=self.minute,
+            position=turno.pos,
+            accepted=turno.aceptadas,
+            offered=len(turno.res.decisiones),
+            completed=turno.res.entregas,
+            earnings_mxn=turno.res.ganado,
+        )
+        return strategy.contexto_del_turno(estado, zonas.NOMBRES, turno.activos())

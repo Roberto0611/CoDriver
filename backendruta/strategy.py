@@ -39,8 +39,14 @@ import rutas
 import valor
 from estrategia import BASE, Estrategia, marcar_vieja, sanear
 
-INTERVALO_S = 300.0  # entre consultas; el turno simulado corre a 60x, no hace falta mas
-TIMEOUT_S = 8.0  # si tarda mas, se da por caido y se sigue con la anterior
+# Respaldo para el protocolo normal, donde los pings avanzan en tiempo real. El demo
+# live ademas despierta este mismo hilo cada treinta minutos *simulados* (ver
+# ``notificar_minuto_simulado``); nunca llama al modelo desde un tick ni un /decide.
+INTERVALO_S = 300.0
+INTERVALO_SIMULADO_MIN = 30
+# Gemini puede tardar mas de ocho segundos en frio. Esto sigue ocurriendo fuera de
+# la ruta de decision: ampliar el limite no retrasa ni un ping ni un tick live.
+TIMEOUT_S = 25.0
 # ponytail: el que contesta rapido con esta llave (~1 s). `gemini list` cambia
 # entre cuentas: si da 404, listar modelos y fijar otro por GEMINI_MODELO.
 MODELO_DEFAULT = "gemini-3.5-flash-lite"
@@ -168,18 +174,27 @@ class CapaEstrategia:
         *,
         fuente: str | None = None,
         intervalo: float = INTERVALO_S,
+        intervalo_simulado_min: int = INTERVALO_SIMULADO_MIN,
         al_cambiar: Callable[[Estrategia, bool], None] | None = None,
     ):
         por_entorno, nombre = proveedor_por_entorno()
         self.proveedor = proveedor or por_entorno
         self.fuente = fuente or (nombre if proveedor is None else "modelo")
         self.intervalo = intervalo
+        self.intervalo_simulado_min = intervalo_simulado_min
         self.al_cambiar = al_cambiar
         self.actual = BASE
         self.degradado = False
         self.contexto: Callable[[], dict[str, Any]] = dict
         self._alto = threading.Event()
         self._hilo: threading.Thread | None = None
+        # Un Condition conserva una notificacion que llegue mientras Gemini esta
+        # respondiendo. Varias fronteras que pasen en un tick grande se compactan
+        # en UNA consulta con el contexto mas reciente: no se acumula una cola cara
+        # de llamadas viejas despues de acelerar el demo.
+        self._despertar = threading.Condition()
+        self._version_despertar = 0
+        self._siguiente_simulado = intervalo_simulado_min
         # True entre /shift/start y /shift/end. El adaptador no borra el turno al
         # cerrarlo, asi que esto es lo que le dice al badge que ya no hay turno vivo.
         self.en_marcha = False
@@ -275,6 +290,7 @@ class CapaEstrategia:
             "estimated_cost_mxn": costo_mxn,
             "cost_configured": costo_usd is not None,
             "interval_s": self.intervalo,
+            "interval_simulated_min": self.intervalo_simulado_min,
         }
 
     def _aplicar(self, propuesta: Estrategia, alto: threading.Event) -> None:
@@ -330,11 +346,34 @@ class CapaEstrategia:
         # Senal NUEVA por hilo, nunca `clear()` de la vieja: un hilo soltado que siga
         # atorado en Gemini se queda con la suya ya prendida, sale y no aplica nada.
         alto = self._alto = threading.Event()
+        with self._despertar:
+            self._version_despertar = 0
+            self._siguiente_simulado = self.intervalo_simulado_min
+        self.en_marcha = True
         self._hilo = threading.Thread(
             target=self._ciclo, args=(alto,), name="estrategia", daemon=True
         )
         self._hilo.start()
-        self.en_marcha = True
+
+    def notificar_minuto_simulado(self, minuto: int) -> bool:
+        """Pide una actualizacion al cruzar una frontera del reloj del turno.
+
+        La llamada solo despierta al hilo ya existente; no abre red ni espera al
+        proveedor. Devuelve ``True`` cuando se cruzaron treinta minutos nuevos. Asi
+        una corrida live a 4x consulta en 30, 60, 90… minutos simulados sin convertir
+        el tick en una ruta de modelo ni crear una rafaga por cada minuto.
+        """
+        if minuto < 0 or not self.en_marcha:
+            return False
+        with self._despertar:
+            if minuto < self._siguiente_simulado:
+                return False
+            self._siguiente_simulado = (
+                minuto // self.intervalo_simulado_min + 1
+            ) * self.intervalo_simulado_min
+            self._version_despertar += 1
+            self._despertar.notify_all()
+        return True
 
     def detener(self) -> None:
         hilo = self._soltar()
@@ -348,6 +387,8 @@ class CapaEstrategia:
         del turno que ya cerro, y el siguiente turno arranca en BASE, no con lo viejo.
         """
         self._alto.set()
+        with self._despertar:
+            self._despertar.notify_all()
         hilo, self._hilo = self._hilo, None
         self.en_marcha = False
         with self._cerrojo:
@@ -356,9 +397,18 @@ class CapaEstrategia:
         return hilo
 
     def _ciclo(self, alto: threading.Event) -> None:
+        version_vista = 0
         while not alto.is_set():
             self.refrescar(alto)
-            alto.wait(self.intervalo)
+            # Espera el respaldo de cinco minutos reales O la siguiente frontera
+            # simulada. ``wait`` libera el cerrojo: el tick solo hace un notify y
+            # vuelve a decidir; Gemini siempre queda en este hilo lento.
+            with self._despertar:
+                if alto.is_set():
+                    return
+                if self._version_despertar == version_vista:
+                    self._despertar.wait(self.intervalo)
+                version_vista = self._version_despertar
 
 
 # --- la costura con el turno -------------------------------------------------

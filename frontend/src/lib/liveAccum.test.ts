@@ -71,6 +71,12 @@ function snap(
     start_hour: 14,
     seed: 2005,
     status: 'running',
+    strategy: {
+      degraded: false,
+      strategy_source: 'gemini',
+      strategy_note: null,
+      strategy_running: true,
+    },
     active_shocks: [],
     offers_this_tick: [],
     greedy: agent(greedy),

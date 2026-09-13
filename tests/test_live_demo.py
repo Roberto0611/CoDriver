@@ -2,6 +2,7 @@
 
 import importlib.util
 import json
+import threading
 from dataclasses import asdict
 from functools import partial
 from pathlib import Path
@@ -54,6 +55,34 @@ def test_greedy_y_nuez_ven_las_mismas_ofertas(tmp_path):
 
     assert ids("greedy") == ids("nuez")
     assert len(ids("greedy")) > 50
+
+
+def test_live_avisa_a_gemini_en_cada_media_hora_simulada(tmp_path):
+    """El reloj live, no los cinco minutos de pared, gobierna los refrescos de Gemini."""
+    s = sesion(tmp_path)
+    s.estrategia.detener()
+    llamadas: list[int] = []
+    respondio = threading.Event()
+
+    def proveedor(contexto):
+        llamadas.append(contexto["elapsed_min"])
+        respondio.set()
+        return {"margen_mxn": 1.0, "nota": "live refresh"}
+
+    s.estrategia.proveedor = proveedor
+    s.estrategia.fuente = "doble"
+    s.estrategia.intervalo = 3600
+    s.estrategia.arrancar()
+    try:
+        assert respondio.wait(1)
+        respondio.clear()
+        s.tick(29)
+        assert not respondio.wait(0.05)
+        s.tick()
+        assert respondio.wait(1)
+        assert llamadas == [0, 30]
+    finally:
+        s.end()
 
 
 def test_sin_shocks_el_final_es_el_de_simular(tmp_path):
