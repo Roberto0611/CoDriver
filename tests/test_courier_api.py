@@ -211,6 +211,20 @@ def test_jsonl_pasa_el_validador_oficial_y_guarda_inputs(api):
     assert "PASS" in validated.stdout
 
 
+def test_la_decision_se_encola_para_tigerdata_sin_cambiar_el_jsonl(api, monkeypatch):
+    client, service = api
+    mirrored = []
+    service.log._after_append = lambda event, path: mirrored.append((event, path))
+
+    start(client)
+    assert client.post("/decide", json=order()).status_code == 200
+
+    decisions = [event for event, _ in mirrored if event["event"] == "decision"]
+    assert len(decisions) == 1
+    assert decisions[0]["order_id"] == "ORD-0001"
+    assert decisions[0]["inputs"]["time_remaining_min"] == 330
+
+
 def test_replay_repite_accept_skip_y_razon(api):
     client, _ = api
     payloads = [
