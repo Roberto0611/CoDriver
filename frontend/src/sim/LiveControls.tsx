@@ -15,6 +15,7 @@ import { minutosAHora } from '../lib/sim'
 import { Icon } from '../ui/icons'
 import type { FuenteVoz } from '../voice/nuez'
 import { ModeSwitch } from './ModeSwitch'
+import { NavieCompass } from '../navie/NavieCompass'
 
 export type LivePhase = 'idle' | 'starting' | 'running' | 'paused' | 'finished' | 'error'
 export type LivePending = DemoShockKind | 'end' | null
@@ -54,10 +55,10 @@ export function LiveControls(p: ControlsProps) {
   const shockListo = vivo && !ocupado
   const terminado = p.phase === 'finished'
   const vozTitulo = !p.voice
-    ? 'Nuez voice off'
+    ? 'Navie voice off'
     : p.voiceSource === 'browser'
-      ? 'Nuez voice on (ElevenLabs unavailable, using browser voice)'
-      : 'Nuez voice on (ElevenLabs)'
+      ? 'Navie voice on (ElevenLabs unavailable, using browser voice)'
+      : 'Navie voice on (ElevenLabs)'
 
   const play = {
     idle: { title: 'Start live shift', icon: Icon.play, disabled: false },
@@ -70,6 +71,14 @@ export function LiveControls(p: ControlsProps) {
 
   return (
     <div className="timeline-panel">
+      <div style={{ display: 'flex', alignItems: 'center', paddingRight: '12px', borderRight: '1px solid var(--hairline)' }}>
+        <div style={{ width: '38px', height: '38px', borderRadius: '50%', background: 'var(--plum)', position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
+          <div style={{ transform: 'scale(0.22)', transformOrigin: 'center center', position: 'absolute' }}>
+            <NavieCompass mode="idle" />
+          </div>
+        </div>
+      </div>
+
       <div className="timeline-controls">
         <button
           className="timeline-btn-play"

@@ -45,7 +45,7 @@ export function Counterfactual({ seed, terminado, horaInicio }: Props) {
 
   return (
     <div className="turno-summary counterfactual">
-      <span className="turno-summary-label">If Nuez had taken its skips</span>
+      <span className="turno-summary-label">If Navie had taken its skips</span>
       <p className="counterfactual-line">{lineaDinero(datos.money_skips)}</p>
 
       {datos.top.map((p) => (

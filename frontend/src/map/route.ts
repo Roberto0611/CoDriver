@@ -138,7 +138,7 @@ export function drawRoute(
   if (aiFeature && info.ai) {
     const coords = aiFeature.geometry.coordinates
     // Place AI car
-    markers.aiCar = marker('ai', 'Nuez IA').setLngLat(coords[0]).addTo(map)
+    markers.aiCar = marker('ai', 'Navie IA').setLngLat(coords[0]).addTo(map)
     coords.forEach((c) => bounds.extend(c))
   }
 

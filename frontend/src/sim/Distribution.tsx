@@ -40,7 +40,7 @@ export function Distribution() {
           <p
             style={{ fontSize: '0.85rem', color: '#475569', marginBottom: '12px', lineHeight: 1.4 }}
           >
-            A single shift can be lucky or unlucky. Over 200 shifts, Nuez consistently outperforms
+            A single shift can be lucky or unlucky. Over 200 shifts, Navie consistently outperforms
             Greedy by <strong>+33.5%</strong> on normal days, and <strong>+32.9%</strong> on days
             with disruptions.
           </p>
@@ -84,7 +84,7 @@ export function Distribution() {
               marginBottom: '8px',
             }}
           >
-            * Oracle knows the entire shift in advance. Nuez achieves 94% of the theoretical
+            * Oracle knows the entire shift in advance. Navie achieves 94% of the theoretical
             optimum.
           </p>
           <img

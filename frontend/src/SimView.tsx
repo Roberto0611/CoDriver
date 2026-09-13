@@ -4,7 +4,9 @@
 
 import { useEffect, useState } from 'react'
 
+
 import { Icon } from './ui/icons'
+import { NavieCompass } from './navie/NavieCompass'
 import { cargarTurnosPorSeed, cargarIndiceTurnos, cargarPuntos } from './lib/loader'
 import { minutosAHora, contadoresEnT } from './lib/sim'
 import type { TurnoData, TurnoIndex } from './lib/turno'
@@ -122,19 +124,20 @@ export default function SimView() {
         <div className="loading-text">Loading shift…</div>
       </div>
 
-      {/* Logo y badge de Gemini (estado real, sondeado de /shift/status) */}
-      <div className="logo-container">
-        <GeminiBadge />
-        <div className="logo" role="img" aria-label="Nuez">
-          {Icon.mark}
-        </div>
-      </div>
-
       {/* Avisos de decisión: aceptado arriba, bloqueado por seguridad abajo */}
       <DecisionToasts frame={nuez?.frames[t]} seed={seed} t={t} />
 
       {/* Timeline */}
       <div className="timeline-panel">
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', paddingRight: '12px', borderRight: '1px solid var(--hairline)' }}>
+          <GeminiBadge />
+          <div style={{ width: '38px', height: '38px', borderRadius: '50%', background: 'var(--plum)', position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
+            <div style={{ transform: 'scale(0.22)', transformOrigin: 'center center', position: 'absolute' }}>
+              <NavieCompass mode="idle" />
+            </div>
+          </div>
+        </div>
+
         <div className="timeline-controls">
           <button className="timeline-btn-round" title="Back 1 min" onClick={() => stepMinute(-1)}>
             {Icon.stepBack}

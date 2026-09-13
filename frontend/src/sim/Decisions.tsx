@@ -54,7 +54,7 @@ export function Decisions({ frames, t, horaInicio }: Props) {
 
   return (
     <div className="decisions">
-      <div className="decisions-title">Nuez Decisions</div>
+      <div className="decisions-title">Navie Decisions</div>
 
       {decisiones.length === 0 && <div className="decision-text">No decisions yet…</div>}
 

@@ -65,10 +65,10 @@ export function VozToggle({ frames, t, isPlaying, vehiculo }: Props) {
   }
 
   const titulo = !encendida
-    ? 'Nuez voice off'
+    ? 'Navie voice off'
     : fuente === 'browser'
-      ? 'Nuez voice on (ElevenLabs unavailable, using browser voice)'
-      : 'Nuez voice on (ElevenLabs)'
+      ? 'Navie voice on (ElevenLabs unavailable, using browser voice)'
+      : 'Navie voice on (ElevenLabs)'
 
   return (
     <button

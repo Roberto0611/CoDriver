@@ -71,7 +71,7 @@ export function DecisionHistory({ lastDecisionId }: Props) {
           <div
             style={{ fontSize: '11px', fontWeight: 600, color: 'var(--ink)', marginBottom: '4px' }}
           >
-            Why Nuez skipped orders
+            Why Navie skipped orders
           </div>
           {Object.entries(by_constraint).map(([constraint, count]) => (
             <div

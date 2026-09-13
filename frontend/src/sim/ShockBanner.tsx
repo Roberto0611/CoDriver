@@ -49,7 +49,7 @@ function Efecto({
     <div className="shock-effect-row">
       <div className="shock-effect-head">
         <span className={`counter-agent-label is-${agente}`}>
-          {agente === 'nuez' ? 'Nuez' : 'Greedy'}
+          {agente === 'nuez' ? 'Navie' : 'Greedy'}
         </span>
         {decision && (
           <span className="decision-time num">{minutosAHora(startHour, decision.t)}</span>

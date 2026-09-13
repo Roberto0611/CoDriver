@@ -30,7 +30,8 @@ import { DecisionToasts } from './sim/DecisionToasts'
 import { LiveControls, LiveStartForm, type LivePending, type LivePhase } from './sim/LiveControls'
 import { ShockBanner } from './sim/ShockBanner'
 import { useSimMap } from './sim/useSimMap'
-import { Icon } from './ui/icons'
+
+
 import { handOff, initialNarration, phrasesToSay, type ShockRef } from './voice/liveNarration'
 import { callar, onFuente, say, unlock, type FuenteVoz } from './voice/nuez'
 import './styles/live.css'
@@ -407,9 +408,7 @@ export default function LiveSimView() {
         <div className="loading-text">Starting live shift…</div>
       </div>
 
-      <div className="logo live-logo" role="img" aria-label="Nuez">
-        {Icon.mark}
-      </div>
+
 
       <DecisionToasts frame={ultimoFrame} seed={snap?.seed ?? null} t={ultimoFrame?.t ?? 0} />
 
