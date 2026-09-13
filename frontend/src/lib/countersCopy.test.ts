@@ -14,6 +14,12 @@ describe('horaDeRegreso', () => {
   it('pasa la medianoche sin inventar la hora 24', () => {
     expect(horaDeRegreso({ hora_inicio: 22, duracion_min: 480, margen_min: 10 })).toBe('05:50')
     expect(horaDeRegreso({ hora_inicio: 20, duracion_min: 250, margen_min: 10 })).toBe('00:00')
+    expect(horaDeRegreso({ hora_inicio: 23, duracion_min: 120, margen_min: 10 })).toBe('00:50')
+  })
+
+  it('un turno que arranca a medianoche o de madrugada no se corre de día', () => {
+    expect(horaDeRegreso({ hora_inicio: 0, duracion_min: 120, margen_min: 10 })).toBe('01:50')
+    expect(horaDeRegreso({ hora_inicio: 2, duracion_min: 480, margen_min: 10 })).toBe('09:50')
   })
 
   it('respeta duraciones que no son múltiplos de 10 y otro margen', () => {

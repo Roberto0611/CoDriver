@@ -474,6 +474,7 @@ export default function LiveSimView() {
               greedyMeta={live.greedy.meta}
               nuezMeta={live.nuez.meta}
               terminado={terminado}
+              config={live.nuez.config}
             />
             <LiveCounterfactual seed={snap.seed} terminado={terminado} />
             {snap.event_log && (
