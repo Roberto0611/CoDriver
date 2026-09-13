@@ -52,10 +52,11 @@ Los números no se copian a mano: salen de los scripts y se regeneran con ellos.
   50 ms de presupuesto, un modelo en la ventana de decisión reprueba Feasibility.
 - **ML para predecir demanda, tiempos y surge.** Las ofertas y el surge los genera el simulador a
   partir del seed, y no se predice lo que uno mismo escribió; los tiempos son una matriz
-  precalculada sobre el grafo de OSMnx por un factor de tráfico por hora. La tabla de valor es
-  tabular para poder auditarla.
-- **OR-Tools.** `ruteo.py` enumera los órdenes de paradas válidos y es óptimo exacto en
-  microsegundos para las mochilas del simulador; un solver solo agregaba una dependencia.
+  precalculada sobre el grafo de OSMnx por un factor de tráfico por hora y corredor
+  (`rutas.py`). La tabla de valor es tabular para poder auditarla.
+- **OR-Tools.** `ruteo.py` enumera los órdenes de paradas válidos y se queda con el más rápido:
+  exacto mientras queden hasta seis paradas por ordenar, y con más inserta cada una en su mejor
+  posición. Tarda microsegundos; un solver solo agregaba una dependencia.
 - **Snowflake y Solana.** Snowflake hacía el mismo trabajo que TigerData (dos bases para una
   tarea) y Solana era el track menos pegado al reto; se cortaron para no perder el principal
   (`agents.md` §7).
