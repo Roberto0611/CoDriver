@@ -27,7 +27,8 @@ const VEHICULOS: { value: Vehiculo; label: string }[] = [
   { value: 'car', label: 'Car' },
   { value: 'bike', label: 'Bike' },
 ]
-const DURACIONES = [120, 480] as const
+// 510 = la jornada de 8.5 h del practice pack; /live/start la acepta hasta MAX_TURNO_MIN.
+const DURACIONES = [120, 480, 510] as const
 const RETRASO_NOMBRE = `Restaurant +${DEMO_SHOCKS.delay.slip_min} min`
 const RETRASO_TITULO = `${RETRASO_NOMBRE}: the next order to be offered is ready ${DEMO_SHOCKS.delay.slip_min} min late`
 

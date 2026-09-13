@@ -1,50 +1,52 @@
-// Al final del turno en vivo mostramos el "what if" del mismo seed cuando está
-// grabado. Un turno fresco no se re-simula a escondidas: cae al benchmark 2000 y
-// lo nombra como referencia, sobre todo si el juez disparó una disrupción.
+// El contrafactual del turno en vivo, bajo el Final Summary. No es el grabado de /sim: el
+// backend re-simula ESTA sesión (su seed, su config, los shocks que metió el juez y la
+// estrategia con la que Nuez decidió cada pedido) y aquí solo se pinta con el mismo bloque.
+// Nunca cae a otro seed: mientras calcula se dice que calcula, y si falla se dice que falló.
+// Un turno de 8 h tarda segundos, así que el "calculando" se ve de verdad.
 
-import { useEffect, useState } from 'react'
-
-import { cargarContrafactual, type Contrafactual } from '../lib/contrafactual'
+import type { LiveCounterfactualState } from '../lib/live'
+import { OTRO_TURNO } from '../lib/liveAccum'
 import { CounterfactualReport } from './Counterfactual'
 
-const SEED_REFERENCIA = 2000
-
 interface Props {
+  state: LiveCounterfactualState | null | undefined
+  sessionId: string
   seed: number
-  terminado: boolean
+  horaInicio: number
 }
 
-export function LiveCounterfactual({ seed, terminado }: Props) {
-  const [referencia, setReferencia] = useState<{ turnoSeed: number; datos: Contrafactual } | null>(
-    null
-  )
+export function LiveCounterfactual({ state, sessionId, seed, horaInicio }: Props) {
+  if (!state) return null
+  const titulo = `If Navie had taken its skips · Seed ${seed}`
 
-  useEffect(() => {
-    if (!terminado) return
-    let vigente = true
+  // Doble guarda: withCounterfactual ya no pega un reporte ajeno, pero este bloque es el
+  // que pone "Seed N" en el título, así que tampoco confía en que nadie más lo revisó.
+  const propio =
+    state.status === 'ready' && state.report.session_id === sessionId && state.report.seed === seed
+  if (state.status === 'ready' && propio) {
+    return (
+      <CounterfactualReport
+        datos={state.report}
+        horaInicio={horaInicio}
+        titulo={titulo}
+        nota="Re-simulated from this live shift: same seed, settings, shocks and strategy. Each what-if re-runs it with one order."
+      />
+    )
+  }
 
-    void (async () => {
-      const delTurno = await cargarContrafactual(seed)
-      const datos =
-        delTurno ?? (seed === SEED_REFERENCIA ? null : await cargarContrafactual(SEED_REFERENCIA))
-      if (!vigente || !datos) return
-      setReferencia({ turnoSeed: seed, datos })
-    })()
-
-    return () => {
-      vigente = false
-    }
-  }, [seed, terminado])
-
-  const datos = referencia?.turnoSeed === seed ? referencia.datos : null
-  if (!terminado || !datos) return null
+  const calculando = state.status === 'computing'
+  let texto = OTRO_TURNO
+  if (calculando) texto = 'Re-simulating this shift, one skipped order at a time…'
+  else if (state.status === 'failed')
+    texto = `Couldn't compute this shift's counterfactual: ${state.message}`
 
   return (
-    <CounterfactualReport
-      datos={datos}
-      horaInicio={14}
-      titulo={`If Navie had taken its skips · Recorded Seed ${datos.seed}`}
-      nota="Recorded benchmark (14:00–16:00, motorcycle), not a calculation of this fresh live shift."
-    />
+    <div className="turno-summary counterfactual" role="status" aria-busy={calculando}>
+      <span className="turno-summary-label">{titulo}</span>
+      <p className={calculando ? 'counterfactual-line is-pending' : 'counterfactual-line'}>
+        {calculando && <span className="counterfactual-spinner" aria-hidden="true" />}
+        {texto}
+      </p>
+    </div>
   )
 }

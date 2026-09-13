@@ -5,6 +5,7 @@
 
 import type { Vehiculo } from '../contract'
 import { API_URL } from './api'
+import { esContrafactual, type Contrafactual } from './contrafactual'
 import type { Frame, Tramo, TurnoMeta } from './turno'
 
 export type AgentKey = 'greedy' | 'nuez'
@@ -200,6 +201,62 @@ export function shockLive(
 
 export function endLive(sessionId: string): Promise<LiveSnapshot> {
   return pedir('/live/end', { session_id: sessionId })
+}
+
+/** El reporte de /sim, calculado para UNA sesión en vivo: trae su session_id. */
+export interface LiveCounterfactualReport extends Contrafactual {
+  session_id: string
+}
+
+/** El contrafactual de la sesión en el panel: calculándose, listo o fallido. */
+export type LiveCounterfactualState =
+  | { status: 'computing' }
+  | { status: 'ready'; report: LiveCounterfactualReport }
+  | { status: 'failed'; message: string }
+
+/** Cada cuánto se vuelve a preguntar mientras el backend contesta 202. */
+export const COUNTERFACTUAL_POLL_MS = 700
+
+/**
+ * El contrafactual de Nuez sobre una sesión ya terminada (409 si sigue corriendo). El
+ * backend re-simula ese turno con sus shocks y su estrategia en un hilo aparte: mientras
+ * tanto contesta 202 y esto devuelve null. En uno de 8 h tarda de 3 a 11 s.
+ */
+export async function getCounterfactual(
+  sessionId: string
+): Promise<LiveCounterfactualReport | null> {
+  const datos = await pedir<unknown>(`/live/counterfactual/${encodeURIComponent(sessionId)}`)
+  if (typeof datos === 'object' && datos !== null && 'status' in datos) {
+    if (datos.status === 'computing') return null
+  }
+  if (!esContrafactual(datos) || !('session_id' in datos) || typeof datos.session_id !== 'string') {
+    throw new LiveApiError('The live backend sent a counterfactual in an unexpected shape', 200)
+  }
+  return datos as LiveCounterfactualReport
+}
+
+/**
+ * Pregunta hasta que el backend termina, y dice cómo quedó. null si `vigente()` deja de
+ * ser cierto en el camino (otro turno, la vista se fue): esa respuesta ya no es de nadie.
+ */
+export async function esperarContrafactual(
+  sessionId: string,
+  vigente: () => boolean,
+  pausaMs = COUNTERFACTUAL_POLL_MS
+): Promise<LiveCounterfactualState | null> {
+  for (;;) {
+    let report: LiveCounterfactualReport | null
+    try {
+      report = await getCounterfactual(sessionId)
+    } catch (e) {
+      if (!vigente()) return null
+      return { status: 'failed', message: e instanceof Error ? e.message : String(e) }
+    }
+    if (!vigente()) return null
+    if (report) return { status: 'ready', report }
+    await new Promise((listo) => setTimeout(listo, pausaMs))
+    if (!vigente()) return null
+  }
 }
 
 export function getZones(): Promise<LiveZone[]> {

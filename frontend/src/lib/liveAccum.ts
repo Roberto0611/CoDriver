@@ -7,7 +7,14 @@
 // funcionaría hoy por casualidad.
 
 import type { ConfigTurno, Decision, Vehiculo } from '../contract'
-import type { AgentKey, LiveAgent, LiveOffer, LiveShock, LiveSnapshot } from './live'
+import type {
+  AgentKey,
+  LiveAgent,
+  LiveCounterfactualState,
+  LiveOffer,
+  LiveShock,
+  LiveSnapshot,
+} from './live'
 import type { Contadores } from './sim'
 import type { Frame, TurnoData, TurnoMeta } from './turno'
 
@@ -24,6 +31,9 @@ export interface LiveState {
   shocks: LiveShockSeen[]
   /** Todas las ofertas que aparecieron, para medir qué hizo un surge. */
   offers: LiveOffer[]
+  /** El contrafactual de la sesión terminada; null mientras nadie lo ha pedido.
+   *  Opcional para que un LiveState armado a mano (los tests del banner) siga valiendo. */
+  counterfactual?: LiveCounterfactualState | null
 }
 
 /** Lo que el snapshot no trae pero el config sí pide. */
@@ -80,7 +90,14 @@ export function initLiveState(snap: LiveSnapshot, extra: LiveConfigExtra = {}): 
     }
   }
   return applySnapshot(
-    { snapshot: snap, greedy: armar('greedy'), nuez: armar('nuez'), shocks: [], offers: [] },
+    {
+      snapshot: snap,
+      greedy: armar('greedy'),
+      nuez: armar('nuez'),
+      shocks: [],
+      offers: [],
+      counterfactual: null,
+    },
     snap
   )
 }
@@ -132,6 +149,32 @@ export function applySnapshot(prev: LiveState, snap: LiveSnapshot): LiveState {
     nuez,
     shocks: nuevos.length ? [...prev.shocks, ...nuevos] : prev.shocks,
     offers,
+    counterfactual: prev.counterfactual,
+  }
+}
+
+/** Lo que se enseña si el backend contesta con el reporte de otro turno. */
+export const OTRO_TURNO =
+  "The backend answered with another shift's counterfactual, so it isn't shown."
+
+/**
+ * Pone el estado del contrafactual que se pidió al terminar. Solo en ESTA sesión y ya
+ * terminada: la respuesta de una sesión soltada que llega tarde no toca la vigente. Un
+ * reporte de otra sesión u otro seed nunca se pega: queda como falla, dicha tal cual, en
+ * vez de un "calculando" eterno o de números de otro turno bajo el título de este.
+ */
+export function withCounterfactual(
+  state: LiveState,
+  sessionId: string,
+  next: LiveCounterfactualState
+): LiveState {
+  const s = state.snapshot
+  if (s.session_id !== sessionId || s.status === 'running') return state
+  const ajeno =
+    next.status === 'ready' && (next.report.session_id !== sessionId || next.report.seed !== s.seed)
+  return {
+    ...state,
+    counterfactual: ajeno ? { status: 'failed', message: OTRO_TURNO } : next,
   }
 }
 

@@ -99,6 +99,12 @@ GET /live/status/{session_id}
 POST /live/end
   body: { session_id }
   response: resultado final + ruta del JSONL
+
+GET /live/counterfactual/{session_id}
+  response: 202 { status: "computing", session_id, seed } mientras re-simula;
+  200 el contrafactual de Nuez sobre ESE turno ya terminado (mismo esquema que
+  contrafactual_<seed>.json, más session_id); 500 si el cálculo tronó;
+  409 si sigue corriendo; 404 si la sesión no existe
 ```
 
 Para el primer corte, el navegador puede hacer `tick` cada 500 ms (1 minuto simulado
@@ -196,13 +202,14 @@ llegar completa: no volver a sintetizarla y perder la restricción que mandó.
 - [x] Manejar errores de red con mensaje visible y detener el autoplay; no limitarse
       a `console.error`.
 
-### 4. Voz (solo después de que live funcione) (en curso en esta rama)
+### 4. Voz (solo después de que live funcione)
 
-- [ ] Al recibir una decisión nueva de Nuez, llamar `say(reason)` de
-      `frontend/src/voice/nuez.ts` si la decisión merece ser narrada.
-- [ ] No hablar cada oferta: como mínimo, hablar rechazos por seguridad y la primera
-      decisión relevante tras un shock.
-- [ ] Usar `prefetch()` solo para el replay grabado; un turno live no puede conocer
+- [x] Al recibir una decisión nueva de Nuez, llamar `say(reason)` de
+      `frontend/src/voice/nuez.ts` si la decisión merece ser narrada
+      (`voice/liveNarration.ts` decide qué, `voice/useLiveNarration.ts` lo entrega).
+- [x] No hablar cada oferta: como mínimo, hablar rechazos por reglas duras (seguridad y
+      vehículo lleno) y la primera decisión relevante tras un shock.
+- [x] Usar `prefetch()` solo para el replay grabado; un turno live no puede conocer
       de antemano todas sus frases.
 
 ## Definición de terminado
@@ -235,7 +242,28 @@ Una persona que no escribió el código puede hacer esto sin modificar archivos:
   (`live_api.registry.usar_grafo(G)`), sin cargarlo dos veces. Sin
   `data/mty_graph.pkl` los tramos caen a línea recta; las decisiones no cambian.
 - **JSONL live** usa los nombres oficiales del esquema; se valida con
-  `courier/validate_format (2).py`.
+  `courier/validate_format (2).py`. Es para auditar el turno live; el replay del
+  protocolo §6 usa la bitácora de `/decide` (ver [La bitácora JSONL](#la-bitácora-jsonl)).
+- **Contrafactual de la sesión, aparte de End.** El contrafactual de `/live` es el de **ese**
+  turno: re-simula el seed y la config de la sesión con los shocks que metió el juez y con la
+  estrategia que Gemini tenía publicada cuando Nuez decidió cada pedido (`live_nuez.py` la
+  anota; `contrafactual.reporte(..., disrupciones=, estrategias=)`), una corrida por salto por
+  dinero. Así su "real" es exactamente el turno que se vio. En las corridas forzadas la
+  estrategia de cada pedido se queda como estaba: no se inventa qué habría contestado Gemini.
+  No hay grabado ni referencia: nunca cae a `contrafactual_2000.json` ni a otro seed; los
+  `contrafactual_<seed>.json` son solo de `/sim`.
+- **Tiempos.** Crece con los saltos por dinero. Medido en proceso, 2 h tarda 0.1-0.3 s (seeds
+  2000, 2005, 3141); 8 h tarda 3.2-4.2 s (seed 2000, 12 saltos), 4.4-6.1 s (2005, 15) y
+  5.9-6.4 s (3141, 30); 8.5 h con 3141 tarda 6.1 s (31). Con el API de dev corriendo (uvicorn,
+  grafo cargado), 3141 a 8 h tardó 8.8 s entre _Re-simulating_ y el reporte (16.6 s en otra
+  corrida con la máquina cargada). Por eso corre en un hilo aparte: `/live/end` lo arranca al soltar el candado de la sesión y contesta enseguida;
+  `GET /live/counterfactual/{id}` da 202 mientras calcula y el front vuelve a preguntar cada
+  700 ms. Ningún candado queda tomado durante el cálculo, y se calcula una vez por sesión.
+- **En el panel** (`sim/LiveCounterfactual.tsx`): mientras calcula, _Re-simulating this
+  shift, one skipped order at a time…_ con un spinner; al llegar, el mismo bloque que `/sim`
+  (`CounterfactualReport`) titulado _If Navie had taken its skips · Seed N_; si falla,
+  _Couldn't compute this shift's counterfactual: …_ con el motivo. Un reporte de otra sesión u
+  otro seed no se pinta nunca (`withCounterfactual` y el componente lo revisan).
 
 ## Cómo correr el demo live
 
@@ -283,19 +311,31 @@ VITE_API_URL=http://127.0.0.1:9000 npm --prefix frontend run dev
    25 min). Sin el retraso la aceptaba. Greedy la salta igual, con o sin retraso. Señalar el
    SKIP de Nuez y su razón en el banner. Este volteo depende de que el cierre de las 14:30 ya
    esté puesto: sin el cierre, un delay en el 56 no cambia la decisión.
-9. Dejar correr al menos hasta 15:10 (ver
+9. Dejar correr al menos hasta 15:30 (ver
    [Momentos de seguridad](#momentos-de-seguridad-en-el-seed-ensayado)) y pulsar
    **End shift**. El panel baja solo al resultado final y a la ruta del **Event log**. Con el
    cierre a las 14:30 y el retraso a las 14:56 termina en Greedy $353.63 / 4 entregas y Nuez
    $428.65 / 7 entregas (solo con el cierre, Nuez termina en $395.94).
+10. En la misma tarjeta aparece **If Navie had taken its skips · Seed 2005**: primero
+    _Re-simulating this shift…_ y, en menos de un segundo, el contrafactual de **esta** sesión,
+    re-simulada con el cierre y el retraso puestos. En el guion: 5 saltos por dinero; tomando
+    cualquiera solo, 3 habrían ganado menos y 2 lo mismo. Los renglones son 14:02 (o_002,
+    −MXN 117), 14:03 (o_003, −MXN 30) y 14:58 (o_046, −MXN 21); seguridad: Heat rule 23 ·
+    Shift ends 15; vehículo lleno 46. Cada renglón es una corrida aparte: los deltas no se suman.
+    Con otro seed sale el de ese seed, calculado igual; nunca el de otro.
 
 Un cierre entre 14:27 y 14:33 sigue cambiando los tramos por Centro de los dos, así que
 pasarse un minuto no arruina el demo; solo cambia la corrida para repetirla. El retraso no
 tiene ese margen: en otro minuto le pega a otro pedido. Con el cierre puesto, los minutos donde
-un +15 cambia una decisión son 47 (o_037, Nuez), 56 (o_045, Nuez) y 72 (o_059, Greedy). Fuera de
+un +15 cambia una decisión son 47 y 48 (o_037, Nuez), 56 (o_045, Nuez) y 72 (o_059, Greedy). Fuera de
 esos minutos el banner sigue siendo honesto: nombra el pedido y enseña lo que decidió cada uno.
 
 ### La bitácora JSONL
+
+Es la bitácora de **auditoría** del turno live: los dos agentes, sus decisiones y los shocks
+del juez, con los nombres del esquema oficial. El replay del protocolo §6 (grabar un turno,
+reproducirlo contra el sistema y comparar decisiones) se hace sobre la bitácora de `/decide`
+(`cache/courier/current_shift.jsonl`, o `$NUEZ_EVENT_LOG`), que es la de un solo repartidor.
 
 Cada sesión escribe `cache/live/<session_id>.jsonl` (o `$NUEZ_LIVE_DIR/<session_id>.jsonl`
 si esa variable está definida al arrancar la API). El `session_id` es
@@ -331,23 +371,27 @@ archivos. La velocidad (×1, ×2, ×4) no afecta: cada tick es un minuto.
 
 El protocolo pide ver al menos dos restricciones de seguridad disparándose en vivo. En el
 seed 2005 (2 h desde 14:00, moto, Tec, margen 10, cierre a las 14:30, sin surge) los dos
-agentes disparan **tres distintas**: `vehicle_capacity`, `shift_end_infeasible` y
-`heat_rule`. No hace falta otro seed. El retraso de las 14:56 no mueve la primera vez de
-ninguna; agrega el `shift_end_infeasible` de Nuez sobre o_045.
+agentes disparan **tres restricciones duras**: dos de seguridad, `shift_end_infeasible` y
+`heat_rule`, y una de **capacidad**, `vehicle_capacity`. La capacidad es dura pero no es
+seguridad: un vehículo lleno es un límite físico, no un riesgo para el repartidor (así la
+clasifica main en `contrafactual.py` y `lib/decision-text.ts`). No hace falta otro seed. El
+retraso de las 14:56 no mueve la primera vez de ninguna; agrega el `shift_end_infeasible` de
+Nuez sobre o_045.
 
-| Hora  | Agente | Restricción            | Razón corta                                              |
-| ----- | ------ | ---------------------- | -------------------------------------------------------- |
-| 14:06 | Nuez   | `vehicle_capacity`     | En moto solo caben 3 pedidos a la vez                    |
-| 14:08 | Greedy | `vehicle_capacity`     | 37 L y en la caja de moto caben 20                       |
-| 14:09 | Greedy | `shift_end_infeasible` | No alcanza a entregar y volver antes del fin             |
-| 14:34 | Greedy | `shift_end_infeasible` | Por el cierre: sin él, la saltaba por `reservation_wage` |
-| 14:43 | Nuez   | `shift_end_infeasible` | Por el cierre: sin él, la primera es a las 15:00         |
-| 15:30 | Nuez   | `heat_rule`            | 90 min seguidos bajo el sol de las 15; para 20 min       |
-| 15:33 | Greedy | `heat_rule`            | 91 min seguidos; sin cierre, la primera es a las 15:47   |
+| Hora  | Agente | Restricción            | Tipo      | Razón corta                                              |
+| ----- | ------ | ---------------------- | --------- | -------------------------------------------------------- |
+| 14:06 | Nuez   | `vehicle_capacity`     | capacidad | En moto solo caben 3 pedidos a la vez                    |
+| 14:08 | Greedy | `vehicle_capacity`     | capacidad | 37 L y en la caja de moto caben 20                       |
+| 14:09 | Greedy | `shift_end_infeasible` | seguridad | No alcanza a entregar y volver antes del fin             |
+| 14:34 | Greedy | `shift_end_infeasible` | seguridad | Por el cierre: sin él, la saltaba por `reservation_wage` |
+| 14:43 | Nuez   | `shift_end_infeasible` | seguridad | Por el cierre: sin él, la primera es a las 15:00         |
+| 15:30 | Nuez   | `heat_rule`            | seguridad | 90 min seguidos bajo el sol de las 15; para 20 min       |
+| 15:33 | Greedy | `heat_rule`            | seguridad | 91 min seguidos; sin cierre, la primera es a las 15:47   |
 
 - Nuez repite `vehicle_capacity` en la mayoría de las ofertas entre 14:06 y 14:42,
-  mientras lleva 3 pedidos. Llegar a 14:45 antes de **End shift** ya muestra dos
-  restricciones; la tercera pide dejar correr hasta 15:30.
+  mientras lleva 3 pedidos. Llegar a 14:45 antes de **End shift** muestra capacidad y fin de
+  turno, que es **una sola** de seguridad; la segunda (`heat_rule`) pide dejar correr hasta
+  15:30.
 - La lista de decisiones y los avisos en pantalla son de Nuez; los rechazos de Greedy
   quedan en el JSONL.
 - `flagged_zone_night` (después de las 22:00) y `mandatory_break` (4 h seguidas) no

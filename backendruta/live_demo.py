@@ -66,19 +66,19 @@ Los dicts se arman en `live_log.py`; aqui solo se decide cuando va cada uno.
 
 import time
 from dataclasses import asdict
+from functools import partial
 from pathlib import Path
-from types import SimpleNamespace
+from threading import Lock
 from typing import Any, Literal
 
 import rutas
 import shocks
-import valor
-from backendruta import live_log, strategy, zonas
+from backendruta import live_log, zonas
 from backendruta.event_log import EventLog
 from backendruta.live_geometry import Geometria, linea_recta
+from backendruta.live_nuez import NuezEnVivo, contexto_modelo
 from backendruta.strategy import CapaEstrategia
 from contrato import ConfigTurno, Decision, Oferta
-from nuez import politica_nuez
 from reloj import Turno
 from sim import generar_ofertas, indice_de, politica_greedy
 
@@ -91,6 +91,7 @@ DEMO_DELAY = {"slip_min": 15}
 MINUTO_DELAY_ENSAYADO = 56
 
 AGENTES = ("greedy", "nuez")
+Tramo = tuple[float, float, int, int]  # (salida, llegada, desde, hasta), como Resultado.tramos
 TIPOS = {"closure", "surge", "rain", "delay"}
 CON_ZONA = {"closure", "surge"}
 
@@ -126,6 +127,9 @@ class LiveDemoSession:
         self.session_id = session_id
         self.cfg = cfg
         self.geometria = geometria
+        # Lo toma el router en tick, shock, end y status. La sesion no se protege sola: el
+        # candado del registro solo cuida su dict, asi un /live/end de 8 h no congela a nadie.
+        self.lock = Lock()
         self.status: Literal["running", "finished", "ended"] = "running"
         self.shocks: list[shocks.Shock] = []
 
@@ -135,16 +139,16 @@ class LiveDemoSession:
         for o in self.ofertas:
             self.por_minuto.setdefault(o.t_aparece, []).append(o)
 
-        self.tabla = valor.para_turno(cfg.duracion_min)
         # Gemini conserva su propio hilo: el reloj live solo le avisa cuando cruza
         # treinta minutos simulados. Nuez lee la ultima estrategia ya disponible,
-        # igual que /decide; nunca espera a una llamada de red.
+        # igual que /decide; nunca espera a una llamada de red (ver live_nuez.py).
         self.estrategia = CapaEstrategia()
-        self.estrategia.contexto = self._contexto_modelo
+        self.nuez = NuezEnVivo(self.estrategia, cfg.duracion_min)
         self.turnos = {
             "greedy": Turno(cfg, politica_greedy, ofertas=self.ofertas),
-            "nuez": Turno(cfg, self._politica_nuez, ofertas=self.ofertas),
+            "nuez": Turno(cfg, self.nuez, ofertas=self.ofertas),
         }
+        self.estrategia.contexto = partial(contexto_modelo, self.turnos["nuez"])
         # Hasta donde ya se reporto cada lista del Resultado. Los Turnos solo crecen
         # sus listas, asi que lo nuevo de un minuto es todo lo que esta despues del cursor.
         # `cancelados` es el que ya salio en un position_update, no el del motor.
@@ -242,13 +246,13 @@ class LiveDemoSession:
             oferta_id=objetivo.id if objetivo else None,
             retraso_min=retraso,
         )
-        # El evento se arma ANTES de tocar los turnos: si armarlo truena, el shock no
-        # puede quedar vivo en el motor sin rastro en el JSONL que se va a auditar.
-        evento = live_log.shock(s, self.cfg, zona)
+        # El evento se arma y se ESCRIBE antes de tocar los turnos: si armarlo o el disco
+        # truena, el shock no puede quedar vivo en el motor sin rastro en el JSONL que se va
+        # a auditar. Inyectar ya no falla despues: s.t es el minuto actual, nunca el pasado.
+        self.log.append(live_log.shock(s, self.cfg, zona))
         for turno in self.turnos.values():
             turno.inyectar(s)
         self.shocks.append(s)
-        self.log.append(evento)
         return {"shock": self._shock(s), "snapshot": self.snapshot()}
 
     def end(self) -> dict[str, Any]:
@@ -421,6 +425,13 @@ class LiveDemoSession:
         nuevos: bool,
     ) -> dict[str, Any]:
         vigentes = shocks.en(self.minute, tuple(self.shocks)).shocks
+        # Primero lo que puede tronar (la geometria sale del grafo), para los DOS agentes, y
+        # luego se avanzan los cursores: si truena, este tick no llego al front y el
+        # siguiente vuelve a mandar esos tramos. Solo tick los consume; snapshot() no.
+        pendientes = {a: self._tramos_nuevos(a) if nuevos else ([], {}) for a in AGENTES}
+        for a, (tramos, geometria) in pendientes.items():
+            self._cursor[a]["tramos"] += len(tramos)
+            self._claves[a].update(geometria)
         return {
             "session_id": self.session_id,
             "minute": self.minute,
@@ -431,20 +442,20 @@ class LiveDemoSession:
             "strategy": self.estrategia.estado_publico(en_turno=self.status == "running"),
             "active_shocks": [self._shock(s) for s in vigentes],
             "offers_this_tick": ofertas,
-            **{a: self._agente(a, frames[a], nuevos) for a in AGENTES},
+            **{a: self._agente(a, frames[a], *pendientes[a]) for a in AGENTES},
         }
 
-    def _agente(self, a: str, frames: list[dict[str, Any]], nuevos: bool) -> dict[str, Any]:
+    def _tramos_nuevos(self, a: str) -> tuple[list[Tramo], dict[str, Any]]:
+        """Los tramos que el front de `a` no ha visto y la geometria de los que no conoce."""
+        tramos = self.turnos[a].res.tramos[self._cursor[a]["tramos"] :]
+        sin_mandar = [x for x in tramos if f"{x[2]}-{x[3]}" not in self._claves[a]]
+        return tramos, self.geometria(sin_mandar) if sin_mandar else {}
+
+    def _agente(
+        self, a: str, frames: list[dict[str, Any]], tramos: list[Tramo], geometria: dict[str, Any]
+    ) -> dict[str, Any]:
         turno = self.turnos[a]
         res = turno.res
-        tramos: list[tuple[float, float, int, int]] = []
-        if nuevos:  # solo tick consume el cursor: snapshot() no se come los tramos de nadie
-            tramos = res.tramos[self._cursor[a]["tramos"] :]
-            self._cursor[a]["tramos"] = len(res.tramos)
-        sin_mandar = [x for x in tramos if f"{x[2]}-{x[3]}" not in self._claves[a]]
-        geometria = self.geometria(sin_mandar) if sin_mandar else {}
-        self._claves[a].update(geometria)
-
         lat, lon = rutas.COORD_DE[turno.pos]
         return {
             "position": turno.pos,
@@ -471,29 +482,3 @@ class LiveDemoSession:
             "geometry": geometria,
             "result": self._resultado[a],
         }
-
-    def _politica_nuez(self, oferta, estado, ruta, cfg, *, activos):
-        """La ruta rapida solo lee la propuesta ya publicada por Gemini."""
-        return politica_nuez(
-            oferta,
-            estado,
-            ruta,
-            cfg,
-            tabla=self.tabla,
-            estrategia=self.estrategia.actual,
-            activos=activos,
-        )
-
-    def _contexto_modelo(self) -> dict[str, Any]:
-        """Foto del turno live cuando el hilo lento va a consultar Gemini."""
-        turno = self.turnos["nuez"]
-        estado = SimpleNamespace(
-            config=self.cfg,
-            current_minute=self.minute,
-            position=turno.pos,
-            accepted=turno.aceptadas,
-            offered=len(turno.res.decisiones),
-            completed=turno.res.entregas,
-            earnings_mxn=turno.res.ganado,
-        )
-        return strategy.contexto_del_turno(estado, zonas.NOMBRES, turno.activos())
