@@ -7,6 +7,7 @@ import Landing from './Landing.tsx'
 
 import ElevenLabsTest from './ElevenLabsTest.tsx'
 import SimView from './SimView.tsx'
+import SafetyLabView from './SafetyLabView.tsx'
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
@@ -16,6 +17,7 @@ createRoot(document.getElementById('root')!).render(
         <Route path="/app" element={<App />} />
         <Route path="/elevenlabs" element={<ElevenLabsTest />} />
         <Route path="/sim" element={<SimView />} />
+        <Route path="/safety-lab" element={<SafetyLabView />} />
       </Routes>
     </BrowserRouter>
   </StrictMode>

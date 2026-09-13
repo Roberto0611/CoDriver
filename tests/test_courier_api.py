@@ -268,6 +268,41 @@ def test_catalogo_publica_ids_estables(api):
     assert zones[11]["name"] == "Escobedo"
 
 
+def test_pack_externo_resuelve_ids_desconocidos_y_alias_de_zona_marcada(api):
+    """Los ids de Nuez no cambian; los externos se traducen con su nombre."""
+    client, service = api
+    start(client)
+
+    # 14 no está en GET /zones; el nombre permite aterrizarlo a SantaCatarina.
+    accepted = client.post(
+        "/decide",
+        json=order(
+            zone_pickup=1,
+            zone_pickup_name="Centro",
+            zone_dropoff=14,
+            zone_dropoff_name="Santa Catarina",
+            base_pay_mxn=90_000,
+        ),
+    )
+    assert accepted.status_code == 200
+    assert service._external_zone_ids[14] == 12
+
+    # La zona 99 es la convención publicada del practice pack para zona nocturna.
+    blocked = client.post(
+        "/decide",
+        json=order(
+            "PACK-99",
+            sim_time="2026-03-21T22:05:00",
+            zone_pickup=1,
+            zone_pickup_name="Centro",
+            zone_dropoff=99,
+            base_pay_mxn=90_000,
+        ),
+    )
+    assert blocked.status_code == 200
+    assert blocked.json()["binding_constraint"] == "flagged_zone_night"
+
+
 def test_tiempos_y_distancia_del_request_entran_a_la_decision(api):
     client, _ = api
     start(client)
