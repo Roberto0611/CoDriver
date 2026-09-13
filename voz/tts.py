@@ -5,8 +5,10 @@ en total) y el wifi del hackathon falla en el pitch. Toda frase que ya se dijo u
 se sirve de disco, sin red, y `python -m voz precache` deja el guion listo antes.
 """
 
+import contextlib
 import hashlib
 import json
+import uuid
 from collections.abc import Iterator
 from pathlib import Path
 
@@ -16,7 +18,16 @@ from voz.config import Config, config
 
 
 class VozError(RuntimeError):
-    """Algo impidio generar audio. El mensaje dice que hacer."""
+    """Algo impidio generar audio. El mensaje dice que hacer.
+
+    `pausar` distingue una caida de ElevenLabs (llave rechazada, sin cuota, 5xx, sin red),
+    tras la cual conviene dejar de intentar un rato, de un error de esta frase o de este
+    instante (texto vacio, demasiadas peticiones a la vez) que no dice nada de la siguiente.
+    """
+
+    def __init__(self, mensaje: str, *, pausar: bool = True):
+        super().__init__(mensaje)
+        self.pausar = pausar
 
 
 def normalizar(texto: str) -> str:
@@ -51,7 +62,12 @@ def _explicar(r: httpx.Response) -> VozError:
     if r.status_code == 401:
         return VozError(f"ElevenLabs rechazo la llave (401): {detalle}")
     if r.status_code == 429:
-        return VozError(f"ElevenLabs: limite de uso o de caracteres (429): {detalle}")
+        # Solo la cuota agotada es caida; "demasiadas a la vez" o "sistema ocupado" pasa solo.
+        estado = detalle.get("status") if isinstance(detalle, dict) else None
+        return VozError(
+            f"ElevenLabs: limite de uso o de caracteres (429): {detalle}",
+            pausar=estado == "quota_exceeded",
+        )
     return VozError(f"ElevenLabs respondio {r.status_code}: {detalle}")
 
 
@@ -65,11 +81,13 @@ def stream(
     """Itera chunks de MP3. Si la frase esta en cache, un solo chunk desde disco y cero red.
 
     Cuando viene de la API, se escribe a cache al terminar (atomicamente: .part -> .mp3),
-    asi una desconexion a medias no deja un archivo roto que luego se sirva.
+    asi una desconexion a medias no deja un archivo roto que luego se sirva. Cada stream
+    tiene su propio .part: el prefetch y la reproduccion pueden pedir la misma frase a la
+    vez, y con un temporal compartido en Windows uno de los dos truena al renombrar.
     """
     texto = normalizar(texto)
     if not texto:
-        raise VozError("No hay texto que decir.")
+        raise VozError("No hay texto que decir.", pausar=False)
 
     ruta = cache_path(texto, cfg)
     if usar_cache and ruta.exists():
@@ -94,13 +112,23 @@ def stream(
                 r.read()
                 raise _explicar(r)
             ruta.parent.mkdir(parents=True, exist_ok=True)
-            parcial = ruta.with_suffix(".part")
-            with parcial.open("wb") as f:
-                for chunk in r.iter_bytes():
-                    if chunk:
-                        f.write(chunk)
-                        yield chunk
-            parcial.replace(ruta)
+            parcial = ruta.with_name(f"{ruta.stem}.{uuid.uuid4().hex[:8]}.part")
+            try:
+                with parcial.open("wb") as f:
+                    for chunk in r.iter_bytes():
+                        if chunk:
+                            f.write(chunk)
+                            yield chunk
+                try:
+                    parcial.replace(ruta)
+                except OSError:
+                    # Otro stream de la misma frase ya la guardo (o la estan leyendo). El audio
+                    # ya llego completo al cliente; la cache se queda con la copia del otro.
+                    pass
+            finally:
+                # Desconexion a medias, error de red o reemplazo fallido: sin temporales sueltos.
+                with contextlib.suppress(OSError):
+                    parcial.unlink(missing_ok=True)
     except httpx.HTTPError as e:
         raise VozError(f"No se pudo llegar a ElevenLabs: {e}") from e
     finally:

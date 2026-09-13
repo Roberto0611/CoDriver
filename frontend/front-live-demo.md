@@ -40,13 +40,13 @@ Nuez aislados y simultáneamente desde una sola sesión HTTP.
 
 Mantener dos modos explícitos:
 
-| Modo | Fuente de verdad | Controles |
-|---|---|---|
-| **Recorded replay** | JSON ya exportado | play, pausa, velocidad, selector de seed. Sin inyectar shocks. |
-| **Live demo** | simulación viva del backend | iniciar seed, play/pause, cierre vial y surge. |
+| Modo                | Fuente de verdad            | Controles                                                      |
+| ------------------- | --------------------------- | -------------------------------------------------------------- |
+| **Recorded replay** | JSON ya exportado           | play, pausa, velocidad, selector de seed. Sin inyectar shocks. |
+| **Live demo**       | simulación viva del backend | iniciar seed, play/pause, cierre vial y surge.                 |
 
 Para el pitch basta con **Closure** y **Surge**. No priorizar lluvia: es menos visual y
-el reto pide surge *o* cierre. Si se deja lluvia, debe funcionar igual que los otros,
+el reto pide surge _o_ cierre. Si se deja lluvia, debe funcionar igual que los otros,
 no ser un botón decorativo.
 
 ## Arquitectura recomendada
@@ -126,7 +126,12 @@ Definir un tipo compartido/documentado. Debe incluir solo lo necesario para pint
     "deliveries": 3,
     "skipped": 3,
     "route": [],
-    "last_decision": { "order_id": "...", "decision": "SKIP", "reason": "...", "binding_constraint": null }
+    "last_decision": {
+      "order_id": "...",
+      "decision": "SKIP",
+      "reason": "...",
+      "binding_constraint": null
+    }
   }
 }
 ```

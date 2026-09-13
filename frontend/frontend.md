@@ -45,19 +45,19 @@ Ese es el momento del demo. Si el banner no está, el juez no sabe que su botón
 Esto lo encontré revisando y es el hallazgo importante.
 
 `lib/decision-text.ts` **descarta** el campo `razon` del JSON y genera su propio texto en
-inglés. El comentario del archivo lo dice: *"la `razon` del JSON viene en español; esta
-función la reemplaza"*.
+inglés. El comentario del archivo lo dice: _"la `razon` del JSON viene en español; esta
+función la reemplaza"_.
 
 El problema es que ahora la razón trae información que el texto generado no tiene:
 
-| | |
-|---|---|
-| **lo que trae el JSON** | `"Cerraron Constitución, esos 34 minutos rinden $42 normalmente, y este paga $22."` |
-| **lo que se muestra hoy** | `"Skip: MXN 22 for 34 min"` |
+|                           |                                                                                     |
+| ------------------------- | ----------------------------------------------------------------------------------- |
+| **lo que trae el JSON**   | `"Cerraron Constitución, esos 34 minutos rinden $42 normalmente, y este paga $22."` |
+| **lo que se muestra hoy** | `"Skip: MXN 22 for 34 min"`                                                         |
 
 Se pierde el **por qué** justo cuando por fin lo tenemos. Y el spec es explícito:
 
-> *"A correct decision with a generic or wrong reason does not earn the Judgment credit."*
+> _"A correct decision with a generic or wrong reason does not earn the Judgment credit."_
 
 **Lo mínimo:** mostrar `razon` tal cual en el detalle expandido. El resumen corto de la lista
 puede seguir generado, no hay bronca.
@@ -97,17 +97,17 @@ Safety violations     0
 Back by 14:50         109.5 min   ✓
 ```
 
-- **`violaciones`** es *"¿aceptó algo que sus propios números decían que no alcanzaba?"*.
+- **`violaciones`** es _"¿aceptó algo que sus propios números decían que no alcanzaba?"_.
   Siempre es 0, y ese cero es el que pide el protocolo.
-- **`llego_tarde`** es *"¿volvió a tiempo?"*. Puede ser `true` por algo que pasó **después**
+- **`llego_tarde`** es _"¿volvió a tiempo?"_. Puede ser `true` por algo que pasó **después**
   de aceptar — empezó a llover cuando ya traía tres pedidos.
 
 Si el juez ve una sola línea ambigua llamada "Late", lee "violó la regla". No es lo que pasó.
 
 ### `cancelados` no es un contador, es un momento
 
-Si sale 1 significa: *"empezó a llover, Nuez soltó el pedido que todavía no recogía para
-alcanzar a volver a clase"*. Eso se cuenta en voz alta, no se esconde en una cifra chiquita.
+Si sale 1 significa: _"empezó a llover, Nuez soltó el pedido que todavía no recogía para
+alcanzar a volver a clase"_. Eso se cuenta en voz alta, no se esconde en una cifra chiquita.
 
 La lógica es la de un repartidor real: puedes cancelar lo que no has recogido, no puedes tirar
 comida que ya cargas.
