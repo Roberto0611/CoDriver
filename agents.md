@@ -19,28 +19,31 @@ repartidor normal por un margen claro, y explica cada decisión en voz alta.
 python comparar.py 200          seeds de REPORTE 2000-2199
 
                      greedy      NUEZ
-  ganancia media      $198      $264
+  ganancia media      $197      $264
   entregas             3.2       5.2
   violaciones            0         0
   rebasaron el margen    0         0
-  DELTA: +33.5%   gana en 152/200
+  DELTA: +33.5%   gana en 154/200
 ```
 
-Turno de 8 horas (`--duracion 480`, moto, 14:00, tabla `V_480.json`): greedy **$733**, Nuez
-**$1081**, **+47.5%**, gana en 175/200, cero violaciones y cero rebasados.
+Medido con el motor de la caja de 20 L y con `regresar_al_ancla` encendido (el default del
+simulador); `/decide` usa la regla del spec, sin regreso.
 
-Con disrupciones (`--shocks`): greedy $189, Nuez $251, **+32.9%**, cero violaciones y 14 de 200
-rebasados — ver "Dos métricas, no una".
+Turno de 8 horas (`--duracion 480`, moto, 14:00, tabla `V_480.json`): greedy **$736**, Nuez
+**$1087**, **+47.8%**, gana en 178/200, cero violaciones y cero rebasados.
+
+Con disrupciones (`--shocks`): greedy $188, Nuez $250, **+33.1%**, gana en 153/200, cero
+violaciones y 10 de 200 rebasados — ver "Dos métricas, no una".
 
 **La tabla de rivales** (50 turnos de REPORTE, moto, 120 min):
 
 ```
-AcceptAll     $180        GreedyRate    $206
-HighestPay    $133        OurAgent      $265
-NearestFirst  $128        Oracle        $281   ← mejor plan offline conocido, con el turno completo
+AcceptAll     $182        GreedyRate    $206
+HighestPay    $133        OurAgent      $260
+NearestFirst  $129        Oracle        $277   ← mejor plan offline conocido, con el turno completo
 ```
 
-**Nuez captura el 94.5% del Oracle.** Así se dice, y no "del óptimo teórico": `oracle.resolver` se
+**Nuez captura el 93.6% del Oracle.** Así se dice, y no "del óptimo teórico": `oracle.resolver` se
 queda con lo mejor entre su búsqueda en haz y las cinco políticas online (OurAgent incluida), así
 que es el mejor plan offline que conocemos, no una cota demostrada.
 
@@ -192,8 +195,9 @@ por cuánto duele no tenerlo.
 **Ya está.** `python scripts/results_table.py` escribe `results_table.csv` (120 min) y, con
 `--duracion 480 --salida results_table_8h.csv`, la de 8 h: las nueve columnas de la plantilla, los
 seis renglones, 50 turnos de REPORTE 2000–2049. `deadhead_pct_of_km` sale de `km_con_carga` y
-`km_sin_carga` del simulador. El encabezado nombra TUNEO, REPORTE, n y la config, y describe al
-Oracle como mejor plan offline conocido. **Nombrar los dos conjuntos de seeds en la diapositiva**
+`km_sin_carga` del simulador. El encabezado nombra TUNEO, REPORTE, n, la config, los límites del
+vehículo (moto 20 kg / 20 L) y la regla de fin de turno que se midió (con regreso al ancla), y
+describe al Oracle como mejor plan offline conocido. **Nombrar los dos conjuntos de seeds en la diapositiva**
 o Results se topa en 3.
 
 #### B — La voz
@@ -354,7 +358,7 @@ que lo primero sea cero, y lo es.
 | | Qué mide | Sin shocks | Con shocks |
 |---|---|---|---|
 | `violaciones` | aceptó algo infactible según sus propios números | **0** | **0** |
-| `rebasaron el margen` | no volvió antes de `duración − margen` | 0 / 200 | 4 y 14 / 200 |
+| `rebasaron el margen` | no volvió antes de `duración − margen` | 0 / 200 | 4 y 10 / 200 |
 
 `comparar.py` imprime los dos renglones por separado a propósito: un juez que ve una sola columna
 llamada "tarde" lee "violó la regla", y no es lo que pasó.
@@ -362,8 +366,8 @@ llamada "tarde" lee "violó la regla", y no es lo que pasó.
 ### Lo que salió de medir con disrupciones
 
 ```
-python comparar.py 200            greedy $198   NUEZ $264   +33.5%   0 violaciones, 0 rebasados
-python comparar.py 200 --shocks   greedy $189   NUEZ $251   +32.9%   0 violaciones, 14 rebasados
+python comparar.py 200            greedy $197   NUEZ $264   +33.5%   0 violaciones, 0 rebasados
+python comparar.py 200 --shocks   greedy $188   NUEZ $250   +33.1%   0 violaciones, 10 rebasados
 ```
 
 Los dos bajan, que es lo esperado: el mundo se puso más difícil. La diferencia entre columnas
@@ -1216,7 +1220,7 @@ Hitos que no se mueven:
 | B6 | ~~Política de costo de oportunidad~~ | ✅ `nuez.py`. **+33.5% en 200 seeds de REPORTE** |
 | B8 | ~~**Turnos de 8 h + los tres vehículos con su velocidad**~~ | ✅ `V_480.json`, duración/hora/vehículo por CLI, velocidad aplicada en planificación y recorrido |
 | B9 | ~~**Endpoint `/decide` + log JSONL del spec**~~ | ✅ `/shift/start`, `/decide`, `/shift/status`, `/shift/end`, `/zones`; ambos modos del validador oficial en verde |
-| B10 | ~~**Los cinco baselines + el Oracle**~~ | ✅ `baselines.py` aporta los tres rivales y `oracle.py` el sexto renglón offline. En 200 REPORTE: Nuez $259, Oracle $275, 0 llegadas tarde; `python comparar.py 200 --rivales` los mide |
+| B10 | ~~**Los cinco baselines + el Oracle**~~ | ✅ `baselines.py` aporta los tres rivales y `oracle.py` el sexto renglón offline. En 200 REPORTE: Nuez $264, Oracle $279, ninguno de los dos llega tarde; `python comparar.py 200 --rivales` los mide |
 | B11 | ~~**`explain_decision`**~~ | ✅ `backendruta/explain.py`: `inputs` + `alternatives_considered` en cada evento `decision`, respuesta en ms, también desde un JSONL cerrado |
 | B12 | **Capa de estrategia + modo degradado** | Nunca frena `/decide`, marca `degraded: true` al perder el modelo y se recupera solo. Diseño en §0b |
 | B7 | Contrafactual: qué habría pasado aceptando lo rechazado | Un número y una lista al cierre del turno |

@@ -31,8 +31,11 @@ Los números no se copian a mano: salen de los scripts y se regeneran con ellos.
   **REPORTE 2000+** para todo lo que se reporta. `comparar.py` y `scripts/results_table.py`
   truenan con un assert si alguien reporta sobre un seed de tuneo.
 - **Tabla de Results** (la plantilla de `courier-update/`): `results_table.csv` (120 min) y
-  `results_table_8h.csv` (480 min). 50 turnos de REPORTE 2000–2049, moto, inicio 14:00, ancla
-  Tec, margen 10 min. El encabezado de cada CSV dice seeds, n y config.
+  `results_table_8h.csv` (480 min). 50 turnos de REPORTE 2000–2049, moto (20 kg, 20 L, 3
+  pedidos), inicio 14:00, ancla Tec, margen 10 min. Los dos miden el turno del simulador, que
+  exige **volver al ancla** antes de fin − margen (`regresar_al_ancla`); `/decide` usa la regla
+  del spec, que solo pide terminar la entrega. El encabezado de cada CSV dice seeds, n, config,
+  límites y regla de fin de turno.
 
   ```bash
   python scripts/results_table.py

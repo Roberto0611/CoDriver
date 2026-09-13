@@ -7,19 +7,20 @@ export const SEEDS_TUNEO: readonly [number, number] = [0, 1999]
 
 /**
  * `python scripts/results_table.py` → results_table.csv: 50 turnos de REPORTE,
- * 120 min, moto, 14:00, ancla Tec, margen 10. Medias de `mean_earnings_mxn`.
+ * 120 min, moto (20 kg, 20 L), 14:00, ancla Tec, margen 10, con regreso al ancla.
+ * Medias de `mean_earnings_mxn`.
  */
 export const RIVALES = {
   turnos: 50,
   seedsReporte: [2000, 2049] as readonly [number, number],
   config: { duracionMin: 120, vehiculo: 'moto', horaInicio: 14 },
   media: {
-    AcceptAll: 180.36,
+    AcceptAll: 181.75,
     HighestPay: 133.19,
-    NearestFirst: 128.38,
-    GreedyRate: 206.15,
-    OurAgent: 265.21,
-    Oracle: 280.57,
+    NearestFirst: 128.68,
+    GreedyRate: 206.05,
+    OurAgent: 259.54,
+    Oracle: 277.33,
   },
 } as const
 
@@ -31,8 +32,8 @@ export const RIVALES = {
 export const DELTA_200 = {
   turnos: 200,
   seedsReporte: [2000, 2199] as readonly [number, number],
-  normal: { deltaPct: 33.5, gana: 152 },
-  shocks: { deltaPct: 32.9, gana: 154 },
+  normal: { deltaPct: 33.5, gana: 154 },
+  shocks: { deltaPct: 33.1, gana: 153 },
 } as const
 
 /**
