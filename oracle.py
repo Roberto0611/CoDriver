@@ -13,6 +13,7 @@ from math import ceil
 
 import rutas
 import seguridad
+import shocks
 from baselines import POLITICAS, politica_accept_all
 from contrato import ConfigTurno, Decision, EstadoRepartidor, Oferta
 from mundo import es_segura
@@ -28,29 +29,39 @@ class PlanOracle:
     ganancia_estimada: float
 
 
-def _pago_neto(oferta: Oferta, cfg: ConfigTurno) -> float:
+def _pago_neto(
+    oferta: Oferta, cfg: ConfigTurno, disrupciones: tuple[shocks.Shock, ...] = ()
+) -> float:
     pickup, dropoff = indice_de(oferta.pickup), indice_de(oferta.dropoff)
+    activos = shocks.en(oferta.t_aparece, disrupciones)
     return (
-        oferta.pago * oferta.surge
+        oferta.pago * oferta.surge * activos.factor_pago(rutas.ZONA_DE[pickup])
         - rutas.km(pickup, dropoff) * seguridad.VEHICULOS[cfg.vehiculo].costo_km
     )
 
 
-def _fin_de_pedido(pos: int, desde: int, oferta: Oferta, cfg: ConfigTurno) -> int | None:
+def _viaje(
+    a: int, b: int, minuto: int, cfg: ConfigTurno, disrupciones: tuple[shocks.Shock, ...]
+) -> float:
+    """El tramo offline usa la misma física de shocks que el reloj del turno."""
+    activos = shocks.en(minuto, disrupciones)
+    base = rutas.minutos(a, b, cfg.hora_inicio + minuto // 60, cfg.vehiculo)
+    return base * activos.factor_tiempo(rutas.ZONA_DE[a], rutas.ZONA_DE[b])
+
+
+def _fin_de_pedido(
+    pos: int, desde: int, oferta: Oferta, cfg: ConfigTurno, disrupciones: tuple[shocks.Shock, ...]
+) -> int | None:
     """Minuto posterior a entregar ``oferta`` desde un repartidor libre."""
     pickup, dropoff = indice_de(oferta.pickup), indice_de(oferta.dropoff)
     salida = max(desde, oferta.t_aparece)
-    hora = cfg.hora_inicio + salida // 60
-    llega_pickup = ceil(salida + rutas.minutos(pos, pickup, hora, cfg.vehiculo))
-    recoge = max(llega_pickup, oferta.t_aparece + oferta.t_prep)
-    entrega = ceil(
-        recoge + rutas.minutos(pickup, dropoff, cfg.hora_inicio + recoge // 60, cfg.vehiculo)
-    )
+    llega_pickup = ceil(salida + _viaje(pos, pickup, salida, cfg, disrupciones))
+    retraso = shocks.en(oferta.t_aparece, disrupciones).retraso(oferta.id)
+    recoge = max(llega_pickup, oferta.t_aparece + oferta.t_prep + retraso)
+    entrega = ceil(recoge + _viaje(pickup, dropoff, recoge, cfg, disrupciones))
     ancla = rutas.indice_mas_cercano(cfg.ancla.lat, cfg.ancla.lon)
     regreso = (
-        ceil(rutas.minutos(dropoff, ancla, cfg.hora_inicio + entrega // 60, cfg.vehiculo))
-        if cfg.regresar_al_ancla
-        else 0
+        ceil(_viaje(dropoff, ancla, entrega, cfg, disrupciones)) if cfg.regresar_al_ancla else 0
     )
     limite = cfg.duracion_min - cfg.margen_min
     if entrega + regreso >= limite:
@@ -75,7 +86,12 @@ ANCHO_HAZ = 48
 SIGUIENTES_POR_ESTADO = 18
 
 
-def planificar(cfg: ConfigTurno, ofertas: list[Oferta] | None = None) -> PlanOracle:
+def planificar(
+    cfg: ConfigTurno,
+    ofertas: list[Oferta] | None = None,
+    *,
+    disrupciones: tuple[shocks.Shock, ...] = (),
+) -> PlanOracle:
     """Busca una agenda offline de pedidos individuales con el stream completo.
 
     Conserva las 48 agendas más rentables en cada ronda y expande las 18 ofertas
@@ -94,10 +110,10 @@ def planificar(cfg: ConfigTurno, ofertas: list[Oferta] | None = None) -> PlanOra
             for oferta in stream:
                 if oferta.t_aparece < estado.disponible or oferta.id in estado.oferta_ids:
                     continue
-                fin = _fin_de_pedido(estado.pos, estado.disponible, oferta, cfg)
+                fin = _fin_de_pedido(estado.pos, estado.disponible, oferta, cfg, disrupciones)
                 if fin is None:
                     continue
-                pago = _pago_neto(oferta, cfg)
+                pago = _pago_neto(oferta, cfg, disrupciones)
                 puntaje = pago / max(fin - estado.disponible, 1)
                 candidatas.append((puntaje, oferta, fin, pago))
             for _, oferta, fin, pago in sorted(
@@ -166,17 +182,23 @@ def politica_del_plan(plan: PlanOracle) -> Politica:
 
 
 def resolver(
-    cfg: ConfigTurno, *, tabla: dict[int, float] | None = None
+    cfg: ConfigTurno,
+    *,
+    tabla: dict[int, float] | None = None,
+    disrupciones: tuple[shocks.Shock, ...] = (),
 ) -> tuple[Resultado, str, PlanOracle]:
     """Corre el plan y las políticas online; devuelve el mejor resultado reproducible."""
-    plan = planificar(cfg)
+    plan = planificar(cfg, disrupciones=disrupciones)
     candidatos: dict[str, Politica] = {
         "AgendaOracle": politica_del_plan(plan),
         **POLITICAS,
         "GreedyRate": politica_greedy,
         "OurAgent": partial(politica_nuez, tabla=tabla),
     }
-    resultados = {nombre: simular(cfg, politica) for nombre, politica in candidatos.items()}
+    resultados = {
+        nombre: simular(cfg, politica, disrupciones=disrupciones)
+        for nombre, politica in candidatos.items()
+    }
     nombre = max(
         resultados,
         key=lambda candidato: (
@@ -188,6 +210,11 @@ def resolver(
     return resultados[nombre], nombre, plan
 
 
-def simular_oracle(cfg: ConfigTurno, *, tabla: dict[int, float] | None = None) -> Resultado:
+def simular_oracle(
+    cfg: ConfigTurno,
+    *,
+    tabla: dict[int, float] | None = None,
+    disrupciones: tuple[shocks.Shock, ...] = (),
+) -> Resultado:
     """Punto de entrada para la tabla de resultados; sólo debe usarse offline."""
-    return resolver(cfg, tabla=tabla)[0]
+    return resolver(cfg, tabla=tabla, disrupciones=disrupciones)[0]

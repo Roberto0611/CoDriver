@@ -233,6 +233,7 @@ export type LiveCounterfactualState =
 
 /** Cada cuánto se vuelve a preguntar mientras el backend contesta 202. */
 export const COUNTERFACTUAL_POLL_MS = 700
+export const ORACLE_POLL_MS = 700
 
 /**
  * El contrafactual de Nuez sobre una sesión ya terminada (409 si sigue corriendo). El
@@ -265,6 +266,74 @@ export async function esperarContrafactual(
     let report: LiveCounterfactualReport | null
     try {
       report = await getCounterfactual(sessionId)
+    } catch (e) {
+      if (!vigente()) return null
+      return { status: 'failed', message: e instanceof Error ? e.message : String(e) }
+    }
+    if (!vigente()) return null
+    if (report) return { status: 'ready', report }
+    await new Promise((listo) => setTimeout(listo, pausaMs))
+    if (!vigente()) return null
+  }
+}
+
+/** La referencia retrospectiva: ve el turno terminado, nunca una decisión en vivo. */
+export interface LiveOracleReport {
+  session_id: string
+  seed: number
+  earnings_mxn: number
+  gross_earnings_mxn: number
+  fuel_cost_mxn: number
+  deliveries: number
+  /** La política que realmente ganó dentro del resolver offline. */
+  source: string
+}
+
+export type LiveOracleState =
+  | { status: 'idle' }
+  | { status: 'computing' }
+  | { status: 'ready'; report: LiveOracleReport }
+  | { status: 'failed'; message: string }
+
+function esOracle(datos: unknown): datos is LiveOracleReport {
+  if (typeof datos !== 'object' || datos === null) return false
+  const d = datos as Record<string, unknown>
+  return (
+    typeof d.session_id === 'string' &&
+    typeof d.seed === 'number' &&
+    typeof d.earnings_mxn === 'number' &&
+    typeof d.gross_earnings_mxn === 'number' &&
+    typeof d.fuel_cost_mxn === 'number' &&
+    typeof d.deliveries === 'number' &&
+    typeof d.source === 'string'
+  )
+}
+
+export async function getOracle(sessionId: string): Promise<LiveOracleReport | null> {
+  const datos = await pedir<unknown>(`/live/oracle/${encodeURIComponent(sessionId)}`)
+  if (
+    typeof datos === 'object' &&
+    datos !== null &&
+    'status' in datos &&
+    datos.status === 'computing'
+  ) {
+    return null
+  }
+  if (!esOracle(datos)) {
+    throw new LiveApiError('The live backend sent an Oracle result in an unexpected shape', 200)
+  }
+  return datos
+}
+
+export async function esperarOracle(
+  sessionId: string,
+  vigente: () => boolean,
+  pausaMs = ORACLE_POLL_MS
+): Promise<LiveOracleState | null> {
+  for (;;) {
+    let report: LiveOracleReport | null
+    try {
+      report = await getOracle(sessionId)
     } catch (e) {
       if (!vigente()) return null
       return { status: 'failed', message: e instanceof Error ? e.message : String(e) }

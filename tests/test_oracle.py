@@ -2,10 +2,12 @@
 
 from functools import partial
 
+import oracle
 import rutas
+import shocks
 from contrato import ConfigTurno, Punto
 from nuez import politica_nuez
-from oracle import planificar, resolver, simular_oracle
+from oracle import PlanOracle, planificar, resolver, simular_oracle
 from sim import generar_ofertas, simular
 
 
@@ -58,3 +60,23 @@ def test_oracle_soporta_turno_de_ocho_horas():
     resultado = simular_oracle(cfg(duracion_min=480, seed=2_001))
     assert resultado.ganado >= 0
     assert not resultado.llego_tarde
+
+
+def test_oracle_pasa_los_shocks_al_plan_y_a_cada_replay(monkeypatch):
+    turno = cfg()
+    cierre = shocks.Shock(0, "closure", 30, zona="Tec", calle="Constitución")
+    vistos = []
+
+    def plan(_cfg, ofertas=None, *, disrupciones=()):
+        vistos.append(("plan", disrupciones))
+        return PlanOracle((), 0)
+
+    def simula(_cfg, _politica, disrupciones=()):
+        vistos.append(("sim", disrupciones))
+        return oracle.Resultado()
+
+    monkeypatch.setattr(oracle, "planificar", plan)
+    monkeypatch.setattr(oracle, "simular", simula)
+    resolver(turno, disrupciones=(cierre,))
+
+    assert vistos and all(disrupciones == (cierre,) for _, disrupciones in vistos)

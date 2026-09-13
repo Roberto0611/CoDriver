@@ -145,7 +145,7 @@ export const PixelCanvasBackground: React.FC<PixelCanvasBackgroundProps> = ({
       offscreen.height = h
     }
     updateDimensions()
-    
+
     let resizeObserver: ResizeObserver | null = null
     let resizeTimeout: ReturnType<typeof setTimeout> | null = null
     if (canvas.parentElement) {

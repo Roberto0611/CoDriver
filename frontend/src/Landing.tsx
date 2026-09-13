@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react'
 import { LandingFindings } from './landing/LandingFindings'
 import { LandingHero } from './landing/LandingHero'
@@ -54,12 +53,14 @@ export default function LandingPage() {
         }}
       >
         {/* ── Navbar (Estilo Browserbase) ── */}
-        <div style={{
-          overflow: 'hidden',
-          maxHeight: isExpanded ? '0' : '200px',
-          opacity: isExpanded ? 0 : 1,
-          transition: 'all 0.5s cubic-bezier(0.4, 0, 0.2, 1)'
-        }}>
+        <div
+          style={{
+            overflow: 'hidden',
+            maxHeight: isExpanded ? '0' : '200px',
+            opacity: isExpanded ? 0 : 1,
+            transition: 'all 0.5s cubic-bezier(0.4, 0, 0.2, 1)',
+          }}
+        >
           <LandingNavbar />
         </div>
 
@@ -67,12 +68,14 @@ export default function LandingPage() {
         <LandingHero isExpanded={isExpanded} toggleExpand={() => setIsExpanded(!isExpanded)} />
 
         {/* ── Sección de Contenido Grid y Columna de 2 ── */}
-        <div style={{
-          overflow: 'hidden',
-          maxHeight: isExpanded ? '0' : '2000px',
-          opacity: isExpanded ? 0 : 1,
-          transition: 'all 0.5s cubic-bezier(0.4, 0, 0.2, 1)'
-        }}>
+        <div
+          style={{
+            overflow: 'hidden',
+            maxHeight: isExpanded ? '0' : '2000px',
+            opacity: isExpanded ? 0 : 1,
+            transition: 'all 0.5s cubic-bezier(0.4, 0, 0.2, 1)',
+          }}
+        >
           <LandingFindings />
         </div>
       </div>

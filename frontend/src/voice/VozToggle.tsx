@@ -10,7 +10,17 @@ import type { Vehiculo } from '../contract'
 import type { Frame } from '../lib/turno'
 import { Icon } from '../ui/icons'
 import { debeCallar, frasesDelTurno, siguienteFrase, type Dicha } from './frases'
-import { callar, onFuente, prefetch, say, unlock, getVoiceLanguage, setVoiceLanguage, onVoiceLanguage, type FuenteVoz } from './nuez'
+import {
+  callar,
+  onFuente,
+  prefetch,
+  say,
+  unlock,
+  getVoiceLanguage,
+  setVoiceLanguage,
+  onVoiceLanguage,
+  type FuenteVoz,
+} from './nuez'
 
 interface Props {
   frames: Frame[]
@@ -92,10 +102,12 @@ export function VozToggle({ frames, t, isPlaying, vehiculo }: Props) {
       </button>
       <div className="voz-lang-menu">
         <button className="voz-menu-item" onClick={() => setVoiceLanguage('es', 'es-MX')}>
-          <img src="https://flagcdn.com/mx.svg" width="20" alt="MX" /> Español {lang === 'es' && '✓'}
+          <img src="https://flagcdn.com/mx.svg" width="20" alt="MX" /> Español{' '}
+          {lang === 'es' && '✓'}
         </button>
         <button className="voz-menu-item" onClick={() => setVoiceLanguage('en', 'en-US')}>
-          <img src="https://flagcdn.com/us.svg" width="20" alt="US" /> English {lang === 'en' && '✓'}
+          <img src="https://flagcdn.com/us.svg" width="20" alt="US" /> English{' '}
+          {lang === 'en' && '✓'}
         </button>
         <button className="voz-menu-item" onClick={() => setVoiceLanguage('hi', 'hi-IN')}>
           <img src="https://flagcdn.com/in.svg" width="20" alt="IN" /> Hindi {lang === 'hi' && '✓'}

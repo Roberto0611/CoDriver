@@ -57,12 +57,12 @@ export function LiveControls(p: ControlsProps) {
   const vivo = p.phase === 'running' || p.phase === 'paused'
   const ocupado = p.pending !== null
   const shockListo = vivo && !ocupado
-  
+
   const [lang, setLang] = useState(() => getVoiceLanguage().elLang)
   useEffect(() => {
     return onVoiceLanguage(() => setLang(getVoiceLanguage().elLang))
   }, [])
-  
+
   const vozTitulo = !p.voice
     ? 'Navie voice off'
     : p.voiceSource === 'browser'
@@ -80,7 +80,15 @@ export function LiveControls(p: ControlsProps) {
 
   return (
     <div className="timeline-panel">
-      <div style={{ display: 'flex', alignItems: 'center', gap: '12px', paddingRight: '12px', borderRight: '1px solid var(--hairline)' }}>
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: '12px',
+          paddingRight: '12px',
+          borderRight: '1px solid var(--hairline)',
+        }}
+      >
         <GeminiBadgeView view={p.gemini} />
       </div>
 
@@ -136,13 +144,16 @@ export function LiveControls(p: ControlsProps) {
           </button>
           <div className="voz-lang-menu">
             <button className="voz-menu-item" onClick={() => setVoiceLanguage('es', 'es-MX')}>
-              <img src="https://flagcdn.com/mx.svg" width="20" alt="MX" /> Español {lang === 'es' && '✓'}
+              <img src="https://flagcdn.com/mx.svg" width="20" alt="MX" /> Español{' '}
+              {lang === 'es' && '✓'}
             </button>
             <button className="voz-menu-item" onClick={() => setVoiceLanguage('en', 'en-US')}>
-              <img src="https://flagcdn.com/us.svg" width="20" alt="US" /> English {lang === 'en' && '✓'}
+              <img src="https://flagcdn.com/us.svg" width="20" alt="US" /> English{' '}
+              {lang === 'en' && '✓'}
             </button>
             <button className="voz-menu-item" onClick={() => setVoiceLanguage('hi', 'hi-IN')}>
-              <img src="https://flagcdn.com/in.svg" width="20" alt="IN" /> Hindi {lang === 'hi' && '✓'}
+              <img src="https://flagcdn.com/in.svg" width="20" alt="IN" /> Hindi{' '}
+              {lang === 'hi' && '✓'}
             </button>
           </div>
         </div>

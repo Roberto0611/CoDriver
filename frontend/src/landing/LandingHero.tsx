@@ -4,7 +4,13 @@ import { Link } from 'react-router-dom'
 import { Maximize2, Minimize2 } from 'lucide-react'
 import PixelCanvasBackground from '../PixelCanvasBackground'
 
-export function LandingHero({ isExpanded = false, toggleExpand = () => {} }: { isExpanded?: boolean, toggleExpand?: () => void }) {
+export function LandingHero({
+  isExpanded = false,
+  toggleExpand = () => {},
+}: {
+  isExpanded?: boolean
+  toggleExpand?: () => void
+}) {
   return (
     <section
       style={{
@@ -104,7 +110,8 @@ export function LandingHero({ isExpanded = false, toggleExpand = () => {} }: { i
             backgroundColor: 'var(--card)',
           }}
         >
-          A delivery copilot for students: calculates opportunity cost, checks if you can make it back to class, and explains every decision out loud.
+          A delivery copilot for students: calculates opportunity cost, checks if you can make it
+          back to class, and explains every decision out loud.
         </p>
 
         {/* ── CTA Buttons ── */}
@@ -148,7 +155,22 @@ export function LandingHero({ isExpanded = false, toggleExpand = () => {} }: { i
       </div>
 
       {/* ── Bottom Left Location Text ── */}
-      <div style={{ position: 'absolute', bottom: '35px', left: '24px', zIndex: 2, color: '#ffffff', fontSize: 'clamp(1.5rem, 3vw, 2.5rem)', fontWeight: 800, letterSpacing: '-0.02em', opacity: isExpanded ? 1 : 0, transition: 'opacity 0.4s ease', pointerEvents: isExpanded ? 'auto' : 'none', textShadow: '0 2px 12px rgba(0,0,0,0.4)' }}>
+      <div
+        style={{
+          position: 'absolute',
+          bottom: '35px',
+          left: '24px',
+          zIndex: 2,
+          color: '#ffffff',
+          fontSize: 'clamp(1.5rem, 3vw, 2.5rem)',
+          fontWeight: 800,
+          letterSpacing: '-0.02em',
+          opacity: isExpanded ? 1 : 0,
+          transition: 'opacity 0.4s ease',
+          pointerEvents: isExpanded ? 'auto' : 'none',
+          textShadow: '0 2px 12px rgba(0,0,0,0.4)',
+        }}
+      >
         Monterrey, Nuevo Leon, Mexico
       </div>
 
@@ -170,7 +192,7 @@ export function LandingHero({ isExpanded = false, toggleExpand = () => {} }: { i
           alignItems: 'center',
           justifyContent: 'center',
           transition: 'all 0.2s ease',
-          backdropFilter: 'blur(4px)'
+          backdropFilter: 'blur(4px)',
         }}
         onMouseEnter={(e) => {
           e.currentTarget.style.background = 'rgba(0, 0, 0, 0.8)'

@@ -40,7 +40,9 @@ export function getVoiceLanguage() {
 
 export function onVoiceLanguage(cb: () => void) {
   langListeners.push(cb)
-  return () => { langListeners = langListeners.filter((l) => l !== cb) }
+  return () => {
+    langListeners = langListeners.filter((l) => l !== cb)
+  }
 }
 let sonando: { audio: HTMLAudioElement; soltar: () => void } | null = null
 const oyentes = new Set<(f: FuenteVoz) => void>()

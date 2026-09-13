@@ -35,14 +35,44 @@ const snapshot = {
 } as LiveSnapshot
 
 describe('LiveBenchmarkRace', () => {
-  it('keeps all online policies in the live race and Oracle clearly offline', () => {
+  it('keeps online policies in the live race and waits for the offline Oracle', () => {
     expect(benchmarkRows(snapshot)).toMatchObject([
       { key: 'nuez', earnings: 260, kind: 'nuez' },
       { key: 'greedy', earnings: 206, kind: 'greedy' },
       { key: 'accept_all', earnings: 182, kind: 'baseline' },
       { key: 'highest_pay', earnings: 133, kind: 'baseline' },
       { key: 'nearest_first', earnings: 129, kind: 'baseline' },
-      { key: 'oracle', earnings: 258.89, deliveries: null, kind: 'oracle' },
+      {
+        key: 'oracle',
+        earnings: null,
+        deliveries: null,
+        detail: 'waiting for shift end...',
+        kind: 'oracle',
+      },
+    ])
+  })
+
+  it('labels the completed-shift source instead of pretending Oracle made the live decisions', () => {
+    expect(
+      benchmarkRows(snapshot, {
+        status: 'ready',
+        report: {
+          session_id: 'live-1',
+          seed: 2000,
+          earnings_mxn: 281,
+          gross_earnings_mxn: 310,
+          fuel_cost_mxn: 29,
+          deliveries: 6,
+          source: 'AgendaOracle',
+        },
+      })
+    ).toMatchObject([
+      {},
+      {},
+      {},
+      {},
+      {},
+      { key: 'oracle', earnings: 281, detail: 'AgendaOracle · hindsight', kind: 'oracle' },
     ])
   })
 })

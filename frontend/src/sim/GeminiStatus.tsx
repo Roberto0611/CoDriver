@@ -119,7 +119,13 @@ export function GeminiBadgeView({ view }: { view: GeminiView }) {
           flexShrink: 0,
         }}
       >
-        <div style={{ transform: 'scale(0.15)', transformOrigin: 'center center', position: 'absolute' }}>
+        <div
+          style={{
+            transform: 'scale(0.15)',
+            transformOrigin: 'center center',
+            position: 'absolute',
+          }}
+        >
           <NavieCompass mode={mode} />
         </div>
       </div>

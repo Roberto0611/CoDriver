@@ -49,6 +49,7 @@ from backendruta.live_demo import (
 from backendruta.live_geometry import Geometria, linea_recta
 from contrafactual import reporte
 from contrato import ConfigTurno, Vehiculo
+from oracle import resolver as resolver_oracle
 from valor import para_turno
 
 MAX_SESIONES = 8
@@ -63,6 +64,15 @@ class Contrafactual:
 
     listo: threading.Event = field(default_factory=threading.Event)
     reporte: dict[str, Any] | None = None
+    error: str | None = None
+
+
+@dataclass
+class CalculoOracle:
+    """Referencia con visión completa, calculada sólo cuando el turno ya terminó."""
+
+    listo: threading.Event = field(default_factory=threading.Event)
+    resultado: dict[str, Any] | None = None
     error: str | None = None
 
 
@@ -81,6 +91,26 @@ def _calcular(calculo: Contrafactual, sesion: LiveDemoSession) -> None:
         calculo.listo.set()
 
 
+def _calcular_oracle(calculo: CalculoOracle, sesion: LiveDemoSession) -> None:
+    """Corre fuera del lock: conoce el turno cerrado, jamás decide un ping en vivo."""
+    with sesion.lock:
+        cfg, disrupciones = sesion.cfg, tuple(sesion.shocks)
+    try:
+        resultado, fuente, _ = resolver_oracle(cfg, disrupciones=disrupciones)
+        calculo.resultado = {
+            "earnings_mxn": resultado.ganado,
+            "gross_earnings_mxn": resultado.ingreso_bruto,
+            "fuel_cost_mxn": resultado.gasto_combustible,
+            "deliveries": resultado.entregas,
+            # El beam puede perder contra Nuez; no se disfraza el ganador.
+            "source": fuente,
+        }
+    except Exception as exc:
+        calculo.error = f"{type(exc).__name__}: {exc}"
+    finally:
+        calculo.listo.set()
+
+
 class LiveRegistry:
     """Vivas en memoria, una bitacora JSONL por sesion. Su lock es solo del dict: dos
     ticks del mismo id no corren a la vez por el lock de la sesion, no por este."""
@@ -91,6 +121,7 @@ class LiveRegistry:
         self._lock = RLock()
         self._sesiones: dict[str, LiveDemoSession] = {}
         self._contrafactuales: dict[str, Contrafactual] = {}
+        self._oracles: dict[str, CalculoOracle] = {}
 
     def usar_grafo(self, grafo: Any) -> None:
         """`main.py` lo llama una vez con el grafo (o None) recien cargado."""
@@ -115,6 +146,7 @@ class LiveRegistry:
                 viejo = next(iter(self._sesiones))  # el mas viejo por insercion
                 sacada = self._sesiones.pop(viejo)
                 self._contrafactuales.pop(viejo, None)
+                self._oracles.pop(viejo, None)
                 # Una sesion que sale corriendo dejaria su hilo de Gemini consultando cada
                 # cinco minutos sin nadie que lo pare. detener() espera al hilo hasta 26 s:
                 # va en otro hilo para no frenar este /live/start.
@@ -143,6 +175,20 @@ class LiveRegistry:
             target=_calcular, args=(calculo, sesion), name="contrafactual", daemon=True
         )
         hilo.start()
+        return calculo
+
+    def oracle(self, sesion: LiveDemoSession) -> CalculoOracle:
+        """Inicia una sola referencia offline por sesión terminada."""
+        with self._lock:
+            if self._sesiones.get(sesion.session_id) is not sesion:
+                raise KeyError(sesion.session_id)
+            calculo = self._oracles.get(sesion.session_id)
+            if calculo is not None:
+                return calculo
+            calculo = self._oracles[sesion.session_id] = CalculoOracle()
+        threading.Thread(
+            target=_calcular_oracle, args=(calculo, sesion), name="oracle", daemon=True
+        ).start()
         return calculo
 
     @property
@@ -231,9 +277,16 @@ def tick(request: TickRequest) -> dict[str, Any]:
     sesion = _sesion(request.session_id)
     with sesion.lock:
         try:
-            return sesion.tick(request.minutes)
+            snap = sesion.tick(request.minutes)
         except SesionTerminada as exc:
             raise HTTPException(status_code=409, detail=str(exc)) from exc
+    # El fin natural no pasa por /end: también merece su referencia offline.
+    if snap["status"] != "running":
+        try:
+            registry.oracle(sesion)
+        except KeyError:
+            pass
+    return snap
 
 
 @router.post("/shock")
@@ -276,6 +329,10 @@ def end(request: SessionRequest) -> dict[str, Any]:
         registry.contrafactual(sesion)
     except KeyError:
         pass  # la saco del registro otro /live/start mientras terminaba: ya no hay a quien
+    try:
+        registry.oracle(sesion)
+    except KeyError:
+        pass
     return fin
 
 
@@ -305,3 +362,30 @@ def counterfactual(session_id: str, response: Response) -> dict[str, Any]:
         # En ingles: el panel de /live lo ensena tal cual despues de "Couldn't compute...".
         raise HTTPException(status_code=500, detail=f"re-simulation failed with {calculo.error}")
     return {**calculo.reporte, "session_id": session_id}
+
+
+@router.get("/oracle/{session_id}")
+def oracle(session_id: str, response: Response) -> dict[str, Any]:
+    """Referencia offline del turno cerrado, con conocimiento de todos sus shocks.
+
+    202 mientras calcula; 200 al terminar. No forma parte de la carrera online ni
+    puede decidir una oferta: sólo aparece después del cierre como techo retrospectivo.
+    """
+    sesion = _sesion(session_id)
+    with sesion.lock:
+        corriendo = sesion.status == "running"
+        seed = sesion.cfg.seed
+    if corriendo:
+        raise HTTPException(status_code=409, detail=f"la sesion {session_id} sigue corriendo")
+    try:
+        calculo = registry.oracle(sesion)
+    except KeyError:
+        raise HTTPException(status_code=404, detail=f"sesion {session_id!r} no existe") from None
+    if not calculo.listo.is_set():
+        response.status_code = 202
+        return {"status": "computing", "session_id": session_id, "seed": seed}
+    if calculo.resultado is None:
+        raise HTTPException(
+            status_code=500, detail=f"oracle calculation failed with {calculo.error}"
+        )
+    return {**calculo.resultado, "session_id": session_id, "seed": seed}

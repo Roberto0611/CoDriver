@@ -354,10 +354,7 @@ describe('repetidas con otros números', () => {
       state = h.state
       dichas.push(...h.say)
     }
-    expect(dichas).toEqual([
-      VOZ_CALOR,
-      VOZ_CALOR,
-    ])
+    expect(dichas).toEqual([VOZ_CALOR, VOZ_CALOR])
   })
 
   it('dentro del mismo tick, dos variantes numéricas se dicen una vez', () => {

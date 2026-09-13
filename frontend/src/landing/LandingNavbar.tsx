@@ -54,7 +54,6 @@ export function LandingNavbar() {
         </span>
       </div>
 
-
       {/* Botones Derecha */}
       <div
         style={{
@@ -65,11 +64,17 @@ export function LandingNavbar() {
           fontSize: '0.9rem',
         }}
       >
-        <a 
-          href="https://github.com/Roberto0611/hackmty-infosys" 
-          target="_blank" 
-          rel="noreferrer" 
-          style={{ textDecoration: 'none', color: 'var(--ink)', display: 'flex', alignItems: 'center', gap: '4px' }}
+        <a
+          href="https://github.com/Roberto0611/hackmty-infosys"
+          target="_blank"
+          rel="noreferrer"
+          style={{
+            textDecoration: 'none',
+            color: 'var(--ink)',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '4px',
+          }}
           onMouseEnter={(e) => {
             const star = e.currentTarget.querySelector('.github-star') as HTMLElement
             if (star) star.style.color = '#FACC15'
@@ -80,7 +85,12 @@ export function LandingNavbar() {
           }}
         >
           Go to Github
-          <span className="github-star" style={{ fontSize: '1.1em', transition: 'color 0.2s ease' }}>★</span>
+          <span
+            className="github-star"
+            style={{ fontSize: '1.1em', transition: 'color 0.2s ease' }}
+          >
+            ★
+          </span>
         </a>
         <Link
           to="/sim"

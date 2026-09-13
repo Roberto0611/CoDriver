@@ -39,7 +39,8 @@ export function LandingFindings() {
             maxWidth: '680px',
           }}
         >
-          The agent compares payout, real-time traffic, risk, return to anchor, and opportunity cost to decide in milliseconds what's worth accepting.
+          The agent compares payout, real-time traffic, risk, return to anchor, and opportunity cost
+          to decide in milliseconds what's worth accepting.
         </p>
       </div>
 
@@ -98,7 +99,9 @@ export function LandingFindings() {
                 margin: 0,
               }}
             >
-              Navie doesn't accept everything that comes in: it evaluates if the order pays more than the value of that time, if you can return to your anchor, and if the route fits the shift constraints.
+              Navie doesn't accept everything that comes in: it evaluates if the order pays more
+              than the value of that time, if you can return to your anchor, and if the route fits
+              the shift constraints.
             </p>
 
             {/* Puntos técnicos de grid */}

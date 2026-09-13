@@ -5,7 +5,9 @@ import {
   DEMO_SHOCKS,
   LiveApiError,
   esperarContrafactual,
+  esperarOracle,
   getCounterfactual,
+  getOracle,
   shockLive,
   tickLive,
 } from './live'
@@ -161,5 +163,50 @@ describe('cliente live', () => {
     })
     vi.stubGlobal('fetch', fetchMock)
     expect(await esperarContrafactual('live-2005-ab12', () => vigente, 0)).toBeNull()
+  })
+
+  it('Oracle se consulta después del cierre; 202 conserva el marcador en cálculo', async () => {
+    const oracle = {
+      session_id: 'live-2005-ab12',
+      seed: 2005,
+      earnings_mxn: 281,
+      gross_earnings_mxn: 310,
+      fuel_cost_mxn: 29,
+      deliveries: 6,
+      source: 'AgendaOracle',
+    }
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        respuesta(202, { status: 'computing', session_id: oracle.session_id, seed: 2005 })
+      )
+      .mockResolvedValueOnce(respuesta(200, oracle))
+    vi.stubGlobal('fetch', fetchMock)
+    expect(await getOracle(oracle.session_id)).toBeNull()
+    expect(await getOracle(oracle.session_id)).toEqual(oracle)
+    expect(fetchMock).toHaveBeenCalledWith(
+      `${API_URL}/live/oracle/${oracle.session_id}`,
+      expect.objectContaining({ method: 'GET' })
+    )
+  })
+
+  it('esperarOracle entrega el origen real del resultado, no una cifra disfrazada', async () => {
+    const oracle = {
+      session_id: 'live-2005-ab12',
+      seed: 2005,
+      earnings_mxn: 260,
+      gross_earnings_mxn: 280,
+      fuel_cost_mxn: 20,
+      deliveries: 5,
+      source: 'OurAgent',
+    }
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => respuesta(200, oracle))
+    )
+    expect(await esperarOracle(oracle.session_id, () => true, 0)).toEqual({
+      status: 'ready',
+      report: oracle,
+    })
   })
 })

@@ -13,57 +13,12 @@ igual (depende solo del seed), pero entonces la equidad seria una coincidencia y
 no algo que se ve en el codigo. El shock se inyecta en los dos en el mismo minuto,
 y la fisica es la de `shocks.py`: aqui no se decide nada, solo se reparte y se anota.
 
-El snapshot (lo espeja `frontend/src/lib/live.ts`, los nombres son contrato):
+El contrato completo del snapshot lo espeja `frontend/src/lib/live.ts`. Sus datos de
+mapa son deltas: solo `tick()` llena `frames`, `new_legs`, `geometry` y
+`offers_this_tick`; los tres baselines extra van compactos en `benchmarks`.
 
-    {
-      "session_id": "live-2005-ab12",
-      "minute": 37,                 # el siguiente minuto a correr; [0, minute) ya corrieron
-      "duration_min": 120, "start_hour": 14, "seed": 2005,
-      "status": "running",          # running | finished (tick llego al final) | ended (end())
-      # un delay llena order_id y slip_min, y su zone es la del restaurante que se atraso
-      "active_shocks": [{"type": "closure", "zone": 0, "zone_name": "Centro",
-                         "road": "Constitución", "starts_at_min": 30, "ends_at_min": 70,
-                         "multiplier": 1.0, "order_id": null, "slip_min": null}],
-      "offers_this_tick": [{"order_id": "o_041", "minute": 36, "pickup": 88, "dropoff": 12,
-                            "pickup_zone": "Tec", "dropoff_zone": "Contry", "pay_mxn": 48.2}],
-      "greedy": {
-        "position": 12, "coords": [-100.29, 25.65],          # [lon, lat]
-        "earnings_mxn": 84.0, "deliveries": 2, "skipped": 4, "cancelled": 0,
-        "route": [{"type": "pickup", "point": 88, "order_id": "o_041"}],
-        "last_decision": {"order_id": "o_041", "minute": 36, "decision": "ACCEPT",
-                          "reason": "...", "binding_constraint": null, "terms": {}},
-        "frames": [...],            # uno por minuto de este tick, como export_turno.a_frames
-        "new_legs": [{"t_salida": 36, "t_llegada": 41.3, "desde": 12, "hasta": 88,
-                      "clave": "12-88"}],
-        "geometry": {"12-88": [[-100.29, 25.65], [-100.30, 25.66]]},
-        "result": null              # el `meta` del exportador cuando ya no corre
-      },
-      "nuez": { ...igual... }
-    }
-
-`frames`, `new_legs`, `geometry` y `offers_this_tick` son deltas: solo `tick()` los
-llena. `snapshot()`, `shock()` y `end()` los mandan vacios. `geometry` trae nada mas
-las claves que ese agente no ha mandado, asi cada lado del front puede guardar su
-propio mapa de geometria como en el replay grabado. Los tres baselines adicionales
-van compactos bajo `benchmarks`: cuentan en la carrera, pero no agregan tres rutas
-ilegibles al mapa ni contaminan la bitacora oficial de Nuez contra Greedy.
-
-El JSONL (uno por sesion, para los dos agentes) usa los eventos y nombres del
-protocolo Courier y pasa `courier/validate_format (2).py` tal cual:
-
-    shift_start          una vez, con mode/session_id/margin_min de extra
-    order_offered        una vez por oferta: es la misma para los dos
-    shock                una vez, en el minuto en que se inyecto
-    decision             por agente ("agent"), razon oficial en ingles + reason_es
-    position_update      por agente, en cada parada a la que llega; las cancelaciones
-                         viajan como `cancelled_count` en la siguiente
-    earnings_update      por agente, en el minuto en que cobra una entrega
-    shift_end            por agente, una sola vez aunque se cierre por tick y luego end()
-
-`sim_time` sale del minuto simulado (ver `live_log.py`), asi que el mismo seed con
-los mismos shocks da el mismo archivo. Lo unico que cambia entre corridas es
-`session_id` y `latency_ms`, que mide de verdad cuanto tardo el `paso()` del agente.
-Los dicts se arman en `live_log.py`; aqui solo se decide cuando va cada uno.
+El JSONL pasa el validador oficial. `live_log.py` arma sus eventos Courier y este
+modulo solo define cuándo anotarlos; `sim_time` siempre sale del minuto simulado.
 """
 
 import time

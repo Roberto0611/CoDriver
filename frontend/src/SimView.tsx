@@ -4,7 +4,6 @@
 
 import { useEffect, useState } from 'react'
 
-
 import { Icon } from './ui/icons'
 import { cargarTurnosPorSeed, cargarIndiceTurnos, cargarPuntos } from './lib/loader'
 import { minutosAHora, contadoresEnT } from './lib/sim'
@@ -129,7 +128,15 @@ export default function SimView() {
 
       {/* Timeline */}
       <div className="timeline-panel">
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', paddingRight: '12px', borderRight: '1px solid var(--hairline)' }}>
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '12px',
+            paddingRight: '12px',
+            borderRight: '1px solid var(--hairline)',
+          }}
+        >
           <GeminiBadgeView view={gemini} />
         </div>
 

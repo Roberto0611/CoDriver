@@ -9,6 +9,7 @@ La llave de ElevenLabs no sale de aqui. Cada frase se cachea en disco (ver voz/t
 
 import os
 import time
+from dataclasses import replace
 from typing import Annotated
 
 import httpx
@@ -34,12 +35,9 @@ def _ahora() -> float:
     return time.monotonic()
 
 
-from dataclasses import replace
-
 @router.get("/say")
 def say(
-    text: str = Query(..., min_length=1, max_length=MAX_CHARS),
-    lang: str | None = Query(None)
+    text: str = Query(..., min_length=1, max_length=MAX_CHARS), lang: str | None = Query(None)
 ) -> StreamingResponse:
     global _caida_hasta, _ultima_falla
     cfg = replace(config, language=lang) if lang else config
