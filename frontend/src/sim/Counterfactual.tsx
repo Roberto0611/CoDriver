@@ -21,31 +21,27 @@ interface Props {
   horaInicio: number
 }
 
-export function Counterfactual({ seed, terminado, horaInicio }: Props) {
-  // Se guarda junto con su seed: al cambiar de turno no se pinta el reporte del anterior.
-  const [cargado, setCargado] = useState<{ seed: number; datos: Contrafactual | null } | null>(null)
+interface ReportProps {
+  datos: Contrafactual
+  horaInicio: number
+  /** The recorded replay can use the familiar title; live benchmarks must say what they are. */
+  titulo?: string
+  /** A live run may show a recorded reference rather than a calculation of that fresh run. */
+  nota?: string
+}
 
-  // Se pide al elegir el turno y otra vez al terminarlo: si la primera vez falló la red,
-  // al llegar al final se reintenta. Lo que sí contestó sale del cache, sin otro fetch.
-  useEffect(() => {
-    if (seed == null) return
-    let vigente = true
-    cargarContrafactual(seed).then((datos) => {
-      if (vigente) setCargado({ seed, datos })
-    })
-    return () => {
-      vigente = false
-    }
-  }, [seed, terminado])
-
-  const datos = cargado && cargado.seed === seed ? cargado.datos : null
-  if (!terminado || !datos) return null
-
+/** Shared report body for a recorded replay and the live shift's recorded reference. */
+export function CounterfactualReport({
+  datos,
+  horaInicio,
+  titulo = 'If Navie had taken its skips',
+  nota = 'Each what-if re-runs the shift with one order.',
+}: ReportProps) {
   const seguridad = lineaSeguridad(datos.safety_skips)
 
   return (
     <div className="turno-summary counterfactual">
-      <span className="turno-summary-label">If Navie had taken its skips</span>
+      <span className="turno-summary-label">{titulo}</span>
       <p className="counterfactual-line">{lineaDinero(datos.money_skips)}</p>
 
       {datos.top.map((p) => (
@@ -72,7 +68,30 @@ export function Counterfactual({ seed, terminado, horaInicio }: Props) {
         </p>
       )}
 
-      <span className="counterfactual-note">Each what-if re-runs the shift with one order.</span>
+      <span className="counterfactual-note">{nota}</span>
     </div>
   )
+}
+
+export function Counterfactual({ seed, terminado, horaInicio }: Props) {
+  // Se guarda junto con su seed: al cambiar de turno no se pinta el reporte del anterior.
+  const [cargado, setCargado] = useState<{ seed: number; datos: Contrafactual | null } | null>(null)
+
+  // Se pide al elegir el turno y otra vez al terminarlo: si la primera vez falló la red,
+  // al llegar al final se reintenta. Lo que sí contestó sale del cache, sin otro fetch.
+  useEffect(() => {
+    if (seed == null) return
+    let vigente = true
+    cargarContrafactual(seed).then((datos) => {
+      if (vigente) setCargado({ seed, datos })
+    })
+    return () => {
+      vigente = false
+    }
+  }, [seed, terminado])
+
+  const datos = cargado && cargado.seed === seed ? cargado.datos : null
+  if (!terminado || !datos) return null
+
+  return <CounterfactualReport datos={datos} horaInicio={horaInicio} />
 }
