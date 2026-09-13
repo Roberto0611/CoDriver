@@ -43,6 +43,10 @@ class DecideRequest(BaseModel):
     sim_time: datetime
     zone_pickup: int
     zone_dropoff: int
+    # Opcionales: si un stream usa un ID que Nuez no publica, el nombre humano
+    # permite traducirlo sin alterar el catálogo estable de Nuez.
+    zone_pickup_name: str | None = None
+    zone_dropoff_name: str | None = None
     distance_pickup_km: float = Field(ge=0)
     distance_delivery_km: float = Field(ge=0)
     base_pay_mxn: float = Field(ge=0)

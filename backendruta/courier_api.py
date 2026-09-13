@@ -46,6 +46,9 @@ class CourierService:
         self.state: ShiftState | None = None
         self.explanations = explain.ExplainIndex()
         self._lock = RLock()
+        # Mapa aprendido por sesión para IDs externos no publicados que vienen
+        # acompañados de un nombre de zona. El API normal conserva GET /zones.
+        self._external_zone_ids: dict[int, int] = {}
         # La capa lenta. Vive aqui pero NO se llama desde decide(): solo se lee
         # `self.estrategia.actual`, que es leer una variable.
         self.estrategia = CapaEstrategia(al_cambiar=self._log_strategy)
@@ -58,8 +61,11 @@ class CourierService:
 
     def start(self, request: ShiftStartRequest) -> dict[str, Any]:
         with self._lock:
+            # Un nuevo turno no hereda la numeración externa de un stream previo.
+            self._external_zone_ids.clear()
             try:
-                position = zonas.indice(request.start_location_zone)
+                start_zone = self._resolve_zone(request.start_location_zone)
+                position = zonas.indice(start_zone)
             except ValueError as exc:
                 raise HTTPException(status_code=422, detail=str(exc)) from exc
             duration = round(request.shift_hours * 60)
@@ -72,7 +78,7 @@ class CourierService:
                 )
             config = ConfigTurno(
                 duracion_min=actual_duration,
-                ancla=zonas.punto(request.start_location_zone),
+                ancla=zonas.punto(start_zone),
                 margen_min=0,
                 vehiculo=request.vehicle,
                 seed=request.seed,
@@ -236,7 +242,9 @@ class CourierService:
                 seed=0,
                 shift_hours=duration / 60,
                 vehicle=request.vehicle,
-                start_location_zone=request.zone_pickup,
+                start_location_zone=self._resolve_zone(
+                    request.zone_pickup, request.zone_pickup_name
+                ),
                 sim_time=start,
                 shift_end_time=end,
             )
@@ -277,7 +285,7 @@ class CourierService:
             since_break = (request.sim_time - overrides.last_break_end_time).total_seconds() / 60
             self.state.continuous_riding_min = max(0, round(since_break))
         if overrides.position_zone is not None:
-            self.state.position = zonas.indice(overrides.position_zone)
+            self.state.position = zonas.indice(self._resolve_zone(overrides.position_zone))
         if overrides.in_flight_orders is not None:
             self._replace_in_flight(overrides.in_flight_orders)
         self.estrategia.notificar_minuto_simulado(self.state.current_minute)
@@ -322,8 +330,10 @@ class CourierService:
         for position, raw in enumerate(orders):
             try:
                 order_id = str(raw["order_id"])
-                pickup_zone = int(raw.get("zone_pickup", self._current_zone_id()))
-                dropoff_zone = int(raw["zone_dropoff"])
+                pickup_zone = self._resolve_zone(
+                    int(raw.get("zone_pickup", self._current_zone_id()))
+                )
+                dropoff_zone = self._resolve_zone(int(raw["zone_dropoff"]))
             except (KeyError, TypeError, ValueError) as exc:
                 raise ValueError(f"in_flight_orders[{position}] incompleto") from exc
             status = str(raw.get("status", "to_pickup"))
@@ -369,8 +379,10 @@ class CourierService:
             surge=surge,
             t_aparece=self.state.current_minute,
             t_prep=round(request.restaurant_prep_min),
-            pickup=zonas.punto(request.zone_pickup),
-            dropoff=zonas.punto(request.zone_dropoff),
+            pickup=zonas.punto(self._resolve_zone(request.zone_pickup, request.zone_pickup_name)),
+            dropoff=zonas.punto(
+                self._resolve_zone(request.zone_dropoff, request.zone_dropoff_name)
+            ),
             peso_kg=request.weight_kg,
             volumen_l=request.volume_liters,
         )
@@ -468,6 +480,16 @@ class CourierService:
     def _current_zone_id(self) -> int:
         assert self.state is not None
         return ID_POR_NOMBRE[rutas.ZONA_DE[self.state.position]]
+
+    def _resolve_zone(self, zone_id: int, zone_name: str | None = None) -> int:
+        """Resuelve IDs propios y catálogos externos etiquetados por nombre."""
+        if zone_name:
+            resolved = zonas.resolver(zone_id, zone_name)
+            self._external_zone_ids[zone_id] = resolved
+            return resolved
+        if zone_id in self._external_zone_ids:
+            return self._external_zone_ids[zone_id]
+        return zonas.resolver(zone_id)
 
 
 DEFAULT_LOG = Path(os.getenv("NUEZ_EVENT_LOG", "cache/courier/current_shift.jsonl"))

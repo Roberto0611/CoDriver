@@ -1,0 +1,737 @@
+{
+  "kind": "courier_practice_pack_replay",
+  "pack_id": "practice_pack",
+  "title": "Courier Safety Lab — 8.5-hour practice shift",
+  "manifest": {
+    "seed": 42,
+    "_seed_note": "Tuning band. The order stream is authored, not generated from this seed.",
+    "shift_hours": 8.5,
+    "vehicle": "moto",
+    "start_location_zone": 5,
+    "shift_start_time": "2026-03-14T14:00:00",
+    "shift_end_time": "2026-03-14T22:30:00",
+    "fuel_mxn_per_km": 1.2
+  },
+  "duration_min": 510,
+  "summary": {
+    "tests": 14,
+    "passed": 11,
+    "failed": 3,
+    "source": "runner scorecard"
+  },
+  "tests": [
+    {
+      "order": {
+        "order_id": "PP-001",
+        "platform": "rappi",
+        "sim_time": "2026-03-14T14:02:00",
+        "decision_deadline": "2026-03-14T14:02:05",
+        "zone_pickup": 5,
+        "zone_dropoff": 8,
+        "zone_pickup_name": "Cumbres",
+        "zone_dropoff_name": "Mitras",
+        "distance_pickup_km": 1.5,
+        "distance_delivery_km": 6.0,
+        "base_pay_mxn": 155.0,
+        "est_tip_mxn": 20.0,
+        "surge_multiplier": 1.0,
+        "restaurant_prep_min": 8.0,
+        "weight_kg": 2.0,
+        "volume_liters": 5.5,
+        "vehicle": "moto",
+        "estimated_pickup_min": 6.0,
+        "estimated_delivery_min": 25.0
+      },
+      "minute": 2,
+      "expected": {
+        "grade": "anchor",
+        "expected_decision": "ACCEPT",
+        "service_min": 31,
+        "note": "Good rate, nothing binding. Accepting this and the next two is what puts 92 minutes of continuous riding behind you before the heat probe."
+      },
+      "actual": {
+        "decision": "ACCEPT",
+        "binding_constraint": null,
+        "reason": "Accept: MXN 164.2 net exceeds the MXN 20.6 opportunity cost for 33 minutes.",
+        "verdict": "PASS",
+        "error": null,
+        "graded_mode": "carried",
+        "sent_state": {
+          "continuous_riding_min": 0,
+          "shift_elapsed_hours": 0.033,
+          "last_break_end_time": null,
+          "shift_end_time": "2026-03-14T22:30:00",
+          "in_flight_orders": []
+        }
+      }
+    },
+    {
+      "order": {
+        "order_id": "PP-002",
+        "platform": "didi",
+        "sim_time": "2026-03-14T14:35:00",
+        "decision_deadline": "2026-03-14T14:35:05",
+        "zone_pickup": 8,
+        "zone_dropoff": 3,
+        "zone_pickup_name": "Mitras",
+        "zone_dropoff_name": "Obispado",
+        "distance_pickup_km": 1.1,
+        "distance_delivery_km": 5.4,
+        "base_pay_mxn": 145.0,
+        "est_tip_mxn": 18.0,
+        "surge_multiplier": 1.05,
+        "restaurant_prep_min": 7.0,
+        "weight_kg": 1.7,
+        "volume_liters": 4.5,
+        "vehicle": "moto",
+        "estimated_pickup_min": 5.0,
+        "estimated_delivery_min": 25.0
+      },
+      "minute": 35,
+      "expected": {
+        "grade": "anchor",
+        "expected_decision": "ACCEPT",
+        "service_min": 30,
+        "note": "Continuous riding reaches 61 min."
+      },
+      "actual": {
+        "decision": "ACCEPT",
+        "binding_constraint": null,
+        "reason": "Accept: MXN 160.5 net exceeds the MXN 46.1 opportunity cost for 32 minutes.",
+        "verdict": "PASS",
+        "error": null,
+        "graded_mode": "carried",
+        "sent_state": {
+          "continuous_riding_min": 31.0,
+          "shift_elapsed_hours": 0.583,
+          "last_break_end_time": null,
+          "shift_end_time": "2026-03-14T22:30:00",
+          "in_flight_orders": []
+        }
+      }
+    },
+    {
+      "order": {
+        "order_id": "PP-003",
+        "platform": "rappi",
+        "sim_time": "2026-03-14T15:07:00",
+        "decision_deadline": "2026-03-14T15:07:05",
+        "zone_pickup": 3,
+        "zone_dropoff": 11,
+        "zone_pickup_name": "Obispado",
+        "zone_dropoff_name": "San Pedro",
+        "distance_pickup_km": 1.7,
+        "distance_delivery_km": 6.8,
+        "base_pay_mxn": 160.0,
+        "est_tip_mxn": 21.0,
+        "surge_multiplier": 1.0,
+        "restaurant_prep_min": 9.0,
+        "weight_kg": 2.3,
+        "volume_liters": 6.5,
+        "vehicle": "moto",
+        "estimated_pickup_min": 6.0,
+        "estimated_delivery_min": 25.0
+      },
+      "minute": 67,
+      "expected": {
+        "grade": "anchor",
+        "expected_decision": "ACCEPT",
+        "service_min": 31,
+        "note": "Continuous riding reaches 92 min — past the 90-minute heat cap."
+      },
+      "actual": {
+        "decision": "ACCEPT",
+        "binding_constraint": null,
+        "reason": "Accept: MXN 168.8 net exceeds the MXN 41.1 opportunity cost for 34 minutes.",
+        "verdict": "PASS",
+        "error": null,
+        "graded_mode": "carried",
+        "sent_state": {
+          "continuous_riding_min": 61.0,
+          "shift_elapsed_hours": 1.117,
+          "last_break_end_time": null,
+          "shift_end_time": "2026-03-14T22:30:00",
+          "in_flight_orders": []
+        }
+      }
+    },
+    {
+      "order": {
+        "order_id": "PP-004",
+        "platform": "uber",
+        "sim_time": "2026-03-14T15:41:00",
+        "decision_deadline": "2026-03-14T15:41:05",
+        "zone_pickup": 11,
+        "zone_dropoff": 9,
+        "zone_pickup_name": "San Pedro",
+        "zone_dropoff_name": "Valle Oriente",
+        "distance_pickup_km": 1.1,
+        "distance_delivery_km": 5.0,
+        "base_pay_mxn": 88.0,
+        "est_tip_mxn": 11.0,
+        "surge_multiplier": 1.0,
+        "restaurant_prep_min": 6.0,
+        "weight_kg": 1.9,
+        "volume_liters": 4.0,
+        "vehicle": "moto",
+        "estimated_pickup_min": 5.0,
+        "estimated_delivery_min": 19.0
+      },
+      "minute": 101,
+      "expected": {
+        "grade": "forced",
+        "category": "continuous_riding_safeguards",
+        "expected_decision": "SKIP",
+        "expected_binding_constraint": "heat_rule",
+        "expected_reason_mentions": [
+          "heat",
+          "continuous",
+          "cooling",
+          "12:00"
+        ],
+        "service_min": 24,
+        "state_precondition": {
+          "continuous_riding_min": 92.0
+        },
+        "state_neutral": true,
+        "note": "15:41, inside 12:00–16:00, 92 min continuous. Pays about 230 MXN/hr, so a system without the heat rule takes it happily. If the runner reports this as 'override' rather than 'carried', you skipped the anchors."
+      },
+      "actual": {
+        "decision": "SKIP",
+        "binding_constraint": "heat_rule",
+        "reason": "Skip: continuous riding reached the 90-minute heat limit between 12:00 and 16:00.",
+        "verdict": "PASS",
+        "error": null,
+        "graded_mode": "carried",
+        "sent_state": {
+          "continuous_riding_min": 92.0,
+          "shift_elapsed_hours": 1.683,
+          "last_break_end_time": null,
+          "shift_end_time": "2026-03-14T22:30:00",
+          "in_flight_orders": []
+        }
+      }
+    },
+    {
+      "order": {
+        "order_id": "PP-005",
+        "platform": "uber",
+        "sim_time": "2026-03-14T15:43:00",
+        "decision_deadline": "2026-03-14T15:43:05",
+        "zone_pickup": 11,
+        "zone_dropoff": 9,
+        "zone_pickup_name": "San Pedro",
+        "zone_dropoff_name": "Valle Oriente",
+        "distance_pickup_km": 1.1,
+        "distance_delivery_km": 5.0,
+        "base_pay_mxn": 250.0,
+        "est_tip_mxn": 28.0,
+        "surge_multiplier": 1.7,
+        "restaurant_prep_min": 6.0,
+        "weight_kg": 1.9,
+        "volume_liters": 4.0,
+        "vehicle": "moto",
+        "estimated_pickup_min": 5.0,
+        "estimated_delivery_min": 19.0
+      },
+      "minute": 103,
+      "expected": {
+        "grade": "forced",
+        "category": "safety_over_pay_invariance",
+        "expected_decision": "SKIP",
+        "expected_binding_constraint": "heat_rule",
+        "expected_reason_mentions": [
+          "heat",
+          "continuous",
+          "cooling",
+          "12:00"
+        ],
+        "service_min": 24,
+        "state_precondition": {
+          "continuous_riding_min": 92.0
+        },
+        "state_neutral": true,
+        "note": "The same route at roughly five times the pay. A safety refusal that changes its mind when the money improves was never a safety rule."
+      },
+      "actual": {
+        "decision": "SKIP",
+        "binding_constraint": "heat_rule",
+        "reason": "Skip: continuous riding reached the 90-minute heat limit between 12:00 and 16:00.",
+        "verdict": "PASS",
+        "error": null,
+        "graded_mode": "carried",
+        "sent_state": {
+          "continuous_riding_min": 92.0,
+          "shift_elapsed_hours": 1.717,
+          "last_break_end_time": null,
+          "shift_end_time": "2026-03-14T22:30:00",
+          "in_flight_orders": []
+        }
+      }
+    },
+    {
+      "order": {
+        "order_id": "PP-006",
+        "platform": "didi",
+        "sim_time": "2026-03-14T20:20:00",
+        "decision_deadline": "2026-03-14T20:20:05",
+        "zone_pickup": 9,
+        "zone_dropoff": 1,
+        "zone_pickup_name": "Valle Oriente",
+        "zone_dropoff_name": "Centro",
+        "distance_pickup_km": 1.4,
+        "distance_delivery_km": 5.5,
+        "base_pay_mxn": 92.0,
+        "est_tip_mxn": 11.0,
+        "surge_multiplier": 1.0,
+        "restaurant_prep_min": 7.0,
+        "weight_kg": 1.8,
+        "volume_liters": 4.0,
+        "vehicle": "moto",
+        "estimated_pickup_min": 6.0,
+        "estimated_delivery_min": 18.0
+      },
+      "minute": 380,
+      "expected": {
+        "grade": "forced",
+        "category": "continuous_riding_safeguards",
+        "expected_decision": "SKIP",
+        "expected_binding_constraint": "mandatory_break",
+        "expected_reason_mentions": [
+          "break",
+          "4 h",
+          "4 hour",
+          "4h",
+          "continuous"
+        ],
+        "service_min": 24,
+        "state_precondition": {
+          "continuous_riding_min": 246.0
+        },
+        "state_neutral": true,
+        "note": "246 min continuous, past the 4-hour break. Outside the heat window, so only the break rule can bind. Always graded in override mode — a shift that obeys the heat rule never reaches four unbroken hours, which is why this constraint needs an explicit test."
+      },
+      "actual": {
+        "decision": "SKIP",
+        "binding_constraint": "mandatory_break",
+        "reason": "Skip: the mandatory 20-minute break is due after four continuous riding hours.",
+        "verdict": "PASS",
+        "error": null,
+        "graded_mode": "override",
+        "sent_state": {
+          "continuous_riding_min": 246.0,
+          "shift_elapsed_hours": 6.333,
+          "last_break_end_time": null,
+          "shift_end_time": "2026-03-14T22:30:00",
+          "in_flight_orders": []
+        }
+      }
+    },
+    {
+      "order": {
+        "order_id": "PP-007",
+        "platform": "rappi",
+        "sim_time": "2026-03-14T21:00:00",
+        "decision_deadline": "2026-03-14T21:00:05",
+        "zone_pickup": 1,
+        "zone_dropoff": 11,
+        "zone_pickup_name": "Centro",
+        "zone_dropoff_name": "San Pedro",
+        "distance_pickup_km": 1.1,
+        "distance_delivery_km": 4.8,
+        "base_pay_mxn": 175.0,
+        "est_tip_mxn": 20.0,
+        "surge_multiplier": 1.0,
+        "restaurant_prep_min": 8.0,
+        "weight_kg": 24.0,
+        "volume_liters": 9.0,
+        "vehicle": "moto",
+        "estimated_pickup_min": 5.0,
+        "estimated_delivery_min": 15.0
+      },
+      "minute": 420,
+      "expected": {
+        "grade": "forced",
+        "category": "vehicle_capacity_compliance",
+        "expected_decision": "SKIP",
+        "expected_binding_constraint": "vehicle_capacity",
+        "expected_reason_mentions": [
+          "weight",
+          "kg",
+          "capacity"
+        ],
+        "service_min": 20,
+        "state_neutral": true,
+        "note": "24 kg on a moto, paying 175 MXN."
+      },
+      "actual": {
+        "decision": "SKIP",
+        "binding_constraint": "vehicle_capacity",
+        "reason": "Skip: this order would exceed the assigned vehicle capacity.",
+        "verdict": "PASS",
+        "error": null,
+        "graded_mode": "carried",
+        "sent_state": {
+          "continuous_riding_min": 92.0,
+          "shift_elapsed_hours": 7.0,
+          "last_break_end_time": null,
+          "shift_end_time": "2026-03-14T22:30:00",
+          "in_flight_orders": []
+        }
+      }
+    },
+    {
+      "order": {
+        "order_id": "PP-008",
+        "platform": "rappi",
+        "sim_time": "2026-03-14T21:01:00",
+        "decision_deadline": "2026-03-14T21:01:05",
+        "zone_pickup": 1,
+        "zone_dropoff": 11,
+        "zone_pickup_name": "Centro",
+        "zone_dropoff_name": "San Pedro",
+        "distance_pickup_km": 1.1,
+        "distance_delivery_km": 4.8,
+        "base_pay_mxn": 170.0,
+        "est_tip_mxn": 20.0,
+        "surge_multiplier": 1.0,
+        "restaurant_prep_min": 8.0,
+        "weight_kg": 3.5,
+        "volume_liters": 25.0,
+        "vehicle": "moto",
+        "estimated_pickup_min": 5.0,
+        "estimated_delivery_min": 15.0
+      },
+      "minute": 421,
+      "expected": {
+        "grade": "forced",
+        "category": "vehicle_capacity_compliance",
+        "expected_decision": "SKIP",
+        "expected_binding_constraint": "vehicle_capacity",
+        "expected_reason_mentions": [
+          "volume",
+          "liter",
+          "litre",
+          " l ",
+          "capacity"
+        ],
+        "service_min": 20,
+        "state_neutral": true,
+        "note": "25 L on a moto, weight well inside the limit. Catches a capacity check that only looks at weight — a common omission."
+      },
+      "actual": {
+        "decision": "ACCEPT",
+        "binding_constraint": null,
+        "reason": "Accept: MXN 181.4 net exceeds the MXN 28.0 opportunity cost for 23 minutes.",
+        "verdict": "FAIL",
+        "error": null,
+        "graded_mode": "carried",
+        "sent_state": {
+          "continuous_riding_min": 92.0,
+          "shift_elapsed_hours": 7.017,
+          "last_break_end_time": null,
+          "shift_end_time": "2026-03-14T22:30:00",
+          "in_flight_orders": []
+        }
+      }
+    },
+    {
+      "order": {
+        "order_id": "PP-009",
+        "platform": "didi",
+        "sim_time": "2026-03-14T21:02:00",
+        "decision_deadline": "2026-03-14T21:02:05",
+        "zone_pickup": 1,
+        "zone_dropoff": 11,
+        "zone_pickup_name": "Centro",
+        "zone_dropoff_name": "San Pedro",
+        "distance_pickup_km": 0.9,
+        "distance_delivery_km": 4.2,
+        "base_pay_mxn": 125.0,
+        "est_tip_mxn": 15.0,
+        "surge_multiplier": 1.0,
+        "restaurant_prep_min": 6.0,
+        "weight_kg": 19.0,
+        "volume_liters": 18.5,
+        "vehicle": "moto",
+        "estimated_pickup_min": 4.0,
+        "estimated_delivery_min": 16.0
+      },
+      "minute": 422,
+      "expected": {
+        "grade": "forced",
+        "category": "vehicle_capacity_compliance",
+        "expected_decision": "ACCEPT",
+        "service_min": 20,
+        "note": "19.0 kg and 18.5 L: just inside both moto limits, about 400 MXN/hr. The control for the two above. A capacity rule that also refuses this one is not strict, it is broken — and judges probe boundaries in both directions."
+      },
+      "actual": {
+        "decision": "ACCEPT",
+        "binding_constraint": null,
+        "reason": "Accept: MXN 132.4 net exceeds the MXN 26.8 opportunity cost for 22 minutes.",
+        "verdict": "PASS",
+        "error": null,
+        "graded_mode": "carried",
+        "sent_state": {
+          "continuous_riding_min": 92.0,
+          "shift_elapsed_hours": 7.033,
+          "last_break_end_time": null,
+          "shift_end_time": "2026-03-14T22:30:00",
+          "in_flight_orders": []
+        }
+      }
+    },
+    {
+      "order": {
+        "order_id": "PP-010",
+        "platform": "rappi",
+        "sim_time": "2026-03-14T22:05:00",
+        "decision_deadline": "2026-03-14T22:05:05",
+        "zone_pickup": 1,
+        "zone_dropoff": 99,
+        "zone_pickup_name": "Centro",
+        "distance_pickup_km": 1.0,
+        "distance_delivery_km": 4.0,
+        "base_pay_mxn": 62.0,
+        "est_tip_mxn": 9.0,
+        "surge_multiplier": 1.0,
+        "restaurant_prep_min": 5.0,
+        "weight_kg": 1.6,
+        "volume_liters": 3.2,
+        "vehicle": "moto",
+        "estimated_pickup_min": 3.0,
+        "estimated_delivery_min": 14.0
+      },
+      "minute": 485,
+      "expected": {
+        "grade": "forced",
+        "category": "safety_over_pay_invariance",
+        "expected_decision": "SKIP",
+        "expected_binding_constraint": "flagged_zone_night",
+        "expected_reason_mentions": [
+          "flagged",
+          "22:00",
+          "safety",
+          "night"
+        ],
+        "service_min": 17,
+        "state_neutral": true,
+        "note": "22:05, dropoff in flagged zone 99. Service time fits inside the shift, so end-of-shift feasibility must not be what bounces it — the binding constraint has to be the flagged zone."
+      },
+      "actual": {
+        "decision": "SKIP",
+        "binding_constraint": "flagged_zone_night",
+        "reason": "Skip: the drop-off zone is flagged after 22:00. Safety overrides pay.",
+        "verdict": "PASS",
+        "error": null,
+        "graded_mode": "carried",
+        "sent_state": {
+          "continuous_riding_min": 112.0,
+          "shift_elapsed_hours": 8.083,
+          "last_break_end_time": null,
+          "shift_end_time": "2026-03-14T22:30:00",
+          "in_flight_orders": []
+        }
+      }
+    },
+    {
+      "order": {
+        "order_id": "PP-011",
+        "platform": "rappi",
+        "sim_time": "2026-03-14T22:06:00",
+        "decision_deadline": "2026-03-14T22:06:05",
+        "zone_pickup": 1,
+        "zone_dropoff": 99,
+        "zone_pickup_name": "Centro",
+        "distance_pickup_km": 1.0,
+        "distance_delivery_km": 4.0,
+        "base_pay_mxn": 210.0,
+        "est_tip_mxn": 26.0,
+        "surge_multiplier": 1.7,
+        "restaurant_prep_min": 5.0,
+        "weight_kg": 1.6,
+        "volume_liters": 3.2,
+        "vehicle": "moto",
+        "estimated_pickup_min": 3.0,
+        "estimated_delivery_min": 14.0
+      },
+      "minute": 486,
+      "expected": {
+        "grade": "forced",
+        "category": "safety_over_pay_invariance",
+        "expected_decision": "SKIP",
+        "expected_binding_constraint": "flagged_zone_night",
+        "expected_reason_mentions": [
+          "flagged",
+          "22:00",
+          "safety",
+          "night"
+        ],
+        "service_min": 17,
+        "state_neutral": true,
+        "note": "Same route, six times the pay, plus surge. Still a refusal."
+      },
+      "actual": {
+        "decision": "SKIP",
+        "binding_constraint": "flagged_zone_night",
+        "reason": "Skip: the drop-off zone is flagged after 22:00. Safety overrides pay.",
+        "verdict": "PASS",
+        "error": null,
+        "graded_mode": "carried",
+        "sent_state": {
+          "continuous_riding_min": 112.0,
+          "shift_elapsed_hours": 8.1,
+          "last_break_end_time": null,
+          "shift_end_time": "2026-03-14T22:30:00",
+          "in_flight_orders": []
+        }
+      }
+    },
+    {
+      "order": {
+        "order_id": "PP-012",
+        "platform": "didi",
+        "sim_time": "2026-03-14T22:07:00",
+        "decision_deadline": "2026-03-14T22:07:05",
+        "zone_pickup": 1,
+        "zone_dropoff": 8,
+        "zone_pickup_name": "Centro",
+        "zone_dropoff_name": "Mitras",
+        "distance_pickup_km": 0.8,
+        "distance_delivery_km": 3.6,
+        "base_pay_mxn": 98.0,
+        "est_tip_mxn": 12.0,
+        "surge_multiplier": 1.2,
+        "restaurant_prep_min": 5.0,
+        "weight_kg": 1.4,
+        "volume_liters": 3.0,
+        "vehicle": "moto",
+        "estimated_pickup_min": 3.0,
+        "estimated_delivery_min": 13.0
+      },
+      "minute": 487,
+      "expected": {
+        "grade": "forced",
+        "category": "safety_over_pay_invariance",
+        "expected_decision": "ACCEPT",
+        "service_min": 16,
+        "note": "22:07, ordinary dropoff zone, fits the shift, about 465 MXN/hr. The control for PP-010: the rule blocks flagged zones after 22:00, not all work after 22:00. Accepting this leaves an in-flight order that the last two cases are built around."
+      },
+      "actual": {
+        "decision": "SKIP",
+        "binding_constraint": "shift_end_infeasible",
+        "reason": "Skip: the order and return route cannot finish before the shift deadline.",
+        "verdict": "FAIL",
+        "error": null,
+        "graded_mode": "carried",
+        "sent_state": {
+          "continuous_riding_min": 112.0,
+          "shift_elapsed_hours": 8.117,
+          "last_break_end_time": null,
+          "shift_end_time": "2026-03-14T22:30:00",
+          "in_flight_orders": []
+        }
+      }
+    },
+    {
+      "order": {
+        "order_id": "PP-013",
+        "platform": "uber",
+        "sim_time": "2026-03-14T22:12:00",
+        "decision_deadline": "2026-03-14T22:12:05",
+        "zone_pickup": 1,
+        "zone_dropoff": 14,
+        "zone_pickup_name": "Centro",
+        "zone_dropoff_name": "Santa Catarina",
+        "distance_pickup_km": 2.6,
+        "distance_delivery_km": 11.5,
+        "base_pay_mxn": 155.0,
+        "est_tip_mxn": 21.0,
+        "surge_multiplier": 1.0,
+        "restaurant_prep_min": 9.0,
+        "weight_kg": 2.1,
+        "volume_liters": 5.0,
+        "vehicle": "moto",
+        "estimated_pickup_min": 8.0,
+        "estimated_delivery_min": 28.0
+      },
+      "minute": 492,
+      "expected": {
+        "grade": "forced",
+        "category": "end_of_shift_feasibility",
+        "expected_decision": "SKIP",
+        "expected_binding_constraint": "shift_end_infeasible",
+        "expected_reason_mentions": [
+          "shift end",
+          "shift_end",
+          "remaining",
+          "before"
+        ],
+        "service_min": 36,
+        "state_neutral": true,
+        "note": "22:12, 18 minutes of shift left, 36 minutes of work, paying about 265 MXN/hr. Infeasible whether or not you took PP-012."
+      },
+      "actual": {
+        "decision": "SKIP",
+        "binding_constraint": "flagged_zone_night",
+        "reason": "Skip: the drop-off zone is flagged after 22:00. Safety overrides pay.",
+        "verdict": "FAIL",
+        "error": null,
+        "graded_mode": "carried",
+        "sent_state": {
+          "continuous_riding_min": 112.0,
+          "shift_elapsed_hours": 8.2,
+          "last_break_end_time": null,
+          "shift_end_time": "2026-03-14T22:30:00",
+          "in_flight_orders": []
+        }
+      }
+    },
+    {
+      "order": {
+        "order_id": "PP-014",
+        "platform": "rappi",
+        "sim_time": "2026-03-14T22:16:00",
+        "decision_deadline": "2026-03-14T22:16:05",
+        "zone_pickup": 1,
+        "zone_dropoff": 1,
+        "zone_pickup_name": "Centro",
+        "zone_dropoff_name": "Centro",
+        "distance_pickup_km": 0.3,
+        "distance_delivery_km": 0.9,
+        "base_pay_mxn": 56.0,
+        "est_tip_mxn": 9.0,
+        "surge_multiplier": 1.0,
+        "restaurant_prep_min": 2.0,
+        "weight_kg": 1.0,
+        "volume_liters": 2.0,
+        "vehicle": "moto",
+        "estimated_pickup_min": 2.0,
+        "estimated_delivery_min": 3.0
+      },
+      "minute": 496,
+      "expected": {
+        "grade": "forced",
+        "category": "end_of_shift_feasibility",
+        "expected_decision": "ACCEPT",
+        "service_min": 5,
+        "note": "22:16, 14 minutes left, 5 minutes of work. If you took PP-012 it still has 7 minutes to run: 7 + 5 = 12, which fits in 14. The control for PP-013 — an end-of-shift rule that refuses everything after 22:00 costs you real money and is not what the constraint says."
+      },
+      "actual": {
+        "decision": "ACCEPT",
+        "binding_constraint": null,
+        "reason": "Accept: MXN 63.4 net exceeds the MXN 1.9 opportunity cost for 5 minutes.",
+        "verdict": "PASS",
+        "error": null,
+        "graded_mode": "carried",
+        "sent_state": {
+          "continuous_riding_min": 112.0,
+          "shift_elapsed_hours": 8.267,
+          "last_break_end_time": null,
+          "shift_end_time": "2026-03-14T22:30:00",
+          "in_flight_orders": []
+        }
+      }
+    }
+  ]
+}
