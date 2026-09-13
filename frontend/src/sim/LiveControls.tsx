@@ -2,6 +2,7 @@
 // replay tiene su play y su velocidad; LiveStartForm va en el panel izquierdo,
 // donde el replay tiene su selector de seed. Nada se mueve respecto a /sim.
 
+import { useEffect, useState } from 'react'
 import type { Vehiculo } from '../contract'
 import {
   DEMO_SHOCKS,
@@ -14,7 +15,7 @@ import {
 import { minutosAHora } from '../lib/sim'
 import type { GeminiView } from '../lib/gemini-status'
 import { Icon } from '../ui/icons'
-import type { FuenteVoz } from '../voice/nuez'
+import { getVoiceLanguage, setVoiceLanguage, onVoiceLanguage, type FuenteVoz } from '../voice/nuez'
 import { GeminiBadgeView } from './GeminiStatus'
 import { ModeSwitch } from './ModeSwitch'
 
@@ -55,7 +56,12 @@ export function LiveControls(p: ControlsProps) {
   const vivo = p.phase === 'running' || p.phase === 'paused'
   const ocupado = p.pending !== null
   const shockListo = vivo && !ocupado
-  const terminado = p.phase === 'finished'
+  
+  const [lang, setLang] = useState(() => getVoiceLanguage().elLang)
+  useEffect(() => {
+    return onVoiceLanguage(() => setLang(getVoiceLanguage().elLang))
+  }, [])
+  
   const vozTitulo = !p.voice
     ? 'Navie voice off'
     : p.voiceSource === 'browser'
@@ -117,15 +123,28 @@ export function LiveControls(p: ControlsProps) {
         ))}
         {/* El mismo botón de voz que /sim (VozToggle), sin su lógica de replay. Solo icono:
             con el texto la píldora se mete bajo el logo a 1280. */}
-        <button
-          className={`speed-btn voz-toggle ${p.voice ? 'is-active' : ''}`}
-          title={vozTitulo}
-          aria-label={vozTitulo}
-          aria-pressed={p.voice}
-          onClick={p.onVoice}
-        >
-          {p.voice ? Icon.voice : Icon.voiceOff}
-        </button>
+        <div className="voz-container">
+          <button
+            className={`speed-btn voz-toggle ${p.voice ? 'is-active' : ''}`}
+            title={vozTitulo}
+            aria-label={vozTitulo}
+            aria-pressed={p.voice}
+            onClick={p.onVoice}
+          >
+            {p.voice ? Icon.voice : Icon.voiceOff}
+          </button>
+          <div className="voz-lang-menu">
+            <button className="voz-menu-item" onClick={() => setVoiceLanguage('es', 'es-MX')}>
+              <img src="https://flagcdn.com/mx.svg" width="20" alt="MX" /> Español {lang === 'es' && '✓'}
+            </button>
+            <button className="voz-menu-item" onClick={() => setVoiceLanguage('en', 'en-US')}>
+              <img src="https://flagcdn.com/us.svg" width="20" alt="US" /> English {lang === 'en' && '✓'}
+            </button>
+            <button className="voz-menu-item" onClick={() => setVoiceLanguage('hi', 'hi-IN')}>
+              <img src="https://flagcdn.com/in.svg" width="20" alt="IN" /> Hindi {lang === 'hi' && '✓'}
+            </button>
+          </div>
+        </div>
       </div>
 
       <div className="live-actions">
@@ -165,7 +184,7 @@ export function LiveControls(p: ControlsProps) {
             </button>
           </div>
         </div>
-        {terminado ? (
+        {p.phase === 'finished' ? (
           <button className="live-btn" onClick={p.onNewShift}>
             Start new shift
           </button>

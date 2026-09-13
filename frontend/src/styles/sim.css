@@ -50,8 +50,79 @@
 
 .seed-btn.is-active {
   background: var(--plum-tint);
-  border-color: var(--plum);
-  color: var(--plum);
+  border-color: transparent;
+  color: var(--plum-ink);
+}
+
+/* ─── Menú de voz ─── */
+.voz-container {
+  position: relative;
+  display: inline-flex;
+}
+
+.voz-lang-menu {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  margin-top: 8px;
+  z-index: 30;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 140px;
+  padding: 6px;
+  background: var(--glass);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid var(--hairline);
+  border-radius: var(--r-md);
+  box-shadow: var(--shadow-float);
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(-4px);
+  transition: opacity 150ms var(--ease), transform 150ms var(--ease), visibility 150ms;
+}
+
+.voz-container:hover .voz-lang-menu,
+.voz-container:focus-within .voz-lang-menu {
+  opacity: 1;
+  visibility: visible;
+  transform: translateY(0);
+}
+
+.voz-menu-item {
+  height: 32px;
+  padding: 0 10px;
+  border-radius: var(--r-sm);
+  border: none;
+  background: transparent;
+  color: var(--ink-2);
+  font-size: 13px;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  white-space: nowrap;
+  cursor: pointer;
+  text-align: left;
+  transition: background 150ms var(--ease);
+}
+
+.voz-menu-item img {
+  border-radius: 50%;
+  width: 20px;
+  height: 20px;
+  object-fit: cover;
+  box-shadow: 0 0 0 1px var(--hairline) inset; /* Para que banderas con blanco no se pierdan */
+}
+
+.voz-menu-item:hover {
+  background: var(--surface-high);
+}
+
+.voz-menu-item:focus-visible {
+  outline: 2px solid var(--plum);
+  outline-offset: -2px;
 }
 
 .seed-delta {

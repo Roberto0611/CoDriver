@@ -11,31 +11,51 @@ import type { Frame } from '../lib/turno'
 /** Minutos simulados antes de repetir la misma frase seguida. */
 export const SILENCIO_REPETIDA_MIN = 15
 
-const VEHICULO_HABLADO: Record<Vehiculo, string> = {
-  moto: 'motorbike',
-  car: 'car',
-  bike: 'bike',
+import { getVoiceLanguage } from './nuez'
+
+const VEHICULO_HABLADO: Record<string, Record<Vehiculo, string>> = {
+  en: { moto: 'motorbike', car: 'car', bike: 'bike' },
+  es: { moto: 'moto', car: 'auto', bike: 'bicicleta' },
+  hi: { moto: 'motorcycle', car: 'gadi', bike: 'cycle' },
 }
 
-// Una frase por regla dura. Incluye el vehículo lleno, que NO es seguridad (es un límite
-// físico) pero también se dice: el repartidor tiene que saber por qué no le cupo.
-const DURAS: Record<Exclude<Restriccion, 'reservation_wage'>, (v: Vehiculo) => string> = {
-  flagged_zone_night: () => "Skip. I won't send you into a flagged zone after 10 PM.",
-  mandatory_break: () => 'Skip. Four hours riding. Take your 20 minute break.',
-  heat_rule: () => 'Skip. Heat rule. 90 minutes riding in this heat is the limit.',
-  shift_end_infeasible: () => "Skip. You couldn't finish it before your shift ends.",
-  vehicle_capacity: (v) => `Skip. That order won't fit on your ${VEHICULO_HABLADO[v]}.`,
+const DURAS: Record<string, Record<Exclude<Restriccion, 'reservation_wage'>, (v: Vehiculo) => string>> = {
+  en: {
+    flagged_zone_night: () => "Skip. I won't send you into a flagged zone after 10 PM.",
+    mandatory_break: () => 'Skip. Four hours riding. Take your 20 minute break.',
+    heat_rule: () => 'Skip. Heat rule. 90 minutes riding in this heat is the limit.',
+    shift_end_infeasible: () => "Skip. You couldn't finish it before your shift ends.",
+    vehicle_capacity: (v) => `Skip. That order won't fit on your ${VEHICULO_HABLADO.en[v]}.`,
+  },
+  es: {
+    flagged_zone_night: () => "Rechazar. No te enviaré a una zona de riesgo después de las 10 PM.",
+    mandatory_break: () => 'Rechazar. Cuatro horas manejando. Toma tu descanso de 20 minutos.',
+    heat_rule: () => 'Rechazar. Regla de calor. 90 minutos manejando en este calor es el límite.',
+    shift_end_infeasible: () => "Rechazar. No podrías terminarlo antes de que acabe tu turno.",
+    vehicle_capacity: (v) => `Rechazar. Ese pedido no cabe en tu ${VEHICULO_HABLADO.es[v]}.`,
+  },
+  hi: {
+    flagged_zone_night: () => "Chhod do. Raat das baje ke baad main tumhe khatre wale ilake mein nahi bhejungi.",
+    mandatory_break: () => 'Chhod do. Chaar ghante ho gaye. Apna 20 minute ka break lo.',
+    heat_rule: () => 'Chhod do. Garmi ki wajah se. Is garmi mein nabbe minute ki limit hai.',
+    shift_end_infeasible: () => "Chhod do. Tum ise apni shift khatam hone se pehle poora nahi kar paoge.",
+    vehicle_capacity: (v) => `Chhod do. Woh order tumhari ${VEHICULO_HABLADO.hi[v]} par fit nahi aayega.`,
+  }
 }
 
-/** La frase de una decisión, o null si esa decisión no se dice. */
 export function fraseVoz(d: Decision, vehiculo: Vehiculo): string | null {
+  const { elLang } = getVoiceLanguage()
+  const lang = DURAS[elLang] ? elLang : 'en'
+
   if (d.accion === 'aceptar') {
     const pago = Math.round(d.terminos.pago_neto ?? 0)
     const mins = Math.round(d.terminos.minutos ?? 0)
+    if (lang === 'es') return `Tómalo. ${pago} pesos por ${mins} minutos.`
+    if (lang === 'hi') return `Ise le lo. ${mins} minute ke liye ${pago} pesos.`
     return `Take it. ${pago} pesos for ${mins} minutes.`
   }
   if (!d.restriccion || d.restriccion === 'reservation_wage') return null
-  return DURAS[d.restriccion](vehiculo)
+  return DURAS[lang][d.restriccion](vehiculo)
 }
 
 /**
@@ -46,8 +66,13 @@ export function fraseVoz(d: Decision, vehiculo: Vehiculo): string | null {
 export function fraseVozEnVivo(d: Decision, vehiculo: Vehiculo): string {
   const frase = fraseVoz(d, vehiculo)
   if (frase) return frase
+  const { elLang } = getVoiceLanguage()
+  const lang = DURAS[elLang] ? elLang : 'en'
   const pago = Math.round(d.terminos.pago_neto ?? 0)
   const mins = Math.round(d.terminos.minutos ?? 0)
+  
+  if (lang === 'es') return `Rechazar. ${pago} pesos por ${mins} minutos está por debajo de lo esperado.`
+  if (lang === 'hi') return `Chhod do. ${mins} minute ke liye ${pago} pesos ummeed se kam hai.`
   return `Skip. ${pago} pesos for ${mins} minutes is below the expected return.`
 }
 

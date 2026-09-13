@@ -10,7 +10,7 @@ import type { Vehiculo } from '../contract'
 import type { Frame } from '../lib/turno'
 import { Icon } from '../ui/icons'
 import { debeCallar, frasesDelTurno, siguienteFrase, type Dicha } from './frases'
-import { callar, onFuente, prefetch, say, unlock, type FuenteVoz } from './nuez'
+import { callar, onFuente, prefetch, say, unlock, getVoiceLanguage, setVoiceLanguage, onVoiceLanguage, type FuenteVoz } from './nuez'
 
 interface Props {
   frames: Frame[]
@@ -22,12 +22,20 @@ interface Props {
 export function VozToggle({ frames, t, isPlaying, vehiculo }: Props) {
   const [encendida, setEncendida] = useState(false)
   const [fuente, setFuente] = useState<FuenteVoz>('elevenlabs')
+  const [lang, setLang] = useState(() => getVoiceLanguage().elLang)
   const ultima = useRef<Dicha | null>(null)
   const ocupada = useRef(false)
   const turnoVoz = useRef(0)
   const tAnterior = useRef(t)
 
-  useEffect(() => onFuente(setFuente), [])
+  useEffect(() => {
+    const unFuente = onFuente(setFuente)
+    const unLang = onVoiceLanguage(() => setLang(getVoiceLanguage().elLang))
+    return () => {
+      unFuente()
+      unLang()
+    }
+  }, [])
 
   // Otro turno o voz apagada: nada de lo encolado sigue siendo cierto. Con la voz encendida,
   // cada turno que se carga calienta su cache (también al cambiar de seed a media sesión).
@@ -71,15 +79,28 @@ export function VozToggle({ frames, t, isPlaying, vehiculo }: Props) {
       : 'Navie voice on (ElevenLabs)'
 
   return (
-    <button
-      className={`speed-btn voz-toggle ${encendida ? 'is-active' : ''}`}
-      title={titulo}
-      aria-label={titulo}
-      aria-pressed={encendida}
-      onClick={alternar}
-    >
-      {encendida ? Icon.voice : Icon.voiceOff}
-      <span>{encendida && fuente === 'browser' ? 'Voice (local)' : 'Voice'}</span>
-    </button>
+    <div className="voz-container">
+      <button
+        className={`speed-btn voz-toggle ${encendida ? 'is-active' : ''}`}
+        title={titulo}
+        aria-label={titulo}
+        aria-pressed={encendida}
+        onClick={alternar}
+      >
+        {encendida ? Icon.voice : Icon.voiceOff}
+        <span>{encendida && fuente === 'browser' ? 'Voice (local)' : 'Voice'}</span>
+      </button>
+      <div className="voz-lang-menu">
+        <button className="voz-menu-item" onClick={() => setVoiceLanguage('es', 'es-MX')}>
+          <img src="https://flagcdn.com/mx.svg" width="20" alt="MX" /> Español {lang === 'es' && '✓'}
+        </button>
+        <button className="voz-menu-item" onClick={() => setVoiceLanguage('en', 'en-US')}>
+          <img src="https://flagcdn.com/us.svg" width="20" alt="US" /> English {lang === 'en' && '✓'}
+        </button>
+        <button className="voz-menu-item" onClick={() => setVoiceLanguage('hi', 'hi-IN')}>
+          <img src="https://flagcdn.com/in.svg" width="20" alt="IN" /> Hindi {lang === 'hi' && '✓'}
+        </button>
+      </div>
+    </div>
   )
 }
