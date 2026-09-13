@@ -1,5 +1,6 @@
 // Barra superior del landing: logo de Navie, enlaces y botones de cuenta.
 
+import { Link } from 'react-router-dom'
 import { NavieCompass } from '../navie/NavieCompass'
 
 export function LandingNavbar() {
@@ -49,7 +50,7 @@ export function LandingNavbar() {
             letterSpacing: '-0.02em',
           }}
         >
-          Codrive
+          CoDrive
         </span>
       </div>
 
@@ -81,8 +82,8 @@ export function LandingNavbar() {
           Go to Github
           <span className="github-star" style={{ fontSize: '1.1em', transition: 'color 0.2s ease' }}>★</span>
         </a>
-        <a
-          href="#"
+        <Link
+          to="/sim"
           style={{
             backgroundColor: 'var(--ink)',
             color: 'var(--canvas)',
@@ -96,7 +97,7 @@ export function LandingNavbar() {
         >
           Go to the simulation
           <span style={{ fontSize: '1.1em' }}>›</span>
-        </a>
+        </Link>
       </div>
     </header>
   )

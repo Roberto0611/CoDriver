@@ -156,7 +156,7 @@ export function LandingFindings() {
             }}
           >
             <Link
-              to="/map"
+              to="/sim"
               style={{
                 display: 'inline-flex',
                 alignItems: 'center',
@@ -190,7 +190,7 @@ export function LandingFindings() {
             </Link>
 
             <Link
-              to="/map"
+              to="/sim"
               style={{
                 display: 'inline-flex',
                 alignItems: 'center',

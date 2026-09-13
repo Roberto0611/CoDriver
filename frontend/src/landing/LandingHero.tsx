@@ -118,7 +118,7 @@ export function LandingHero({ isExpanded = false, toggleExpand = () => {} }: { i
           }}
         >
           <Link
-            to="/map"
+            to="/sim"
             style={{
               backgroundColor: 'var(--card)',
               color: 'var(--ink)',
