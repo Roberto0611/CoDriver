@@ -27,8 +27,8 @@ export function LandingFindings() {
             margin: '0 0 10px 0',
           }}
         >
-          Navie optimiza cada pedido{' '}
-          <span style={{ color: 'var(--plum)' }}>sin perder la ventana.</span>.
+          Navie optimizes every order{' '}
+          <span style={{ color: 'var(--plum)' }}>without missing the window.</span>
         </h2>
         <p
           style={{
@@ -39,8 +39,7 @@ export function LandingFindings() {
             maxWidth: '680px',
           }}
         >
-          El agente compara pago, tiempo real, riesgo, regreso al ancla y costo de oportunidad para
-          decidir en milisegundos qué vale la pena aceptar.
+          The agent compares payout, real-time traffic, risk, return to anchor, and opportunity cost to decide in milliseconds what's worth accepting.
         </p>
       </div>
 
@@ -88,7 +87,7 @@ export function LandingFindings() {
                 letterSpacing: '-0.02em',
               }}
             >
-              El turno se juega minuto a minuto.
+              The shift is played minute by minute.
             </h3>
 
             <p
@@ -99,9 +98,7 @@ export function LandingFindings() {
                 margin: 0,
               }}
             >
-              Navie no acepta todo lo que llega: evalúa si el pedido paga más que el valor de ese
-              tiempo, si puedes regresar a tu ancla y si la ruta encaja con las restricciones del
-              turno.
+              Navie doesn't accept everything that comes in: it evaluates if the order pays more than the value of that time, if you can return to your anchor, and if the route fits the shift constraints.
             </p>
 
             {/* Puntos técnicos de grid */}
@@ -117,7 +114,7 @@ export function LandingFindings() {
                 }}
               >
                 <span style={{ color: 'var(--emerald)', fontWeight: 800 }}>✓</span>
-                Costo de oportunidad por minuto restante
+                Opportunity cost per remaining minute
               </div>
               <div
                 style={{
@@ -130,7 +127,7 @@ export function LandingFindings() {
                 }}
               >
                 <span style={{ color: 'var(--emerald)', fontWeight: 800 }}>✓</span>
-                Regreso factible al ancla y restricciones de seguridad
+                Feasible return to anchor and safety constraints
               </div>
               <div
                 style={{
@@ -143,7 +140,7 @@ export function LandingFindings() {
                 }}
               >
                 <span style={{ color: 'var(--emerald)', fontWeight: 800 }}>✓</span>
-                Batching y ruteo para sacar más valor del mismo turno
+                Batching and routing to extract more value from the same shift
               </div>
             </div>
           </div>
@@ -189,7 +186,7 @@ export function LandingFindings() {
                 e.currentTarget.style.boxShadow = 'none'
               }}
             >
-              Ver a Navie en acción
+              See Navie in action
             </Link>
 
             <Link
@@ -215,7 +212,7 @@ export function LandingFindings() {
                 e.currentTarget.style.backgroundColor = 'var(--surface-low)'
               }}
             >
-              Explorar el mapa ›
+              Go to the simulation ›
             </Link>
           </div>
         </div>

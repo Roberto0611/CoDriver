@@ -53,33 +53,6 @@ export function LandingNavbar() {
         </span>
       </div>
 
-      {/* Enlaces de Navegación (Centro) */}
-      <nav
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: '24px',
-          fontWeight: 600,
-          fontSize: '0.9rem',
-          color: 'var(--ink)',
-        }}
-      >
-        <a href="#" style={{ textDecoration: 'none', color: 'inherit' }}>
-          Platform
-        </a>
-        <a href="#" style={{ textDecoration: 'none', color: 'inherit' }}>
-          Solutions
-        </a>
-        <a href="#" style={{ textDecoration: 'none', color: 'inherit' }}>
-          Resources
-        </a>
-        <a href="#" style={{ textDecoration: 'none', color: 'inherit' }}>
-          Pricing
-        </a>
-        <a href="#" style={{ textDecoration: 'none', color: 'inherit' }}>
-          Docs
-        </a>
-      </nav>
 
       {/* Botones Derecha */}
       <div
@@ -91,11 +64,22 @@ export function LandingNavbar() {
           fontSize: '0.9rem',
         }}
       >
-        <a href="#" style={{ textDecoration: 'none', color: 'var(--ink)' }}>
-          Log in
-        </a>
-        <a href="#" style={{ textDecoration: 'none', color: 'var(--ink)' }}>
-          Sign up
+        <a 
+          href="https://github.com/Roberto0611/hackmty-infosys" 
+          target="_blank" 
+          rel="noreferrer" 
+          style={{ textDecoration: 'none', color: 'var(--ink)', display: 'flex', alignItems: 'center', gap: '4px' }}
+          onMouseEnter={(e) => {
+            const star = e.currentTarget.querySelector('.github-star') as HTMLElement
+            if (star) star.style.color = '#FACC15'
+          }}
+          onMouseLeave={(e) => {
+            const star = e.currentTarget.querySelector('.github-star') as HTMLElement
+            if (star) star.style.color = 'inherit'
+          }}
+        >
+          Go to Github
+          <span className="github-star" style={{ fontSize: '1.1em', transition: 'color 0.2s ease' }}>★</span>
         </a>
         <a
           href="#"
@@ -110,7 +94,7 @@ export function LandingNavbar() {
             gap: '6px',
           }}
         >
-          Get a demo
+          Go to the simulation
           <span style={{ fontSize: '1.1em' }}>›</span>
         </a>
       </div>

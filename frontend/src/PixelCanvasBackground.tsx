@@ -145,7 +145,20 @@ export const PixelCanvasBackground: React.FC<PixelCanvasBackgroundProps> = ({
       offscreen.height = h
     }
     updateDimensions()
-    window.addEventListener('resize', updateDimensions)
+    
+    let resizeObserver: ResizeObserver | null = null
+    let resizeTimeout: ReturnType<typeof setTimeout> | null = null
+    if (canvas.parentElement) {
+      resizeObserver = new ResizeObserver(() => {
+        if (resizeTimeout) clearTimeout(resizeTimeout)
+        resizeTimeout = setTimeout(() => {
+          updateDimensions()
+        }, 300) // Espera a que termine la transicion CSS para repintar
+      })
+      resizeObserver.observe(canvas.parentElement)
+    } else {
+      window.addEventListener('resize', updateDimensions)
+    }
 
     const handleMouseMove = (e: MouseEvent) => {
       if (!canvasRef.current) return
@@ -303,6 +316,8 @@ export const PixelCanvasBackground: React.FC<PixelCanvasBackgroundProps> = ({
 
     return () => {
       if (animFrameIdRef.current) cancelAnimationFrame(animFrameIdRef.current)
+      if (resizeTimeout) clearTimeout(resizeTimeout)
+      if (resizeObserver) resizeObserver.disconnect()
       window.removeEventListener('resize', updateDimensions)
       if (interactive) {
         window.removeEventListener('mousemove', handleMouseMove)

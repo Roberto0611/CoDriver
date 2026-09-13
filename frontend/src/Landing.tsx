@@ -1,11 +1,23 @@
-// Landing: el marco de la pagina (fondo con grid y columna central). Cada seccion
-// vive en src/landing/ para que ningun archivo pase de 500 lineas.
 
+import { useState, useEffect } from 'react'
 import { LandingFindings } from './landing/LandingFindings'
 import { LandingHero } from './landing/LandingHero'
 import { LandingNavbar } from './landing/LandingNavbar'
 
 export default function LandingPage() {
+  const [isExpanded, setIsExpanded] = useState(false)
+
+  useEffect(() => {
+    if (isExpanded) {
+      document.body.style.overflow = 'hidden'
+    } else {
+      document.body.style.overflow = 'auto'
+    }
+    return () => {
+      document.body.style.overflow = 'auto'
+    }
+  }, [isExpanded])
+
   return (
     <div
       style={{
@@ -26,8 +38,8 @@ export default function LandingPage() {
       {/* Contenedor central con Margin-Left y Margin-Right precisos y bordes de grid */}
       <div
         style={{
-          width: 'calc(100% - clamp(24px, 6vw, 96px))',
-          maxWidth: '1240px',
+          width: isExpanded ? '100%' : 'calc(100% - clamp(24px, 6vw, 96px))',
+          maxWidth: isExpanded ? '100%' : '1240px',
           marginLeft: 'auto',
           marginRight: 'auto',
           backgroundColor: 'var(--card)',
@@ -38,16 +50,31 @@ export default function LandingPage() {
           flexDirection: 'column',
           boxSizing: 'border-box',
           minHeight: '100vh',
+          transition: 'all 0.5s cubic-bezier(0.4, 0, 0.2, 1)',
         }}
       >
         {/* ── Navbar (Estilo Browserbase) ── */}
-        <LandingNavbar />
+        <div style={{
+          overflow: 'hidden',
+          maxHeight: isExpanded ? '0' : '200px',
+          opacity: isExpanded ? 0 : 1,
+          transition: 'all 0.5s cubic-bezier(0.4, 0, 0.2, 1)'
+        }}>
+          <LandingNavbar />
+        </div>
 
         {/* ── Hero Section (con USA Map Canvas de fondo y Grid Style) ── */}
-        <LandingHero />
+        <LandingHero isExpanded={isExpanded} toggleExpand={() => setIsExpanded(!isExpanded)} />
 
         {/* ── Sección de Contenido Grid y Columna de 2 ── */}
-        <LandingFindings />
+        <div style={{
+          overflow: 'hidden',
+          maxHeight: isExpanded ? '0' : '2000px',
+          opacity: isExpanded ? 0 : 1,
+          transition: 'all 0.5s cubic-bezier(0.4, 0, 0.2, 1)'
+        }}>
+          <LandingFindings />
+        </div>
       </div>
     </div>
   )

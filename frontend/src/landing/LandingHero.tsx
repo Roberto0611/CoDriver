@@ -1,21 +1,23 @@
 // Hero del landing: video pixelado de fondo, titulo, subtitulo y el boton al demo.
 
 import { Link } from 'react-router-dom'
+import { Maximize2, Minimize2 } from 'lucide-react'
 import PixelCanvasBackground from '../PixelCanvasBackground'
 
-export function LandingHero() {
+export function LandingHero({ isExpanded = false, toggleExpand = () => {} }: { isExpanded?: boolean, toggleExpand?: () => void }) {
   return (
     <section
       style={{
         position: 'relative',
         width: '100%',
-        height: 'clamp(600px, 80vh, 800px)',
+        height: isExpanded ? '100vh' : 'clamp(600px, 80vh, 800px)',
         minHeight: '600px',
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
-        justifyContent: 'flex-start',
-        paddingTop: 'clamp(70px, 15vh, 120px)',
+        justifyContent: isExpanded ? 'center' : 'flex-start',
+        paddingTop: isExpanded ? '0' : 'clamp(70px, 15vh, 120px)',
+        transition: 'all 0.5s cubic-bezier(0.4, 0, 0.2, 1)',
         paddingLeft: '20px',
         paddingRight: '20px',
         textAlign: 'center',
@@ -35,10 +37,11 @@ export function LandingHero() {
         overlayOpacity={0}
         style={{
           position: 'absolute',
-          top: 0,
-          left: 0,
-          width: '100%',
-          height: '100%',
+          top: '50%',
+          left: '50%',
+          transform: 'translate(-50%, -50%)',
+          width: '100vw',
+          height: '100vh',
           zIndex: 0,
         }}
       />
@@ -53,6 +56,9 @@ export function LandingHero() {
           alignItems: 'center',
           maxWidth: '900px',
           width: '100%',
+          opacity: isExpanded ? 0 : 1,
+          pointerEvents: isExpanded ? 'none' : 'auto',
+          transition: 'opacity 0.4s ease',
         }}
       >
         {/* ── Main Highlighted Title ── */}
@@ -80,7 +86,7 @@ export function LandingHero() {
               boxShadow: 'none',
             }}
           >
-            Navie decide qué aceptar y qué rechazar entre clases.
+            Navie decides what to accept and what to reject between classes.
           </span>
         </h1>
 
@@ -98,8 +104,7 @@ export function LandingHero() {
             backgroundColor: 'var(--card)',
           }}
         >
-          Un copiloto de entrega para estudiantes: calcula el costo de oportunidad, revisa si puedes
-          volver a clase y explica cada decisión en voz alta.
+          A delivery copilot for students: calculates opportunity cost, checks if you can make it back to class, and explains every decision out loud.
         </p>
 
         {/* ── CTA Buttons ── */}
@@ -137,10 +142,47 @@ export function LandingHero() {
               e.currentTarget.style.opacity = '1'
             }}
           >
-            Explora el demo ›
+            Go to the simulation ›
           </Link>
         </div>
       </div>
+
+      {/* ── Bottom Left Location Text ── */}
+      <div style={{ position: 'absolute', bottom: '35px', left: '24px', zIndex: 2, color: '#ffffff', fontSize: 'clamp(1.5rem, 3vw, 2.5rem)', fontWeight: 800, letterSpacing: '-0.02em', opacity: isExpanded ? 1 : 0, transition: 'opacity 0.4s ease', pointerEvents: isExpanded ? 'auto' : 'none', textShadow: '0 2px 12px rgba(0,0,0,0.4)' }}>
+        Monterrey, Nuevo Leon, Mexico
+      </div>
+
+      {/* ── Bottom Right Expand Button ── */}
+      <button
+        onClick={toggleExpand}
+        style={{
+          position: 'absolute',
+          bottom: '24px',
+          right: '24px',
+          zIndex: 2,
+          background: 'rgba(0, 0, 0, 0.5)',
+          border: '1px solid rgba(255, 255, 255, 0.2)',
+          borderRadius: '8px',
+          padding: '8px',
+          color: 'white',
+          cursor: 'pointer',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          transition: 'all 0.2s ease',
+          backdropFilter: 'blur(4px)'
+        }}
+        onMouseEnter={(e) => {
+          e.currentTarget.style.background = 'rgba(0, 0, 0, 0.8)'
+          e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.4)'
+        }}
+        onMouseLeave={(e) => {
+          e.currentTarget.style.background = 'rgba(0, 0, 0, 0.5)'
+          e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.2)'
+        }}
+      >
+        {isExpanded ? <Minimize2 size={20} /> : <Maximize2 size={20} />}
+      </button>
     </section>
   )
 }
