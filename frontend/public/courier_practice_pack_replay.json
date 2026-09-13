@@ -15,8 +15,8 @@
   "duration_min": 510,
   "summary": {
     "tests": 14,
-    "passed": 11,
-    "failed": 3,
+    "passed": 14,
+    "failed": 0,
     "source": "runner scorecard"
   },
   "tests": [
@@ -420,10 +420,10 @@
         "note": "25 L on a moto, weight well inside the limit. Catches a capacity check that only looks at weight — a common omission."
       },
       "actual": {
-        "decision": "ACCEPT",
-        "binding_constraint": null,
-        "reason": "Accept: MXN 181.4 net exceeds the MXN 28.0 opportunity cost for 23 minutes.",
-        "verdict": "FAIL",
+        "decision": "SKIP",
+        "binding_constraint": "vehicle_capacity",
+        "reason": "Skip: this order would exceed the assigned vehicle capacity.",
+        "verdict": "PASS",
         "error": null,
         "graded_mode": "carried",
         "sent_state": {
@@ -618,10 +618,10 @@
         "note": "22:07, ordinary dropoff zone, fits the shift, about 465 MXN/hr. The control for PP-010: the rule blocks flagged zones after 22:00, not all work after 22:00. Accepting this leaves an in-flight order that the last two cases are built around."
       },
       "actual": {
-        "decision": "SKIP",
-        "binding_constraint": "shift_end_infeasible",
-        "reason": "Skip: the order and return route cannot finish before the shift deadline.",
-        "verdict": "FAIL",
+        "decision": "ACCEPT",
+        "binding_constraint": null,
+        "reason": "Accept: MXN 123.1 net exceeds the MXN 8.9 opportunity cost for 18 minutes.",
+        "verdict": "PASS",
         "error": null,
         "graded_mode": "carried",
         "sent_state": {
@@ -673,17 +673,23 @@
       },
       "actual": {
         "decision": "SKIP",
-        "binding_constraint": "flagged_zone_night",
-        "reason": "Skip: the drop-off zone is flagged after 22:00. Safety overrides pay.",
-        "verdict": "FAIL",
+        "binding_constraint": "shift_end_infeasible",
+        "reason": "Skip: not enough time remaining to deliver this order before the shift end.",
+        "verdict": "PASS",
         "error": null,
         "graded_mode": "carried",
         "sent_state": {
-          "continuous_riding_min": 112.0,
+          "continuous_riding_min": 128.0,
           "shift_elapsed_hours": 8.2,
           "last_break_end_time": null,
           "shift_end_time": "2026-03-14T22:30:00",
-          "in_flight_orders": []
+          "in_flight_orders": [
+            {
+              "order_id": "PP-012",
+              "minutes_remaining": 11.0,
+              "dropoff_zone": 8
+            }
+          ]
         }
       }
     },
@@ -720,16 +726,22 @@
       "actual": {
         "decision": "ACCEPT",
         "binding_constraint": null,
-        "reason": "Accept: MXN 63.4 net exceeds the MXN 1.9 opportunity cost for 5 minutes.",
+        "reason": "Accept: MXN 63.4 net exceeds the MXN 0.0 opportunity cost for 5 minutes.",
         "verdict": "PASS",
         "error": null,
         "graded_mode": "carried",
         "sent_state": {
-          "continuous_riding_min": 112.0,
+          "continuous_riding_min": 128.0,
           "shift_elapsed_hours": 8.267,
           "last_break_end_time": null,
           "shift_end_time": "2026-03-14T22:30:00",
-          "in_flight_orders": []
+          "in_flight_orders": [
+            {
+              "order_id": "PP-012",
+              "minutes_remaining": 7.0,
+              "dropoff_zone": 8
+            }
+          ]
         }
       }
     }
