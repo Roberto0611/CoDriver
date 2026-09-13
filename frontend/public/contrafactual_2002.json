@@ -1,0 +1,46 @@
+{
+  "seed": 2002,
+  "policy": "nuez",
+  "actual": {
+    "earned_mxn": 172.67,
+    "deliveries": 2,
+    "offers": 90,
+    "late": false
+  },
+  "skipped_total": 88,
+  "money_skips": {
+    "count": 1,
+    "evaluated": 1,
+    "infeasible": 0,
+    "would_earn_less": 0,
+    "would_earn_more": 1,
+    "no_change": 0,
+    "late_runs": 0,
+    "cancelled_runs": 0,
+    "avg_delta_mxn": 34.69,
+    "max_gain_mxn": 34.69,
+    "max_loss_mxn": null
+  },
+  "safety_skips": {
+    "flagged_zone_night": 0,
+    "mandatory_break": 0,
+    "heat_rule": 17,
+    "shift_end_infeasible": 65
+  },
+  "capacity_skips": 5,
+  "top": [
+    {
+      "order_id": "o_032",
+      "minute": 40,
+      "net_pay_mxn": 34.7,
+      "minutes": 29.9,
+      "time_value_mxn": 57.8,
+      "delta_mxn": 34.69,
+      "forced_earned_mxn": 207.36,
+      "forced_deliveries": 3,
+      "late": false,
+      "cancelled": 0
+    }
+  ],
+  "note": "Each skipped order is re-simulated on its own. Deltas are not additive."
+}

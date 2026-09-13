@@ -64,6 +64,22 @@
   height: 26px;
 }
 
+/* Esquina superior derecha del replay: badge de Gemini + logo, en fila. */
+.logo-container {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+/* Dentro del contenedor el logo no flota por su cuenta: lo acomoda el flex. */
+.logo-container .logo {
+  position: static;
+}
+
 /* ─── Stats Grid ───
    Sin cajas dentro de la caja: dos columnas separadas por hairlines. */
 .stats-grid {

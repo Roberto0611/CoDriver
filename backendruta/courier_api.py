@@ -198,7 +198,7 @@ class CourierService:
     def status(self) -> dict[str, Any]:
         with self._lock:
             if self.state is None:
-                return {"active": False, "degraded": self.degraded}
+                return {"active": False, **self.estrategia.estado_publico(en_turno=False)}
             return {
                 "active": True,
                 "seed": self.state.config.seed,
@@ -206,7 +206,7 @@ class CourierService:
                 "remaining_min": max(0, self.state.config.duracion_min - self.state.current_minute),
                 "in_flight_orders": sorted(self.state.accepted),
                 "event_log": str(self.log.path),
-                "degraded": self.degraded,
+                **self.estrategia.estado_publico(),
             }
 
     def _ensure_state(self, request: DecideRequest) -> None:

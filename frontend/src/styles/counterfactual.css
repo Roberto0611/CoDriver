@@ -1,0 +1,42 @@
+/* ─── Contrafactual (fin del turno, bajo el Final Summary) ───
+   Reusa .turno-summary y .turno-summary-row de sim.css para verse
+   como más renglones del mismo resumen. Colores con significado:
+   esmeralda = dinero ganado, rosa = seguridad. Una pérdida y el
+   vehículo lleno (límite físico, no seguridad) van en tinta. */
+
+.counterfactual {
+  margin-top: 8px;
+}
+
+.counterfactual-line {
+  font-size: 13px;
+  line-height: 18px;
+  color: var(--ink-2);
+}
+
+.counterfactual-line.is-safety {
+  padding-top: 4px;
+  color: var(--rose-ink);
+}
+
+.counterfactual-line.is-capacity {
+  color: var(--ink-2);
+}
+
+.counterfactual-lead {
+  font-weight: 600;
+}
+
+.counterfactual-delta.is-gain {
+  color: var(--emerald-ink);
+}
+
+.counterfactual-delta.is-loss {
+  color: var(--ink-2);
+}
+
+.counterfactual-note {
+  font-size: 12px;
+  line-height: 16px;
+  color: var(--ink-3);
+}

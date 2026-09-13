@@ -17,7 +17,9 @@ const VEHICULO_HABLADO: Record<Vehiculo, string> = {
   bike: 'bike',
 }
 
-const SEGURIDAD: Record<Exclude<Restriccion, 'reservation_wage'>, (v: Vehiculo) => string> = {
+// Una frase por regla dura. Incluye el vehículo lleno, que NO es seguridad (es un límite
+// físico) pero también se dice: el repartidor tiene que saber por qué no le cupo.
+const DURAS: Record<Exclude<Restriccion, 'reservation_wage'>, (v: Vehiculo) => string> = {
   flagged_zone_night: () => "Skip. I won't send you into a flagged zone after 10 PM.",
   mandatory_break: () => 'Skip. Four hours riding. Take your 20 minute break.',
   heat_rule: () => 'Skip. Heat rule. 90 minutes riding in this heat is the limit.',
@@ -33,7 +35,7 @@ export function fraseVoz(d: Decision, vehiculo: Vehiculo): string | null {
     return `Take it. ${pago} pesos for ${mins} minutes.`
   }
   if (!d.restriccion || d.restriccion === 'reservation_wage') return null
-  return SEGURIDAD[d.restriccion](vehiculo)
+  return DURAS[d.restriccion](vehiculo)
 }
 
 export interface Dicha {

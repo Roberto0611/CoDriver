@@ -75,6 +75,25 @@ def test_cada_tipo_de_decision_nombra_su_alternativa(api):
     assert "reservation wage" in poor[0]["rejected_because"]
 
 
+def test_la_capacidad_no_se_explica_como_seguridad():
+    """Un vehiculo lleno es un limite fisico: la frase no lo llama seguridad."""
+    inputs = {
+        "engine_terms": {"pago_neto": 60, "precio_tiempo": 40, "minutos": 20, "ventaja": 20},
+        "continuous_riding_min": 30,
+        "vehicle": "bike",
+        "vehicle_limits": {"orders": 2, "weight_kg": 8, "volume_liters": 30},
+        "offer": {"weight_kg": 12, "volume_liters": 40},
+        "in_flight_orders": ["ORD-1"],
+    }
+    capacidad = explain.alternatives("SKIP", "vehicle_capacity", inputs)
+    assert "vehicle_capacity" in capacidad[0]["rejected_because"]
+    assert "safety" not in capacidad[1]["rejected_because"]
+    assert "physical limit" in capacidad[1]["rejected_because"]
+
+    calor = explain.alternatives("SKIP", "heat_rule", inputs)
+    assert "safety constraints" in calor[1]["rejected_because"]
+
+
 def test_leer_del_archivo_da_lo_mismo_que_la_memoria(api):
     client, service = api
     _turno(client)

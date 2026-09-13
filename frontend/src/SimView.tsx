@@ -16,10 +16,12 @@ import { dispararShock, type ShockType } from './map/shocks'
 import { cargarTurnosPorSeed, cargarIndiceTurnos, cargarPuntos } from './lib/loader'
 import { posicionEnMinuto, minutosAHora, contadoresEnT, estelaHastaT } from './lib/sim'
 import type { TurnoData, TurnoIndex } from './lib/turno'
+import { Counterfactual } from './sim/Counterfactual'
 import { Counters } from './sim/Counters'
 import { Decisions } from './sim/Decisions'
 import { Distribution } from './sim/Distribution'
 import { DecisionToasts } from './sim/DecisionToasts'
+import { GeminiBadge, GeminiNote } from './sim/GeminiStatus'
 import { VozToggle } from './voice/VozToggle'
 
 maplibregl.setWorkerUrl(maplibreWorkerUrl)
@@ -209,34 +211,10 @@ export default function SimView() {
         <div className="loading-text">Loading shift…</div>
       </div>
 
-      {/* Logo y Badge Gemini */}
-      <div
-        className="logo-container"
-        style={{
-          position: 'absolute',
-          top: 16,
-          right: 16,
-          zIndex: 10,
-          display: 'flex',
-          alignItems: 'center',
-          gap: 12,
-        }}
-      >
-        <div
-          className="gemini-badge"
-          style={{
-            backgroundColor: '#10b981',
-            color: 'white',
-            padding: '4px 10px',
-            borderRadius: 99,
-            fontSize: '0.75rem',
-            fontWeight: 700,
-            boxShadow: '0 2px 5px rgba(0,0,0,0.2)',
-          }}
-        >
-          Gemini: activo
-        </div>
-        <div className="logo" role="img" aria-label="Nuez" style={{ position: 'static' }}>
+      {/* Logo y badge de Gemini (estado real, sondeado de /shift/status) */}
+      <div className="logo-container">
+        <GeminiBadge />
+        <div className="logo" role="img" aria-label="Nuez">
           {Icon.mark}
         </div>
       </div>
@@ -356,17 +334,7 @@ export default function SimView() {
       {/* Panel izquierdo */}
       <div className="overlay-panel">
         {/* Nota de Gemini */}
-        <div
-          className="glass-card gemini-note"
-          style={{ marginBottom: 12, padding: '10px 16px', borderLeft: '4px solid #4F46E5' }}
-        >
-          <div style={{ fontSize: '0.75rem', fontWeight: 700, color: '#4F46E5', marginBottom: 4 }}>
-            STRATEGY NOTE (GEMINI)
-          </div>
-          <div style={{ fontSize: '0.85rem', color: '#334155', fontStyle: 'italic' }}>
-            {/* VACIO - Esperando backend en vivo para la nota de Gemini */}
-          </div>
-        </div>
+        <GeminiNote />
 
         {/* Selector de seed */}
         {indice && (
@@ -407,6 +375,7 @@ export default function SimView() {
               nuezMeta={nuez.meta}
               terminado={terminado}
             />
+            <Counterfactual seed={seed} terminado={terminado} horaInicio={horaInicio} />
           </div>
         )}
 

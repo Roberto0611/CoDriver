@@ -1,7 +1,7 @@
 // Panel de decisiones de Nuez. Más reciente arriba.
-// Distingue seguridad (rosa) de dinero (ámbar) con un chip.
+// Distingue con un chip seguridad (rosa), vehículo lleno (neutro) y dinero (ámbar).
 
-import { useState } from 'react'
+import { useState, type ReactNode } from 'react'
 import { Icon } from '../ui/icons'
 import type { Decision } from '../contract'
 import type { Frame } from '../lib/turno'
@@ -9,9 +9,16 @@ import {
   textoDecisionCorto,
   textoDecisionDetalle,
   etiquetaRestriccion,
-  esSeguridad,
+  tipoRestriccion,
+  type TipoRestriccion,
 } from '../lib/decision-text'
 import { minutosAHora } from '../lib/sim'
+
+const CHIP_ICON: Record<TipoRestriccion, ReactNode> = {
+  safety: Icon.shield,
+  capacity: Icon.box,
+  money: Icon.dollar,
+}
 
 interface Props {
   frames: Frame[]
@@ -56,10 +63,8 @@ export function Decisions({ frames, t, horaInicio }: Props) {
             </div>
 
             {d.restriccion && (
-              <span
-                className={`decision-chip ${esSeguridad(d.restriccion) ? 'is-safety' : 'is-money'}`}
-              >
-                {esSeguridad(d.restriccion) ? Icon.shield : Icon.dollar}
+              <span className={`decision-chip is-${tipoRestriccion(d.restriccion)}`}>
+                {CHIP_ICON[tipoRestriccion(d.restriccion)]}
                 {etiquetaRestriccion(d.restriccion)}
               </span>
             )}

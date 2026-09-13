@@ -14,10 +14,19 @@ const RESTRICCION_LABEL: Record<string, string> = {
   reservation_wage: 'Below wage',
 }
 
-/** true si la restricción es de seguridad (no dinero). */
+/** De qué tipo es el salto: seguridad, vehículo lleno (límite físico) o dinero. */
+export type TipoRestriccion = 'safety' | 'capacity' | 'money'
+
+export function tipoRestriccion(restriccion: Restriccion): TipoRestriccion {
+  if (restriccion === 'reservation_wage') return 'money'
+  // La capacidad es dura pero no es seguridad: un vehículo lleno no pone en riesgo a nadie.
+  if (restriccion === 'vehicle_capacity') return 'capacity'
+  return 'safety'
+}
+
+/** true si la restricción es de seguridad (ni dinero ni capacidad). */
 export function esSeguridad(restriccion: Restriccion | null): boolean {
-  if (!restriccion) return false
-  return restriccion !== 'reservation_wage'
+  return restriccion != null && tipoRestriccion(restriccion) === 'safety'
 }
 
 /** Etiqueta corta para la restricción. */
@@ -37,8 +46,8 @@ export function textoDecisionCorto(d: Decision): string {
     return `Accept: MXN ${pago} for ${mins} min (+${ventaja} edge)`
   }
 
-  // Saltar
-  if (d.restriccion && esSeguridad(d.restriccion)) {
+  // Saltar: una restricción dura se nombra; por dinero se enseña la cuenta
+  if (d.restriccion && tipoRestriccion(d.restriccion) !== 'money') {
     return `Skip: ${etiquetaRestriccion(d.restriccion)}`
   }
 
