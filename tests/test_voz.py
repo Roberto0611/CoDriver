@@ -71,6 +71,9 @@ def test_cache_key_depende_de_texto_voz_y_modelo(cfg: Config):
     assert a != tts.cache_key(
         "Skip it.", Config(_api_key="k", tts_model="eleven_v3", cache_dir=cfg.cache_dir)
     )
+    assert a != tts.cache_key(
+        "Skip it.", Config(_api_key="k", language="es", cache_dir=cfg.cache_dir)
+    )
 
 
 def test_sintetizar_llama_una_vez_y_luego_sirve_de_cache(cfg: Config):
@@ -97,6 +100,7 @@ def test_la_request_lleva_llave_voz_modelo_y_formato(cfg: Config):
     body = json.loads(r.content)
     assert body["text"] == "Skip it."
     assert body["model_id"] == cfg.tts_model
+    assert body["language_code"] == "en"
     assert body["voice_settings"]["speed"] == cfg.speed
 
 

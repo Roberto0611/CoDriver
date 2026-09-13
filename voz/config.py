@@ -6,6 +6,7 @@ Todo se puede sobreescribir por variable de entorno (.env) sin tocar codigo:
     NUEZ_VOICE_ID           id de voz de ElevenLabs (default: Jessica)
     NUEZ_TTS_MODEL          eleven_flash_v2_5 (rapido) | eleven_v3 (mas expresivo, mas lento)
     NUEZ_STT_MODEL          scribe_v1
+    NUEZ_VOICE_LANGUAGE     en (default; fija el idioma de TTS y STT)
     ELEVENLABS_BASE_URL     https://api.us.elevenlabs.io (ruteo USA, mas cerca de MTY)
 
 Voces premade en la cuenta que suenan a Nuez (jovenes, conversacionales, en ingles):
@@ -45,7 +46,9 @@ class Config:
     similarity_boost: float = 0.75
     style: float = 0.3
     speed: float = 1.05
-    language: str | None = None
+    # El producto y la narración son en inglés. Sin esto ElevenLabs adivina el idioma
+    # de cada frase y una razón heredada en español cambia la voz a media corrida.
+    language: str | None = field(default_factory=lambda: os.getenv("NUEZ_VOICE_LANGUAGE", "en"))
     cache_dir: Path = RAIZ / "cache" / "voz"
     timeout_s: float = 30.0
 
