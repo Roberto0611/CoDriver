@@ -56,6 +56,20 @@ local, la tabla de valor en disco y las restricciones de `seguridad.py`. Los tie
 estimados enviados por Infosys tienen prioridad cuando el repartidor está libre;
 para trabajo apilado se usa el ruteo interno entre zonas.
 
+Convenciones frente al runner de Infosys (`courier-update/run_probe_pack.py`, el mismo
+script que corren los jueces):
+
+- **Zonas marcadas de noche.** En `/decide` solo la zona **99** está marcada, que es la
+  convención documentada del practice pack. Se decide con el número que llega, antes de
+  traducirlo: los números de zona de otro stream no son los nuestros y el nombre es
+  opcional. El simulador conserva su propia capa de riesgo (`mundo.ZONAS_MARCADAS`).
+- **Fin de turno.** La regla es terminar la entrega antes del fin del turno. Regresar al
+  punto de partida es opcional: `return_to_start` en `/shift/start`, apagado por omisión.
+- **Pedidos en vuelo.** Se acepta la forma del runner (`order_id`, `minutes_remaining`,
+  `dropoff_zone`), y los minutos que declara mandan sobre el ruteo interno.
+- **Latencia.** Medir contra `127.0.0.1`, no `localhost`: en Windows este último intenta
+  IPv6 primero y agrega unos 2 segundos por petición.
+
 ```bash
 cd frontend
 npm install

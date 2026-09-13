@@ -31,11 +31,15 @@ PREP_MIN, PREP_MAX = 4, 15  # minutos que tarda el restaurante
 
 # Que tan grande viene el pedido. Casi todo es comida y no pesa nada; la cola son
 # los paquetes, que es donde el vehiculo empieza a importar (en bici no caben).
+# Los litros van contra la caja de la moto (20 L, ver seguridad.VEHICULOS): una
+# pizza no son 25 litros. Con comida de 1-8 L caben ~3 pedidos en la caja, igual que
+# antes con 2-25 L en 60 L, y por eso la economia del turno no se entera del cambio.
+# Los paquetes SI desbordan a proposito: es lo que hace que el vehiculo importe.
 PESO_KG = (0.3, 6.0)
-VOLUMEN_L = (2.0, 25.0)
+VOLUMEN_L = (1.0, 8.0)
 PROB_PAQUETE = 0.10
 PESO_PAQUETE = (5.0, 28.0)
-VOLUMEN_PAQUETE = (20.0, 90.0)
+VOLUMEN_PAQUETE = (12.0, 35.0)
 
 # Un estudiante con 2 horas trabaja SU zona. Los pings normales salen cerca;
 # la fraccion de trampas son los lejanos bien pagados que el motor debe rechazar.
@@ -214,7 +218,8 @@ def _no_alcanza(
         if parada.tipo == "pickup":
             reloj = max(reloj, parada.listo_en)
         desde = parada.punto
-    return reloj + tramo(desde, ancla, reloj) > cfg.duracion_min - cfg.margen_min
+    regreso = tramo(desde, ancla, reloj) if cfg.regresar_al_ancla else 0.0
+    return reloj + regreso > cfg.duracion_min - cfg.margen_min
 
 
 def simular(
@@ -280,7 +285,8 @@ def politica_greedy(
     pago = o.pago * o.surge * activos.factor_pago(rutas.ZONA_DE[i_pick])
     neto = pago - rutas.km(i_pick, i_drop) * seguridad.VEHICULOS[cfg.vehiculo].costo_km
     propios = minutos - cola  # lo que cuesta ESTE pedido, sin la cola de adelante
-    para_terminar = minutos + leg(i_drop, ancla, minutos)
+    regreso = leg(i_drop, ancla, minutos) if cfg.regresar_al_ancla else 0.0
+    para_terminar = minutos + regreso
     terminos = {
         "pago_neto": round(neto, 1),
         "minutos": round(propios, 1),

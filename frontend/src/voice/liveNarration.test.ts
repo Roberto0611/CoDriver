@@ -380,26 +380,26 @@ const F = FIN
 const SEED_2005: [number, Restriccion | null, string][] = [
   [0, null, 'Te deja $132 por encima de lo normal.'],
   [1, null, 'Te deja $24 por encima de lo normal.'],
-  [2, 'reservation_wage', 'Esos 27 minutos rinden $77 normalmente, y este paga $51.'],
-  [3, 'reservation_wage', 'Esos 21 minutos rinden $58 normalmente, y este paga $51.'],
-  [4, null, 'Te deja $37 por encima de lo normal.'],
+  [2, 'reservation_wage', 'Esos 27 minutos rinden $80 normalmente, y este paga $51.'],
+  [3, 'reservation_wage', 'Esos 21 minutos rinden $61 normalmente, y este paga $51.'],
+  [4, null, 'Te deja $36 por encima de lo normal.'],
   ...[6, 7, 8, 9, 10, 12, 14, 15, 16, 17, 18, 19, 20, 21, 24, 25, 26].map(
     (t) => [t, 'vehicle_capacity', P] as [number, Restriccion, string]
   ),
-  [27, 'reservation_wage', 'Esos 27 minutos rinden $78 normalmente, y este paga $31.'],
-  [28, 'reservation_wage', 'Esos 21 minutos rinden $62 normalmente, y este paga $41.'],
-  [29, null, 'Te deja $26 por encima de lo normal.'],
-  [32, null, 'Te deja $40 por encima de lo normal.'],
+  [27, 'reservation_wage', 'Esos 27 minutos rinden $80 normalmente, y este paga $31.'],
+  [28, 'reservation_wage', 'Esos 21 minutos rinden $64 normalmente, y este paga $41.'],
+  [29, null, 'Te deja $24 por encima de lo normal.'],
+  [32, null, 'Te deja $41 por encima de lo normal.'],
   ...[34, 35, 36, 37, 39, 40, 41, 42].map(
     (t) => [t, 'vehicle_capacity', P] as [number, Restriccion, string]
   ),
   ...[43, 44, 46].map((t) => [t, 'shift_end_infeasible', F] as [number, Restriccion, string]),
-  [48, null, 'Te deja $7 por encima de lo normal.'],
+  [48, null, 'Te deja $6 por encima de lo normal.'],
   ...[49, 50, 51, 52, 53, 54].map(
     (t) => [t, 'vehicle_capacity', P] as [number, Restriccion, string]
   ),
   [55, 'shift_end_infeasible', F],
-  [56, null, 'Te deja $1 por encima de lo normal.'],
+  [56, null, 'Te deja $2 por encima de lo normal.'],
   ...[58, 59, 60].map((t) => [t, 'vehicle_capacity', P] as [number, Restriccion, string]),
 ]
 

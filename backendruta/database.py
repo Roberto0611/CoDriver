@@ -9,8 +9,11 @@ from time import monotonic, sleep
 from typing import Any
 
 from dotenv import load_dotenv
+from psycopg2.extras import execute_values
 from sqlalchemy import create_engine, text
 from sqlalchemy.engine import URL, Engine
+
+from backendruta import database_schema as schema
 
 # Cargar variables de entorno desde .env en la raíz del proyecto
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -108,77 +111,13 @@ def init_db() -> bool:
                     f"TimescaleDB no disponible en este servidor ({e}); usando PostgreSQL estándar."
                 )
 
-            # 2. Tabla de tráfico por minuto (series de tiempo)
-            conn.execute(
-                text("""
-                CREATE TABLE IF NOT EXISTS trafico_calles (
-                    tiempo TIMESTAMPTZ NOT NULL,
-                    calle_nombre TEXT NOT NULL,
-                    factor_retraso FLOAT DEFAULT 1.0,
-                    delay_segundos INT DEFAULT 0,
-                    velocidad_kmh INT,
-                    motivo TEXT,
-                    coords JSONB
-                );
-            """)
-            )
-
-            # Índices para consultas instantáneas por minuto
-            conn.execute(
-                text("""
-                CREATE INDEX IF NOT EXISTS idx_trafico_calles_tiempo
-                ON trafico_calles (tiempo DESC);
-            """)
-            )
-
-            # 3. Tabla de incidentes y cierres viales
-            conn.execute(
-                text("""
-                CREATE TABLE IF NOT EXISTS incidentes_viales (
-                    id TEXT PRIMARY KEY,
-                    inicio TIMESTAMPTZ NOT NULL,
-                    fin TIMESTAMPTZ NOT NULL,
-                    calle TEXT NOT NULL,
-                    tipo TEXT NOT NULL,
-                    factor_penalizacion FLOAT DEFAULT 1000.0,
-                    motivo TEXT,
-                    alerta_voz TEXT,
-                    coords JSONB
-                );
-            """)
-            )
-
-            conn.execute(
-                text("""
-                CREATE INDEX IF NOT EXISTS idx_incidentes_fechas
-                ON incidentes_viales (inicio, fin);
-            """)
-            )
-
-            # 4. Bitacora auditable del motor. El JSONB conserva todo el evento
-            # oficial (incluyendo inputs y alternativas) sin inventar un segundo
-            # contrato que se pueda desalinear del JSONL de replay.
-            conn.execute(
-                text("""
-                CREATE TABLE IF NOT EXISTS decisiones_courier (
-                    id BIGSERIAL NOT NULL,
-                    sim_time TIMESTAMPTZ NOT NULL,
-                    log_path TEXT NOT NULL,
-                    order_id TEXT NOT NULL,
-                    decision TEXT NOT NULL,
-                    binding_constraint TEXT,
-                    payload JSONB NOT NULL,
-                    PRIMARY KEY (sim_time, id)
-                );
-            """)
-            )
+            # 2-4. Tablas e indices (ver database_schema.py).
+            for sentencia in schema.TABLAS:
+                conn.execute(text(sentencia))
 
             # Con TimescaleDB, las dos series de tiempo se vuelven hypertables. Cada una en
             # su SAVEPOINT: si una no se puede convertir, el resto del esquema sigue.
-            for tabla, columna in (
-                ("trafico_calles", "tiempo"),
-                ("decisiones_courier", "sim_time"),
-            ):
+            for tabla, columna in schema.HIPERTABLAS:
                 if not has_timescale:
                     break
                 try:
@@ -192,18 +131,25 @@ def init_db() -> bool:
                 except Exception as e:
                     logger.debug(f"Hipertabla {tabla} ya existente o no requerida: {e}")
 
-            conn.execute(
-                text("""
-                CREATE INDEX IF NOT EXISTS idx_decisiones_courier_order
-                ON decisiones_courier (log_path, order_id, sim_time DESC);
-            """)
-            )
+            for sentencia in schema.INDICES_FINALES:
+                conn.execute(text(sentencia))
 
         logger.info("Esquema de base de datos TigerData inicializado correctamente.")
         return True
     except Exception as e:
         logger.error(f"Error al inicializar esquema en TigerData: {e}")
         return False
+
+
+def clear_traffic() -> None:
+    """Vacia trafico_calles: solo la llena el seed, que la regenera completa al arrancar."""
+    engine = get_engine()
+    if engine and is_connected():
+        try:
+            with engine.begin() as conn:
+                conn.execute(text("TRUNCATE trafico_calles"))
+        except Exception as e:
+            logger.error(f"Error al vaciar trafico_calles en TigerData: {e}")
 
 
 def save_traffic_batch(records: list[dict[str, Any]]) -> None:
@@ -219,28 +165,32 @@ def save_traffic_batch(records: list[dict[str, Any]]) -> None:
             _MEMORY_TRAFFIC.setdefault(hora_str, []).append(r)
 
     if engine and is_connected():
+        filas = [
+            (
+                r["tiempo"],
+                r["calle_nombre"],
+                r.get("factor_retraso", 1.0),
+                r.get("delay_segundos", 0),
+                r.get("velocidad_kmh", 50),
+                r.get("motivo", "Fluido"),
+                json.dumps(r.get("coords", [])),
+            )
+            for r in records
+        ]
         try:
+            # Un INSERT multi-fila por pagina: fila por fila eran 155k viajes a la nube.
             with engine.begin() as conn:
-                for r in records:
-                    conn.execute(
-                        text("""
-                            INSERT INTO trafico_calles
-                                (tiempo, calle_nombre, factor_retraso, delay_segundos,
-                                 velocidad_kmh, motivo, coords)
-                            VALUES
-                                (:tiempo, :calle_nombre, :factor_retraso, :delay_segundos,
-                                 :velocidad_kmh, :motivo, :coords)
-                        """),
-                        {
-                            "tiempo": r["tiempo"],
-                            "calle_nombre": r["calle_nombre"],
-                            "factor_retraso": r.get("factor_retraso", 1.0),
-                            "delay_segundos": r.get("delay_segundos", 0),
-                            "velocidad_kmh": r.get("velocidad_kmh", 50),
-                            "motivo": r.get("motivo", "Fluido"),
-                            "coords": json.dumps(r.get("coords", [])),
-                        },
-                    )
+                execute_values(
+                    conn.connection.cursor(),
+                    """
+                    INSERT INTO trafico_calles
+                        (tiempo, calle_nombre, factor_retraso, delay_segundos,
+                         velocidad_kmh, motivo, coords)
+                    VALUES %s
+                    """,
+                    filas,
+                    page_size=5000,
+                )
         except Exception as e:
             logger.error(f"Error al guardar lote en TigerData: {e}")
 

@@ -21,6 +21,7 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
 from backendruta import zonas
+from backendruta.courier_models import MAX_TURNO_MIN
 from backendruta.live_demo import (
     DEMO_DELAY,
     MINUTO_DELAY_ENSAYADO,
@@ -85,7 +86,8 @@ router = APIRouter(prefix="/live", tags=["live-demo"])
 
 class StartRequest(BaseModel):
     seed: int = Field(ge=0)
-    duracion_min: int = Field(default=120, ge=30, le=480)
+    # El mismo tope que /shift/start: la jornada de 8.5 h del practice pack.
+    duracion_min: int = Field(default=120, ge=30, le=MAX_TURNO_MIN)
     hora_inicio: int = Field(default=14, ge=0, le=23)
     vehiculo: Vehiculo = "moto"
     ancla: int = 4

@@ -37,6 +37,7 @@ from dotenv import load_dotenv
 
 import rutas
 import valor
+from backendruta.courier_models import MAX_TURNO_MIN
 from estrategia import BASE, Estrategia, marcar_vieja, sanear
 
 # Respaldo para el protocolo normal, donde los pings avanzan en tiempo real. El demo
@@ -451,7 +452,8 @@ def salario_reserva(state: Any, propuesta: Estrategia) -> float:
     """
     if state is None:
         return round(propuesta.margen_mxn, 2)
-    tabla = valor.para_turno(state.config.duracion_min)
+    # El reloj del turno cuenta desde la hora en punto; la tabla cubre el turno real.
+    tabla = valor.para_turno(min(state.duracion_real, MAX_TURNO_MIN))
     restante = max(0, state.config.duracion_min - state.current_minute)
     por_hora = valor.precio_del_tiempo(restante, min(60, restante), tabla)
     return round(por_hora + propuesta.margen_mxn, 2)

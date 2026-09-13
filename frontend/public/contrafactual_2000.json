@@ -24,17 +24,17 @@
   "safety_skips": {
     "flagged_zone_night": 0,
     "mandatory_break": 0,
-    "heat_rule": 23,
+    "heat_rule": 22,
     "shift_end_infeasible": 23
   },
-  "capacity_skips": 41,
+  "capacity_skips": 42,
   "top": [
     {
       "order_id": "o_033",
       "minute": 48,
       "net_pay_mxn": 42.3,
       "minutes": 22.3,
-      "time_value_mxn": 64.2,
+      "time_value_mxn": 65.9,
       "delta_mxn": -41.85,
       "forced_earned_mxn": 267.65,
       "forced_deliveries": 6,
@@ -46,7 +46,7 @@
       "minute": 51,
       "net_pay_mxn": 29.3,
       "minutes": 28.1,
-      "time_value_mxn": 39.5,
+      "time_value_mxn": 40.2,
       "delta_mxn": -22.66,
       "forced_earned_mxn": 286.84,
       "forced_deliveries": 7,

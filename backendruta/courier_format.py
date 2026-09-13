@@ -1,7 +1,7 @@
 """Presentacion determinista de respuestas y eventos del protocolo Courier."""
 
 import time
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Any
 
 import seguridad
@@ -9,6 +9,7 @@ import shocks
 from backendruta.courier_models import DecideRequest, DecideResponse, ShockRequest
 from contrato import Decision, Vehiculo
 from nuez import MARGEN
+from sim import Parada
 
 
 def iso(value: datetime) -> str:
@@ -75,7 +76,9 @@ def english_reason(decision: Decision) -> str:
     if constraint == "heat_rule":
         return "Skip: continuous riding reached the 90-minute heat limit between 12:00 and 16:00."
     if constraint == "shift_end_infeasible":
-        return "Skip: the order and return route cannot finish before the shift deadline."
+        if terms.get("minutos_regreso", 0) > 0:
+            return "Skip: the order and return route cannot finish before the shift deadline."
+        return "Skip: not enough time remaining to deliver this order before the shift end."
     if constraint == "vehicle_capacity":
         return "Skip: this order would exceed the assigned vehicle capacity."
     pay = terms.get("pago_neto", 0)
@@ -163,3 +166,49 @@ def to_shock(request: ShockRequest, minuto: int, zona: str | None) -> shocks.Sho
         oferta_id=request.order_id,
         retraso_min=request.slip_min,
     )
+
+
+def position_event(
+    start: datetime, minute: int, zone_id: int, route: list[Parada]
+) -> dict[str, Any]:
+    """El `position_update` del protocolo: donde va y hacia que tipo de parada."""
+    if not route:
+        status = "idle"
+    elif route[0].tipo == "pickup":
+        status = "to_pickup"
+    else:
+        status = "to_dropoff"
+    return {
+        "event": "position_update",
+        "sim_time": iso(start + timedelta(minutes=minute)),
+        "zone": zone_id,
+        "status": status,
+    }
+
+
+def earnings_event(
+    start: datetime, minute: int, earnings_mxn: float, completed: int
+) -> dict[str, Any]:
+    """El `earnings_update` del protocolo, con el ritmo por hora del turno hasta ahora."""
+    hours = max(minute / 60, 1 / 60)
+    return {
+        "event": "earnings_update",
+        "sim_time": iso(start + timedelta(minutes=minute)),
+        "earnings_mxn": round(earnings_mxn, 2),
+        "orders_completed": completed,
+        "mxn_per_hr": round(earnings_mxn / hours, 2),
+    }
+
+
+def shift_end_event(
+    when: datetime, offered: int, completed: int, earnings_mxn: float
+) -> dict[str, Any]:
+    """El `shift_end` del protocolo."""
+    return {
+        "event": "shift_end",
+        "sim_time": iso(when),
+        "orders_offered": offered,
+        "orders_completed": completed,
+        "earnings_mxn": round(earnings_mxn, 2),
+        "safety_violations": 0,
+    }

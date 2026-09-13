@@ -13,6 +13,47 @@ from sim import _punto
 NOMBRES = tuple(ZONAS)
 ID_POR_NOMBRE = {nombre: zone_id for zone_id, nombre in enumerate(NOMBRES)}
 
+# Algunos streams externos nombran las zonas en vez de compartir nuestro catálogo
+# numérico. Estos alias conservan una traducción geográfica explícita, sin cambiar
+# los ids estables que Nuez publica en GET /zones.
+ALIAS_POR_NOMBRE = {
+    "san pedro": "Valle",
+    "valle oriente": "Valle",
+    "santa catarina": "SantaCatarina",
+}
+
+# Convención documentada del practice pack de Courier: 99 representa una zona
+# marcada por la noche. La aterrizamos en la zona marcada real de Nuez.
+ALIAS_EXTERNOS = {99: "Escobedo"}
+
+# Que zonas estan MARCADAS de noche en el endpoint del protocolo. Se decide con el
+# numero que manda el pedido, ANTES de traducirlo: sus numeros no son los nuestros
+# (su 8 es Mitras, nuestro 8 es San Nicolas) y el nombre es opcional "for display".
+# La unica convencion documentada es la 99 (courier-update/practice_pack/README.md).
+# Nuestro mapa de riesgo marca media ciudad y ahi no decide: sigue en el simulador.
+MARCADAS_PROTOCOLO = frozenset({99})
+
+
+def resolver(zone_id: int, zone_name: str | None = None) -> int:
+    """Traduce una zona externa al id local sin alterar el catálogo público.
+
+    Los IDs publicados por GET /zones siempre conservan su significado. Si llega
+    un ID externo que no existe en ese catálogo, su nombre es el respaldo para
+    traducirlo. La excepción es la convención explícita de la zona 99 del
+    practice pack.
+    """
+    if zone_id in ALIAS_EXTERNOS:
+        return ID_POR_NOMBRE[ALIAS_EXTERNOS[zone_id]]
+    if 0 <= zone_id < len(NOMBRES):
+        return zone_id
+    if zone_name:
+        normalized = " ".join(zone_name.casefold().split())
+        local_name = ALIAS_POR_NOMBRE.get(normalized, zone_name)
+        if local_name in ID_POR_NOMBRE:
+            return ID_POR_NOMBRE[local_name]
+    nombre(zone_id)  # valida el id y conserva el error claro del catálogo
+    return zone_id
+
 
 def nombre(zone_id: int) -> str:
     if not 0 <= zone_id < len(NOMBRES):
