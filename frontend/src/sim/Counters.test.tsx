@@ -60,6 +60,33 @@ describe('Counters', () => {
     expect(t).toContain('Back by 23:50')
   })
 
+  it('con regresar_al_ancla explícito sigue siendo "Back by"', () => {
+    const t = texto(
+      renderToStaticMarkup(
+        <Counters
+          {...base}
+          config={{ hora_inicio: 14, duracion_min: 120, margen_min: 10, regresar_al_ancla: true }}
+        />
+      )
+    )
+    expect(t).toContain('Back by 15:50')
+    expect(t).toContain('104.2 min')
+  })
+
+  it('sin regreso al ancla no promete un regreso', () => {
+    const t = texto(
+      renderToStaticMarkup(
+        <Counters
+          {...base}
+          config={{ hora_inicio: 14, duracion_min: 120, margen_min: 10, regresar_al_ancla: false }}
+        />
+      )
+    )
+    expect(t).toContain('Deliveries done by 15:50')
+    expect(t).not.toContain('Back by')
+    expect(t).not.toContain('104.2 min')
+  })
+
   it('sin config no inventa una hora', () => {
     const t = texto(renderToStaticMarkup(<Counters {...base} />))
     expect(t).not.toMatch(/Back by \d/)

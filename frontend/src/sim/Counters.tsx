@@ -1,7 +1,7 @@
 // Contadores lado a lado: ganancia, entregas, saltadas. Greedy vs Nuez.
 // Colores con significado: esmeralda = dinero, ámbar = greedy, índigo = nuez.
 
-import { entregasTexto, horaDeRegreso, type ConfigRegreso } from '../lib/countersCopy'
+import { entregasTexto, renglonDeRegreso, type ConfigRegreso } from '../lib/countersCopy'
 import type { Contadores } from '../lib/sim'
 import type { TurnoMeta } from '../lib/turno'
 
@@ -74,9 +74,12 @@ export function Counters({ greedy, nuez, greedyMeta, nuezMeta, terminado, config
             <strong>{nuezMeta.violaciones ?? 0}</strong>
           </div>
           <div className="turno-summary-row">
-            <span>{config ? `Back by ${horaDeRegreso(config)}` : 'Back at anchor'}</span>
+            <span>{config ? renglonDeRegreso(config) : 'Back at anchor'}</span>
             <strong>
-              {nuezMeta.regreso_en?.toFixed(1) ?? '?'} min {nuezMeta.llego_tarde ? '✗' : '✓'}
+              {config?.regresar_al_ancla === false
+                ? ''
+                : `${nuezMeta.regreso_en?.toFixed(1) ?? '?'} min `}
+              {nuezMeta.llego_tarde ? '✗' : '✓'}
             </strong>
           </div>
           {(nuezMeta.cancelados ?? 0) > 0 && (

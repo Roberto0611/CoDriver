@@ -4,7 +4,18 @@
 import type { ConfigTurno } from '../contract'
 
 /** Lo único del config que hace falta para saber a qué hora hay que estar de vuelta. */
-export type ConfigRegreso = Pick<ConfigTurno, 'hora_inicio' | 'duracion_min' | 'margen_min'>
+export type ConfigRegreso = Pick<ConfigTurno, 'hora_inicio' | 'duracion_min' | 'margen_min'> &
+  Partial<Pick<ConfigTurno, 'regresar_al_ancla'>>
+
+/**
+ * El renglón del resumen final. Con `regresar_al_ancla` (el default del motor y de
+ * los turnos grabados) la línea es volver al ancla; sin él, sim.py solo exige
+ * terminar la última entrega antes de esa misma hora, así que no se dice "Back".
+ */
+export function renglonDeRegreso(config: ConfigRegreso): string {
+  const hora = horaDeRegreso(config)
+  return config.regresar_al_ancla === false ? `Deliveries done by ${hora}` : `Back by ${hora}`
+}
 
 /**
  * La hora de reloj en que el repartidor tiene que estar en el ancla: inicio +
