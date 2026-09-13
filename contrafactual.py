@@ -10,6 +10,17 @@ Un salto a la vez. Por cada pedido que Nuez salto POR DINERO (`reservation_wage`
 se corre el turno otra vez con Nuez identica, salvo que ese pedido, en ese
 momento, lo acepta. delta = ganado(forzado) - ganado(real).
 
+Con `disrupciones` (los shocks que el juez metio en /live) las corridas llevan los
+mismos shocks en los mismos minutos. Inyectar a media jornada da la misma historia
+que declararlos desde el inicio (ver reloj.py), asi que el "real" es justo el turno
+que se vio en pantalla. Sin ellas es el turno grabado de siempre.
+
+Con `estrategias` (la que Gemini tenia publicada cuando Nuez decidio cada pedido en
+/live) cada corrida lee, para cada pedido, esa misma estrategia. Sin eso el "real"
+seria Nuez con BASE, que no es lo que el juez vio si Gemini movio una perilla. Las
+corridas forzadas tambien la leen tal cual: que Gemini hubiera contestado otra cosa
+al ver otra ruta es una pregunta que este reporte no inventa.
+
 Dos cosas que este reporte NO hace, a proposito:
   1. No simula los saltos por restriccion dura. No se venden, asi que no tienen
      precio que reportar: se cuentan y ya. La capacidad va aparte de la seguridad:
@@ -22,12 +33,14 @@ Dos cosas que este reporte NO hace, a proposito:
 import math
 import sys
 from collections import Counter
+from collections.abc import Mapping
 from dataclasses import replace
 from typing import Any, get_args
 
 from contrato import ConfigTurno, Decision, EstadoRepartidor, Oferta, Restriccion
-from estrategia import BASE
+from estrategia import BASE, Estrategia
 from nuez import politica_nuez
+from shocks import Shock
 from sim import Parada, Politica, Resultado, simular
 
 DINERO = "reservation_wage"
@@ -63,18 +76,46 @@ def forzar(objetivo: str, politica: Politica = politica_nuez) -> Politica:
     return forzada
 
 
-def con_pedido(cfg: ConfigTurno, objetivo: str) -> Resultado:
+def con_estrategias(politica: Politica, estrategias: Mapping[str, Estrategia]) -> Politica:
+    """La politica leyendo, para cada pedido, la estrategia que tenia en vivo.
+
+    Va POR FUERA de `forzar`: asi `forzar` le quita el piso de dinero a la estrategia
+    grabada del pedido objetivo y no a BASE. Un pedido que no esta en el mapa decide
+    con BASE, como el turno grabado.
+    """
+    if not estrategias:
+        return politica
+
+    def grabada(
+        o: Oferta, est: EstadoRepartidor, ruta: list[Parada], cfg: ConfigTurno, **kw: Any
+    ) -> tuple[list[Parada] | None, Decision]:
+        return politica(o, est, ruta, cfg, **{**kw, "estrategia": estrategias.get(o.id, BASE)})
+
+    return grabada
+
+
+def con_pedido(
+    cfg: ConfigTurno,
+    objetivo: str,
+    disrupciones: tuple[Shock, ...] = (),
+    estrategias: Mapping[str, Estrategia] | None = None,
+) -> Resultado:
     """El mismo turno, con Nuez aceptando `objetivo` si la seguridad lo deja."""
-    return simular(cfg, forzar(objetivo))
+    return simular(cfg, con_estrategias(forzar(objetivo), estrategias or {}), disrupciones)
 
 
 def _decision_de(res: Resultado, oferta_id: str) -> Decision:
     return next(d for d in res.decisiones if d.oferta_id == oferta_id)
 
 
-def reporte(cfg: ConfigTurno, top: int = TOP) -> dict[str, Any]:
+def reporte(
+    cfg: ConfigTurno,
+    top: int = TOP,
+    disrupciones: tuple[Shock, ...] = (),
+    estrategias: Mapping[str, Estrategia] | None = None,
+) -> dict[str, Any]:
     """Resumen JSON-serializable del turno de Nuez y de sus saltos por dinero."""
-    real = simular(cfg, politica_nuez)
+    real = simular(cfg, con_estrategias(politica_nuez, estrategias or {}), disrupciones)
     saltos = [d for d in real.decisiones if d.accion == "saltar"]
 
     duras_cuenta: Counter[str] = Counter()
@@ -87,7 +128,7 @@ def reporte(cfg: ConfigTurno, top: int = TOP) -> dict[str, Any]:
             duras_cuenta[d.restriccion] += 1
             continue
 
-        forzado = con_pedido(cfg, d.oferta_id)
+        forzado = con_pedido(cfg, d.oferta_id, disrupciones, estrategias)
         if _decision_de(forzado, d.oferta_id).accion != "aceptar":
             # Una restriccion dura lo bloqueo al forzarlo: se cuenta aparte, sin precio.
             infactibles += 1
