@@ -12,6 +12,8 @@ const CIERRE: LiveShockSeen = {
   starts_at_min: 30,
   ends_at_min: 70,
   multiplier: 1,
+  order_id: null,
+  slip_min: null,
   cancelled_at_start: { greedy: 0, nuez: 0 },
 }
 
@@ -128,6 +130,70 @@ describe('shockCopy: terminado completo', () => {
       expect(c.route.greedy).toBe('Legs through Centro: none')
       expect(todo(c)).not.toMatch(/yet|Waiting/)
     }
+  })
+})
+
+describe('shockCopy: restaurante atrasado (delay)', () => {
+  // Fuera del minuto ensayado: o_017 en Contry, inyectado a las 14:20.
+  const DELAY: LiveShockSeen = {
+    ...CIERRE,
+    type: 'delay',
+    zone: 3,
+    zone_name: 'Contry',
+    road: null,
+    starts_at_min: 20,
+    ends_at_min: 120,
+    order_id: 'o_017',
+    slip_min: 15,
+  }
+  const sinRuta = (): Record<'greedy' | 'nuez', AgentShockEffect> => ({
+    greedy: { route: null, cancelled: 0 },
+    nuez: { route: null, cancelled: 0 },
+  })
+
+  it('dice qué pedido, dónde recoge y cuánto se atrasa', () => {
+    const c = shockCopy(DELAY, sinRuta(), ctx({ minute: 20, lastFrameT: 19 }))
+    expect(c.title).toBe('Restaurant running late')
+    expect(c.place).toBe('Order o_017, pickup in Contry')
+    expect(c.status).toBe('Injected at 14:20, +15 min at the restaurant')
+    expect(c.compact).toBe(
+      'Restaurant running late · Order o_017, pickup in Contry · +15 min at the restaurant'
+    )
+  })
+
+  it('pendiente: espera a que se ofrezca ESE pedido, no la siguiente oferta', () => {
+    const c = shockCopy(DELAY, sinRuta(), ctx({ minute: 20, lastFrameT: 19 }))
+    expect(c.noDecision).toBe('Waiting for order o_017 to be offered…')
+    expect(c.coverage).toBeNull()
+  })
+
+  it('decidido: sin líneas de tramos ni de ofertas, solo la decisión de cada uno', () => {
+    const c = shockCopy(
+      DELAY,
+      { greedy: { route: null, cancelled: 1 }, nuez: { route: null, cancelled: 0 } },
+      ctx({ minute: 22, lastFrameT: 21 })
+    )
+    expect(c.route).toEqual({ greedy: null, nuez: null })
+    expect(c.cancelled.greedy).toBe('1 order cancelled since')
+  })
+
+  it('terminado antes de que se ofreciera: honesto, sin waiting', () => {
+    const temprano = shockCopy(
+      DELAY,
+      sinRuta(),
+      ctx({ minute: 120, status: 'ended', lastFrameT: 19 })
+    )
+    expect(temprano.noDecision).toBe("Order o_017 wasn't offered by 14:20")
+    expect(temprano.coverage).toBe(
+      'Shift ended early at 14:20; legs, offers and decisions count up to 14:20'
+    )
+    const completo = shockCopy(
+      DELAY,
+      sinRuta(),
+      ctx({ minute: 120, status: 'finished', lastFrameT: 119 })
+    )
+    expect(completo.noDecision).toBe("Order o_017 wasn't offered before the shift ended")
+    expect(todo(temprano) + todo(completo)).not.toMatch(/yet|Waiting/)
   })
 })
 

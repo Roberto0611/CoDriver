@@ -3,7 +3,7 @@ import { describe, it, expect } from 'vitest'
 import type { Decision } from '../contract'
 import type { LiveOffer, LiveSnapshot } from './live'
 import type { LiveShockSeen, LiveState } from './liveAccum'
-import { efectoShock, zonasDePuntos } from './liveEffect'
+import { efectoShock, reaccionAlShock, zonasDePuntos } from './liveEffect'
 import type { Frame, Tramo, TurnoData } from './turno'
 
 // Puntos 0-1 en Centro, 2-3 en Tec. Desordenados a propósito: manda `properties.i`.
@@ -32,8 +32,8 @@ const tramo = (t_salida: number, t_llegada: number, desde: number, hasta: number
 const turno = (tramos: Tramo[], frames: Frame[] = []): TurnoData =>
   ({ tramos, frames }) as unknown as TurnoData
 
-const decision = (oferta_id: string, accion: Decision['accion']): Decision => ({
-  t: 0,
+const decision = (oferta_id: string, accion: Decision['accion'], t = 0): Decision => ({
+  t,
   oferta_id,
   accion,
   terminos: {},
@@ -82,6 +82,8 @@ const CIERRE: LiveShockSeen = {
   starts_at_min: 30,
   ends_at_min: 70,
   multiplier: 1,
+  order_id: null,
+  slip_min: null,
   cancelled_at_start: { greedy: 0, nuez: 1 },
 }
 
@@ -93,6 +95,8 @@ const SURGE: LiveShockSeen = {
   starts_at_min: 40,
   ends_at_min: 70,
   multiplier: 1.8,
+  order_id: null,
+  slip_min: null,
   cancelled_at_start: { greedy: 0, nuez: 0 },
 }
 
@@ -164,5 +168,55 @@ describe('efectoShock: surge', () => {
   it('la lluvia no tiene zona que medir', () => {
     const lluvia: LiveShockSeen = { ...SURGE, type: 'rain', zone: null, zone_name: null }
     expect(efectoShock(estado({}), lluvia, []).nuez.route).toBeNull()
+  })
+})
+
+// El restaurante de o_045 se atrasa en el 56: la reacción es la decisión sobre ESE pedido.
+const DELAY: LiveShockSeen = {
+  type: 'delay',
+  zone: 6,
+  zone_name: 'Guadalupe',
+  road: null,
+  starts_at_min: 56,
+  ends_at_min: 120,
+  multiplier: 1,
+  order_id: 'o_045',
+  slip_min: 15,
+  cancelled_at_start: { greedy: 0, nuez: 0 },
+}
+
+describe('reaccionAlShock', () => {
+  it('cierre o surge: la primera decisión desde que entró', () => {
+    const frames = [
+      frame(29, [decision('o_1', 'aceptar', 29)]),
+      frame(30, []),
+      frame(32, [decision('o_2', 'saltar', 32), decision('o_3', 'aceptar', 32)]),
+    ]
+    expect(reaccionAlShock(frames, CIERRE)?.oferta_id).toBe('o_2')
+    expect(reaccionAlShock(frames.slice(0, 2), CIERRE)).toBeNull()
+  })
+
+  it('delay pendiente: otras decisiones después del shock no cuentan', () => {
+    const frames = [frame(56, [decision('o_044', 'saltar', 56)]), frame(57, [])]
+    expect(reaccionAlShock(frames, DELAY)).toBeNull()
+  })
+
+  it('delay decidido: la decisión de cada agente sobre ese pedido, acepte o salte', () => {
+    const otra = decision('o_044', 'aceptar', 56)
+    const acepta = decision('o_045', 'aceptar', 56)
+    const salta = decision('o_045', 'saltar', 56)
+    expect(reaccionAlShock([frame(56, [otra, acepta])], DELAY)).toBe(acepta)
+    expect(reaccionAlShock([frame(55, [otra]), frame(56, [salta])], DELAY)).toBe(salta)
+  })
+
+  it('delay sin order_id (snapshot viejo): no inventa una reacción', () => {
+    const frames = [frame(56, [decision('o_045', 'saltar', 56)])]
+    expect(reaccionAlShock(frames, { ...DELAY, order_id: null })).toBeNull()
+  })
+
+  it('el delay no tiene efecto de ruta que contar', () => {
+    const e = efectoShock(estado({ offers: [oferta('o_045', 56, 'Guadalupe')] }), DELAY, [])
+    expect(e.nuez.route).toBeNull()
+    expect(e.greedy.route).toBeNull()
   })
 })

@@ -1,6 +1,6 @@
-// Turno en vivo: Greedy y Nuez corren el mismo turno fresco en el backend y un
-// juez les mete un cierre o un surge a media corrida. Mismo layout que el replay
-// grabado (SimView): mapa, píldora arriba, panel a la izquierda, avisos abajo.
+// Turno en vivo: Greedy y Nuez corren el mismo turno fresco en el backend y un juez
+// les mete un cierre, un surge o un restaurante atrasado a media corrida. Mismo layout
+// que el replay grabado (SimView): mapa, píldora arriba, panel a la izquierda, avisos abajo.
 // El backend es dueño del reloj; aquí solo se pide el siguiente minuto y se pinta.
 
 import { useEffect, useMemo, useRef, useState } from 'react'
@@ -31,22 +31,26 @@ import { LiveControls, LiveStartForm, type LivePending, type LivePhase } from '.
 import { ShockBanner } from './sim/ShockBanner'
 import { useSimMap } from './sim/useSimMap'
 import { Icon } from './ui/icons'
-import { handOff, initialNarration, phrasesToSay } from './voice/liveNarration'
+import { handOff, initialNarration, phrasesToSay, type ShockRef } from './voice/liveNarration'
 import { callar, onFuente, say, unlock, type FuenteVoz } from './voice/nuez'
 import './styles/live.css'
 
 const MS_POR_TICK = 500 // 1 min simulado cada 0.5 s a ×1, igual que el replay
+// Un delay no se resalta: el mapa solo vuela a la zona del restaurante, como un surge.
+const VUELO_DELAY = { zoom: 14, duration: 2000 }
 
 type Reintento = 'catalog' | 'start' | 'tick' | 'end'
 
 const semillaNueva = () => 2000 + Math.floor(Math.random() * 98000)
 const mensaje = (e: unknown) => (e instanceof Error ? e.message : String(e))
 const narracionNueva = () => ({
-  ultimoShock: null as number | null,
+  ultimoShock: null as ShockRef | null,
   estado: initialNarration(),
   callada: false,
   /** La última frase encolada mientras no termine; null si Nuez está en silencio. */
   hablando: null as Promise<void> | null,
+  /** La reacción a un shock mientras suena: solo otra reacción la corta (handOff). */
+  reaccion: null as Promise<void> | null,
 })
 
 export default function LiveSimView() {
@@ -86,8 +90,10 @@ export default function LiveSimView() {
   // llegan en el orden en que el backend las corrió.
   const colaRef = useRef<Promise<unknown>>(Promise.resolve())
   const resaltados = useRef<{ endsAt: number; cleanup: () => void }[]>([])
-  // Voz: el tick decide qué decir leyendo refs. `ultimoShock` es el starts_at_min más
-  // reciente visto en la sesión; `estado` lo que ya se narró (liveNarration);
+  const panelRef = useRef<HTMLDivElement>(null)
+  const resultadoRef = useRef<HTMLDivElement>(null)
+  // Voz: el tick decide qué decir leyendo refs. `ultimoShock` es el shock más reciente de
+  // la sesión (con su pedido si es delay); `estado` lo que ya se narró (liveNarration);
   // `callada` si la sesión se terminó a mano; `hablando` si Nuez no ha terminado.
   const vozRef = useRef(true)
   const narracion = useRef(narracionNueva())
@@ -131,8 +137,10 @@ export default function LiveSimView() {
   // Solo se llama con una respuesta de la sesión vigente (cada llamada va tras su guarda).
   const aplicar = (snap: LiveSnapshot) => {
     const n = narracion.current
+    // Empate de minuto: gana el último de la lista, que es el último inyectado.
     for (const s of snap.active_shocks) {
-      n.ultimoShock = Math.max(n.ultimoShock ?? s.starts_at_min, s.starts_at_min)
+      if (n.ultimoShock !== null && s.starts_at_min < n.ultimoShock.minute) continue
+      n.ultimoShock = { minute: s.starts_at_min, orderId: s.type === 'delay' ? s.order_id : null }
     }
     setLive((prev) =>
       prev && prev.snapshot.session_id === snap.session_id ? applySnapshot(prev, snap) : prev
@@ -150,16 +158,21 @@ export default function LiveSimView() {
     // Un tick que ya venía en camino cuando se pausó no habla: la pausa calla a Nuez.
     const puedeHablar = vozRef.current && !n.callada && phaseRef.current === 'running'
     if (!puedeHablar || !r.phrases.length) return
-    const entrega = handOff(r.phrases, n.hablando !== null, n.estado)
+    const entrega = handOff(r.phrases, n.hablando !== null, n.estado, n.reaccion !== null)
     n.estado = entrega.state
     if (!entrega.say.length) return
     if (entrega.interrupt) callar()
-    let ultima = Promise.resolve()
-    for (const texto of entrega.say) ultima = say(texto, { lang: 'es-MX' })
-    const esta = ultima
+    const frases = entrega.say.map((texto) => say(texto, { lang: 'es-MX' }))
+    const esta = frases[frases.length - 1]
+    // `reaction` dice que say[0] es la reacción: se marca mientras suene esa frase.
+    const reaccion = entrega.reaction ? frases[0] : null
     n.hablando = esta
+    n.reaccion = reaccion
     void esta.then(() => {
       if (n.hablando === esta) n.hablando = null
+    })
+    void reaccion?.then(() => {
+      if (n.reaccion === reaccion) n.reaccion = null
     })
   }
 
@@ -167,6 +180,7 @@ export default function LiveSimView() {
   const callarVoz = () => {
     callar()
     narracion.current.hablando = null
+    narracion.current.reaccion = null
   }
 
   const fallar = (e: unknown, retry: Reintento) => {
@@ -286,6 +300,10 @@ export default function LiveSimView() {
       aplicar(snapshot)
       // El resaltado es solo visual y va después de que el backend confirmó.
       const zona = zones.find((z) => z.id === shock.zone)
+      if (shock.type === 'delay') {
+        if (zona) mapRef.current?.flyTo({ center: [zona.lon, zona.lat], ...VUELO_DELAY })
+        return
+      }
       const cleanup = resaltarShock(mapRef.current, {
         type: shock.type,
         zoneCenter: zona ? [zona.lon, zona.lat] : undefined,
@@ -363,6 +381,19 @@ export default function LiveSimView() {
     quitarResaltados(minute)
   }, [minute])
 
+  // Al terminar, el resultado y la ruta del JSONL quedan bajo el banner, fuera de la vista.
+  // Una vez por sesión (event_log trae el session_id), y solo el scroll del panel:
+  // scrollIntoView también correría la página con el mapa.
+  const eventLog = snap?.event_log
+  useEffect(() => {
+    const panel = panelRef.current
+    const card = resultadoRef.current
+    if (!eventLog || !panel || !card) return
+    const fondo = card.offsetTop + card.offsetHeight - panel.clientHeight
+    // Toda la tarjeta si cabe; si no, que se vea desde su título.
+    panel.scrollTop = Math.min(card.offsetTop, Math.max(panel.scrollTop, fondo))
+  }, [eventLog])
+
   const enForma =
     phase === 'idle' || phase === 'starting' || (phase === 'error' && error?.retry === 'start')
   const terminado = phase === 'finished' || snap?.status === 'ended'
@@ -400,7 +431,7 @@ export default function LiveSimView() {
         onNewShift={nuevoTurno}
       />
 
-      <div className="overlay-panel">
+      <div ref={panelRef} className="overlay-panel">
         {error && (
           <div className="glass-card live-error" role="alert">
             <span className="caps">Live backend error</span>
@@ -433,7 +464,7 @@ export default function LiveSimView() {
         )}
 
         {live && snap && (
-          <div className="glass-card">
+          <div ref={resultadoRef} className="glass-card">
             <Counters
               greedy={countersOf(snap.greedy)}
               nuez={countersOf(snap.nuez)}

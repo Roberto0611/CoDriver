@@ -51,8 +51,9 @@ function metaEnVivo(politica: AgentKey, snap: LiveSnapshot, ofertasTotales: numb
   }
 }
 
+// Con el pedido: dos delays en el mismo minuto a pedidos distintos son dos shocks.
 function claveShock(s: LiveShock): string {
-  return `${s.type}|${s.zone}|${s.road}|${s.starts_at_min}|${s.ends_at_min}|${s.multiplier}`
+  return `${s.type}|${s.zone}|${s.road}|${s.starts_at_min}|${s.ends_at_min}|${s.multiplier}|${s.order_id}`
 }
 
 export function initLiveState(snap: LiveSnapshot, extra: LiveConfigExtra = {}): LiveState {

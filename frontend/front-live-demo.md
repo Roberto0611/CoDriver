@@ -90,7 +90,7 @@ POST /live/tick
   response: snapshot después de avanzar
 
 POST /live/shock
-  body: { session_id, shock_type, zone?, duration_min, multiplier?, road? }
+  body: { session_id, shock_type, zone?, duration_min?, multiplier?, road?, order_id?, slip_min? }
   response: shock registrado + snapshot
 
 GET /live/status/{session_id}
@@ -223,15 +223,19 @@ Una persona que no escribió el código puede hacer esto sin modificar archivos:
   eligió exactitud geográfica. Como no todo seed pasa por Centro, hay un seed ensayado.
 - **Surge: Tec (zona 4), ×1.8, 30 min.** Fijo en `DEMO_SHOCKS`
   (`frontend/src/lib/live.ts`) para que el demo sea un click, en la zona del ancla.
-- **Sin botón de lluvia.** El backend acepta `rain` en `/live/shock`; la UI solo muestra
-  cierre y surge, que es lo que pide el reto y lo que se ve en el mapa.
+- **Sin botón de lluvia.** El backend acepta `rain` en `/live/shock`; la UI muestra cierre,
+  surge y restaurante atrasado, que es lo que pide el reto.
+- **Restaurante atrasado: +15 min al siguiente pedido por aparecer.** Fijo en
+  `DEMO_SHOCKS.delay`; el backend elige el pedido (el primero con `t_aparece` ≥ minuto actual)
+  y el retraso dura hasta el final del turno. El botón es solo icono (reloj, ámbar como el surge):
+  con texto la píldora se mete bajo el logo a 1280×800. No se resalta en el mapa; el mapa vuela a
+  la zona del restaurante. El banner nombra el pedido y enseña la decisión de cada agente sobre
+  **ese** pedido, no la primera decisión después del shock.
 - **Tramos sobre calles reales.** Se usa el grafo que `main.py` ya carga
   (`live_api.registry.usar_grafo(G)`), sin cargarlo dos veces. Sin
   `data/mty_graph.pkl` los tramos caen a línea recta; las decisiones no cambian.
 - **JSONL live** usa los nombres oficiales del esquema; se valida con
   `courier/validate_format (2).py`.
-- **`delay` no está en `/live/shock` (pendiente).** `shocks.py` lo modela, pero necesita
-  `order_id` y minutos de retraso que el endpoint todavía no recibe.
 
 ## Cómo correr el demo live
 
@@ -270,13 +274,26 @@ VITE_API_URL=http://127.0.0.1:9000 npm --prefix frontend run dev
 5. Reanudar. A las 14:32 llega la primera oferta tras el cierre: Nuez la acepta y Greedy
    la salta por capacidad. Señalar el banner: tramos por Centro de ambos y la razón de
    Nuez.
-6. Dejar correr al menos hasta 14:45 (ver
+6. Pausar cuando el reloj marque **14:56** y esperar a que se detenga.
+7. Pulsar el botón del reloj (**Restaurant +15 min**, solo icono, entre _Trigger surge_ y
+   _End shift_). El banner dice «Order o_045, pickup in Guadalupe», «+15 min at the
+   restaurant» y «Waiting for order o_045 to be offered…».
+8. Reanudar. A las 14:56 se ofrece o_045: Nuez la **salta** por `shift_end_infeasible`
+   (_No alcanzas a entregarlo y volver antes de que acabe tu turno._; el pedido pasa de 11.6 a
+   25 min). Sin el retraso la aceptaba. Greedy la salta igual, con o sin retraso. Señalar el
+   SKIP de Nuez y su razón en el banner. Este volteo depende de que el cierre de las 14:30 ya
+   esté puesto: sin el cierre, un delay en el 56 no cambia la decisión.
+9. Dejar correr al menos hasta 15:10 (ver
    [Momentos de seguridad](#momentos-de-seguridad-en-el-seed-ensayado)) y pulsar
-   **End shift**. Con el cierre a las 14:30 termina en Greedy $353.63 / 4 entregas y
-   Nuez $395.94 / 7 entregas.
+   **End shift**. El panel baja solo al resultado final y a la ruta del **Event log**. Con el
+   cierre a las 14:30 y el retraso a las 14:56 termina en Greedy $353.63 / 4 entregas y Nuez
+   $428.65 / 7 entregas (solo con el cierre, Nuez termina en $395.94).
 
 Un cierre entre 14:27 y 14:33 sigue cambiando los tramos por Centro de los dos, así que
-pasarse un minuto no arruina el demo; solo cambia la corrida para repetirla.
+pasarse un minuto no arruina el demo; solo cambia la corrida para repetirla. El retraso no
+tiene ese margen: en otro minuto le pega a otro pedido. Con el cierre puesto, los minutos donde
+un +15 cambia una decisión son 47 (o_037, Nuez), 56 (o_045, Nuez) y 72 (o_059, Greedy). Fuera de
+esos minutos el banner sigue siendo honesto: nombra el pedido y enseña lo que decidió cada uno.
 
 ### La bitácora JSONL
 
@@ -289,8 +306,8 @@ recientes:
 ls -t cache/live | head -n 2
 ```
 
-El evento `shock` con su número de línea; las decisiones posteriores son las líneas de
-abajo:
+El evento `shock` con su número de línea (el delay trae `order_id` y `slip_min`); las
+decisiones posteriores son las líneas de abajo:
 
 ```bash
 python -c "import json,sys; [print(n, l, end='') for n, l in enumerate(open(sys.argv[1], encoding='utf-8'), 1) if json.loads(l).get('event') == 'shock']" cache/live/live-2005-AAAAAA.jsonl
@@ -315,7 +332,8 @@ archivos. La velocidad (×1, ×2, ×4) no afecta: cada tick es un minuto.
 El protocolo pide ver al menos dos restricciones de seguridad disparándose en vivo. En el
 seed 2005 (2 h desde 14:00, moto, Tec, margen 10, cierre a las 14:30, sin surge) los dos
 agentes disparan **tres distintas**: `vehicle_capacity`, `shift_end_infeasible` y
-`heat_rule`. No hace falta otro seed.
+`heat_rule`. No hace falta otro seed. El retraso de las 14:56 no mueve la primera vez de
+ninguna; agrega el `shift_end_infeasible` de Nuez sobre o_045.
 
 | Hora  | Agente | Restricción            | Razón corta                                              |
 | ----- | ------ | ---------------------- | -------------------------------------------------------- |

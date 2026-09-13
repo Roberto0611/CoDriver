@@ -12,9 +12,13 @@
    el espacio libre bajo la píldora (top 20 + 56 de alto + 20 de aire = 96px arriba,
    y lo mismo abajo para que siga centrado). /sim no lo necesita porque su panel es
    corto; aquí el banner + contadores + decisiones pasan de la pantalla y se meterían
-   debajo de la píldora. Lo que sobra hace scroll dentro del panel. */
+   debajo de la píldora. Lo que sobra hace scroll dentro del panel.
+   El panel base deja pasar el mouse al mapa (pointer-events: none), y así su barra de
+   scroll no se puede arrastrar y la rueda sobre los huecos entre tarjetas hace zoom al
+   mapa. Aquí el panel sí recibe el mouse; fuera de sus 320px el mapa se arrastra igual. */
 .live-page .overlay-panel {
   max-height: calc(100vh - 192px);
+  pointer-events: auto;
 }
 
 /* La marca a la derecha, donde la pone el replay. */
@@ -50,10 +54,11 @@
   border-radius: 3px;
 }
 
-/* 100px y no 140: con el botón de voz, el estado más ancho ("Start new shift") queda
-   10-13px antes del logo a 1280×800. Con 140 se metía 7px debajo. */
+/* 64px y no 140: con los botones de voz y de restaurante atrasado (solo icono), el estado
+   más ancho ("Start new shift") queda 9-10px antes del logo a 1280×800. Con 100 se metía
+   8px debajo; caben igual las dos horas de abajo. */
 .live-page .timeline-slider-track {
-  width: 100px;
+  width: 64px;
 }
 
 .live-page .timeline-btn-play:disabled {
@@ -78,9 +83,10 @@
   border-left: 1px solid var(--hairline);
 }
 
-/* Del alto de .timeline-toggle-btn: la píldora ya no crece hacia el panel. */
+/* 38px, el alto del botón de play: ese botón fija el alto de la píldora (8 + 38 + 8 + 2 de
+   borde = 56px), así que un botón más bajo no le quita altura y solo se ve más chico. */
 .live-btn {
-  height: 32px;
+  height: 38px;
   padding: 0 12px;
   border-radius: var(--r-pill);
   border: 1px solid var(--hairline);
@@ -103,6 +109,13 @@
 .live-btn svg {
   width: 14px;
   height: 14px;
+}
+
+/* Botón de solo icono: redondo, del alto de los demás. */
+.live-btn.is-icon {
+  width: 38px;
+  padding: 0;
+  justify-content: center;
 }
 
 .live-btn:hover {
@@ -131,21 +144,26 @@
   color: var(--closure-red);
 }
 
-.live-btn.is-surge {
+/* Surge y restaurante atrasado son urgencia (ámbar); se distinguen por icono y texto. */
+.live-btn.is-surge,
+.live-btn.is-delay {
   border-color: var(--amber);
   color: var(--amber-ink);
 }
 
-.live-btn.is-surge svg {
+.live-btn.is-surge svg,
+.live-btn.is-delay svg {
   color: var(--amber);
 }
 
-.live-btn.is-surge:hover {
+.live-btn.is-surge:hover,
+.live-btn.is-delay:hover {
   background: var(--amber-tint);
 }
 
 .live-btn:disabled svg,
-.live-btn.is-surge:disabled {
+.live-btn.is-surge:disabled,
+.live-btn.is-delay:disabled {
   color: var(--ink-4);
   border-color: var(--surface-high);
 }
@@ -293,7 +311,8 @@
   color: var(--closure-red);
 }
 
-.shock-banner-icon.is-surge {
+.shock-banner-icon.is-surge,
+.shock-banner-icon.is-delay {
   background: var(--amber-tint);
   color: var(--amber-ink);
 }

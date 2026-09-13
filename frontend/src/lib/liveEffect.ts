@@ -5,8 +5,10 @@
 // La ventana es [starts_at_min, ends_at_min): la misma que `Shock.vigente_en` del
 // backend. Un tramo que sale cuando el cierre ya acabó no se estiró por él.
 
-import type { AgentKey } from './live'
-import type { LiveShockSeen, LiveState } from './liveAccum'
+import type { Decision } from '../contract'
+import type { AgentKey, LiveShock } from './live'
+import { firstDecisionFrom, type LiveShockSeen, type LiveState } from './liveAccum'
+import type { Frame } from './turno'
 
 export type RouteEffect =
   | { kind: 'closure'; zone: string; legs: number; minutes: number }
@@ -27,6 +29,24 @@ export function zonasDePuntos(puntos: GeoJSON.FeatureCollection): string[] {
     if (typeof i === 'number' && typeof zona === 'string') zonas[i] = zona
   }
   return zonas
+}
+
+/**
+ * La decisión de un agente que el banner enseña como su reacción al shock.
+ *
+ * Cierre, surge y lluvia: la primera decisión desde que entró. Un delay no: le pega a UN
+ * pedido que todavía no aparece, y la primera decisión después puede ser de otro que no
+ * tiene nada que ver. Se busca la de ese `order_id`; null mientras no se ofrezca.
+ */
+export function reaccionAlShock(frames: Frame[], shock: LiveShock): Decision | null {
+  if (shock.type !== 'delay') return firstDecisionFrom(frames, shock.starts_at_min)
+  if (!shock.order_id) return null
+  for (const f of frames) {
+    if (f.t < shock.starts_at_min) continue
+    const d = f.decisiones.find((x) => x.oferta_id === shock.order_id)
+    if (d) return d
+  }
+  return null
 }
 
 export function efectoShock(

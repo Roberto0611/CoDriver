@@ -52,6 +52,8 @@ const CIERRE: LiveShock = {
   starts_at_min: 30,
   ends_at_min: 70,
   multiplier: 1,
+  order_id: null,
+  slip_min: null,
 }
 
 function snap(
@@ -135,6 +137,24 @@ describe('applySnapshot', () => {
     s = applySnapshot(s, snap(71, { active_shocks: [] }))
     expect(s.shocks).toHaveLength(1)
     expect(s.shocks[0]).toMatchObject(CIERRE)
+  })
+
+  it('dos delays en el mismo minuto a pedidos distintos son dos shocks', () => {
+    const delay = (order_id: string): LiveShock => ({
+      ...CIERRE,
+      type: 'delay',
+      zone: 6,
+      zone_name: 'Guadalupe',
+      road: null,
+      starts_at_min: 56,
+      ends_at_min: 120,
+      order_id,
+      slip_min: 15,
+    })
+    let s = initLiveState(snap(0))
+    s = applySnapshot(s, snap(56, { active_shocks: [delay('o_045')] }))
+    s = applySnapshot(s, snap(56, { active_shocks: [delay('o_045'), delay('o_046')] }))
+    expect(s.shocks.map((x) => x.order_id)).toEqual(['o_045', 'o_046'])
   })
 
   it('anota los cancelados de cada agente cuando ve el shock por primera vez', () => {

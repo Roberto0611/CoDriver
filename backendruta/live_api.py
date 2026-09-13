@@ -21,7 +21,13 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
 from backendruta import zonas
-from backendruta.live_demo import DEMO_DELAY, SEED_ENSAYADO, LiveDemoSession, SesionTerminada
+from backendruta.live_demo import (
+    DEMO_DELAY,
+    MINUTO_DELAY_ENSAYADO,
+    SEED_ENSAYADO,
+    LiveDemoSession,
+    SesionTerminada,
+)
 from backendruta.live_geometry import Geometria, linea_recta
 from contrato import ConfigTurno, Vehiculo
 from valor import para_turno
@@ -117,11 +123,12 @@ def _sesion(session_id: str) -> LiveDemoSession:
 
 @router.get("/rehearsal")
 def rehearsal() -> dict[str, int]:
-    """El seed y el minuto ensayados para el pitch. Viven en el backend para que el
+    """El seed y los minutos ensayados para el pitch. Viven en el backend para que el
     boton "Rehearsed seed" del front no se quede con un numero viejo."""
     return {
         "seed": SEED_ENSAYADO,
         "closure_minute": MINUTO_CIERRE_ENSAYADO,
+        "delay_minute": MINUTO_DELAY_ENSAYADO,
         "delay_slip_min": DEMO_DELAY["slip_min"],
     }
 

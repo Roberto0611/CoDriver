@@ -1,13 +1,14 @@
 // Banner del shock en vivo: qué se inyectó, hasta cuándo dura, qué le cambió a la
-// ruta de cada agente y cómo reaccionó cada uno en su primera decisión después.
+// ruta de cada agente y cómo reaccionó cada uno: su primera decisión después, o en un
+// delay su decisión sobre el pedido atrasado (lib/liveEffect.reaccionAlShock).
 // Es el momento que se narra en el pitch, así que no se oculta solo: se queda
 // hasta que arranca otra sesión. El texto sale de lib/shockCopy (probado).
 
 import type { Decision } from '../contract'
 import { esSeguridad, etiquetaRestriccion, textoDecisionCorto } from '../lib/decision-text'
 import type { AgentKey } from '../lib/live'
-import { firstDecisionFrom, type LiveState } from '../lib/liveAccum'
-import { efectoShock } from '../lib/liveEffect'
+import type { LiveState } from '../lib/liveAccum'
+import { efectoShock, reaccionAlShock } from '../lib/liveEffect'
 import { shockCopy, shockLine, type ShockCopy, type ShockCopyContext } from '../lib/shockCopy'
 import { minutosAHora } from '../lib/sim'
 import { Icon } from '../ui/icons'
@@ -19,6 +20,8 @@ interface Props {
 }
 
 const AGENTES = ['greedy', 'nuez'] as const
+
+const ICONO = { surge: Icon.speed, delay: Icon.clock, closure: Icon.closure, rain: Icon.closure }
 
 // Greedy no calcula ventaja: sin esto su línea diría "(+? edge)".
 function lineaDecision(agente: AgentKey, d: Decision): string {
@@ -99,9 +102,7 @@ export function ShockBanner({ live, zonaDe }: Props) {
   return (
     <section className="glass-card shock-banner" aria-live="polite">
       <div className="shock-banner-head">
-        <span className={`shock-banner-icon is-${actual.type}`}>
-          {actual.type === 'surge' ? Icon.speed : Icon.closure}
-        </span>
+        <span className={`shock-banner-icon is-${actual.type}`}>{ICONO[actual.type]}</span>
         <div className="shock-banner-heading">
           <span className="caps">{copy.title}</span>
           <strong className="shock-banner-title">{copy.place}</strong>
@@ -116,7 +117,7 @@ export function ShockBanner({ live, zonaDe }: Props) {
           <Efecto
             key={a}
             agente={a}
-            decision={firstDecisionFrom(live[a].frames, actual.starts_at_min)}
+            decision={reaccionAlShock(live[a].frames, actual)}
             copy={copy}
             startHour={ctx.startHour}
           />
@@ -126,7 +127,7 @@ export function ShockBanner({ live, zonaDe }: Props) {
       {anteriores.length > 0 && (
         <ul className="shock-banner-earlier">
           {anteriores.map((s) => (
-            <li key={`${s.type}-${s.starts_at_min}-${s.zone}`} className="num">
+            <li key={`${s.type}-${s.starts_at_min}-${s.zone}-${s.order_id}`} className="num">
               {shockLine(s, ctx)}
             </li>
           ))}

@@ -4,6 +4,7 @@
 
 import type { Vehiculo } from '../contract'
 import {
+  DEMO_SHOCKS,
   SPEEDS,
   type DemoShockKind,
   type LiveRehearsal,
@@ -24,6 +25,8 @@ const VEHICULOS: { value: Vehiculo; label: string }[] = [
   { value: 'bike', label: 'Bike' },
 ]
 const DURACIONES = [120, 480] as const
+const RETRASO_NOMBRE = `Restaurant +${DEMO_SHOCKS.delay.slip_min} min`
+const RETRASO_TITULO = `${RETRASO_NOMBRE}: the next order to be offered is ready ${DEMO_SHOCKS.delay.slip_min} min late`
 
 // ── Píldora ──────────────────────────────────────────────────────────────
 
@@ -135,6 +138,17 @@ export function LiveControls(p: ControlsProps) {
           {Icon.speed}
           {p.pending === 'surge' ? 'Triggering…' : 'Trigger surge'}
         </button>
+        {/* Solo icono, como la voz: con "Restaurant +15 min" (o "Late +15") la píldora se
+            mete bajo el logo a 1280×800. El nombre va en aria-label y el detalle en title. */}
+        <button
+          className="live-btn is-delay is-icon"
+          disabled={!shockListo}
+          title={p.pending === 'delay' ? 'Delaying…' : RETRASO_TITULO}
+          aria-label={p.pending === 'delay' ? 'Delaying…' : RETRASO_NOMBRE}
+          onClick={() => p.onShock('delay')}
+        >
+          {Icon.clock}
+        </button>
         {terminado ? (
           <button className="live-btn" onClick={p.onNewShift}>
             Start new shift
@@ -216,7 +230,8 @@ export function LiveStartForm({
             <span className="num">
               {minutosAHora(params.hora_inicio, rehearsal.closure_minute)}
             </span>
-            .
+            , then Restaurant +{rehearsal.delay_slip_min} min at{' '}
+            <span className="num">{minutosAHora(params.hora_inicio, rehearsal.delay_minute)}</span>.
           </span>
         )}
       </div>

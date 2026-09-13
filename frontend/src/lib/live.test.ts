@@ -1,7 +1,7 @@
 import { afterEach, describe, it, expect, vi } from 'vitest'
 
 import { API_URL } from './api'
-import { LiveApiError, tickLive } from './live'
+import { DEMO_SHOCKS, LiveApiError, shockLive, tickLive } from './live'
 
 function respuesta(status: number, body: unknown): Response {
   return new Response(JSON.stringify(body), {
@@ -36,6 +36,21 @@ describe('cliente live', () => {
         body: JSON.stringify({ session_id: 'live-1', minutes: 2 }),
       })
     )
+  })
+
+  it('el delay del demo va sin duración, con slip_min, y acepta un order_id', async () => {
+    expect(DEMO_SHOCKS.delay).toEqual({ shock_type: 'delay', slip_min: 15 })
+    const fetchMock = vi.fn(async () => respuesta(200, { shock: {}, snapshot: {} }))
+    vi.stubGlobal('fetch', fetchMock)
+    await shockLive('live-1', DEMO_SHOCKS.delay)
+    await shockLive('live-1', { shock_type: 'delay', slip_min: 10, order_id: 'o_059' })
+    const cuerpos = fetchMock.mock.calls.map(
+      (c) => JSON.parse((c as unknown as [string, RequestInit])[1].body as string) as unknown
+    )
+    expect(cuerpos).toEqual([
+      { session_id: 'live-1', shock_type: 'delay', slip_min: 15 },
+      { session_id: 'live-1', shock_type: 'delay', slip_min: 10, order_id: 'o_059' },
+    ])
   })
 
   it('un 409 truena con el detail del backend y su status', async () => {

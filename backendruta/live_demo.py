@@ -85,6 +85,9 @@ from sim import generar_ofertas, indice_de, politica_greedy
 SEED_ENSAYADO = 2005
 # La pregunta del protocolo: "¿y si el restaurante de este pedido va 15 minutos tarde?"
 DEMO_DELAY = {"slip_min": 15}
+# Con el cierre del 30 ya puesto, un delay de 15 en el 56 le pega a o_045 y Nuez pasa de
+# aceptarlo a saltarlo por shift_end_infeasible. Sin el cierre no cambia: el ensayo es con los dos.
+MINUTO_DELAY_ENSAYADO = 56
 
 AGENTES = ("greedy", "nuez")
 TIPOS = {"closure", "surge", "rain", "delay"}

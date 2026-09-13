@@ -10,13 +10,19 @@ import type { Frame, Tramo, TurnoMeta } from './turno'
 export type AgentKey = 'greedy' | 'nuez'
 
 export interface LiveShock {
-  type: 'closure' | 'surge' | 'rain'
+  type: 'closure' | 'surge' | 'rain' | 'delay'
+  /** En un delay, la zona del restaurante (pickup) del pedido atrasado. */
   zone: number | null
   zone_name: string | null
   road: string | null
   starts_at_min: number
+  /** Un delay dura hasta el final del turno. */
   ends_at_min: number
   multiplier: number
+  /** Solo delay: el pedido atrasado. null en los demás tipos. */
+  order_id: string | null
+  /** Solo delay: minutos de retraso en el restaurante. null en los demás tipos. */
+  slip_min: number | null
 }
 
 export interface LiveDecision {
@@ -85,9 +91,14 @@ export interface LiveStartParams {
 export interface LiveShockBody {
   shock_type: LiveShock['type']
   zone?: number
-  duration_min: number
+  /** Todos menos delay, que el backend alarga hasta el final del turno. */
+  duration_min?: number
   multiplier?: number
   road?: string
+  /** delay: minutos de retraso, 1 a 60. */
+  slip_min?: number
+  /** delay: sin él, el backend atrasa el siguiente pedido por aparecer. */
+  order_id?: string
 }
 
 export interface LiveZone {
@@ -100,13 +111,16 @@ export interface LiveZone {
 export interface LiveRehearsal {
   seed: number
   closure_minute: number
+  delay_minute: number
+  delay_slip_min: number
 }
 
-/** Los dos shocks del pitch, fijos para que el demo ensayado sea un solo click. */
+/** Los shocks del pitch, fijos para que el demo ensayado sea un solo click. */
 export const DEMO_SHOCKS = {
   closure: { shock_type: 'closure', zone: 0, duration_min: 40, road: 'Constitución' }, // Centro
   surge: { shock_type: 'surge', zone: 4, duration_min: 30, multiplier: 1.8 }, // Tec
-} as const
+  delay: { shock_type: 'delay', slip_min: 15 }, // el siguiente pedido por aparecer
+} as const satisfies Record<string, LiveShockBody>
 
 export type DemoShockKind = keyof typeof DEMO_SHOCKS
 

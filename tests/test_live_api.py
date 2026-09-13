@@ -34,9 +34,52 @@ def test_rehearsal_da_el_seed_ensayado(api):
     assert r.json() == {
         "seed": live_api.SEED_ENSAYADO,
         "closure_minute": 30,
+        "delay_minute": 56,
         "delay_slip_min": 15,
     }
     assert r.json()["seed"] == 2005
+
+
+def test_el_ensayo_cierre_y_delay_voltea_a_nuez(api):
+    """El guion: cierre en el 30 y delay de 15 en el minuto ensayado. Nuez salta por
+    shift_end_infeasible el pedido que sin el delay aceptaba."""
+    ensayo = api.get("/live/rehearsal").json()
+
+    def decision_de_nuez(con_delay):
+        sid = start(api, seed=ensayo["seed"])["session_id"]
+
+        def hasta(minuto):
+            snap = api.get(f"/live/status/{sid}").json()
+            while snap["minute"] < minuto:
+                faltan = min(10, minuto - snap["minute"])
+                snap = api.post("/live/tick", json={"session_id": sid, "minutes": faltan}).json()
+                yield from (d for f in snap["nuez"]["frames"] for d in f["decisiones"])
+
+        list(hasta(ensayo["closure_minute"]))
+        cierre = {"shock_type": "closure", "zone": 0, "duration_min": 40, "road": "Constitución"}
+        assert api.post("/live/shock", json={"session_id": sid, **cierre}).status_code == 200
+        list(hasta(ensayo["delay_minute"]))
+        pedido = None
+        if con_delay:
+            r = api.post(
+                "/live/shock",
+                json={
+                    "session_id": sid,
+                    "shock_type": "delay",
+                    "slip_min": ensayo["delay_slip_min"],
+                },
+            )
+            assert r.status_code == 200, r.text
+            pedido = r.json()["shock"]["order_id"]
+        decisiones = {d["oferta_id"]: d for d in hasta(ensayo["delay_minute"] + 1)}
+        return pedido, decisiones
+
+    pedido, con = decision_de_nuez(True)
+    _, sin = decision_de_nuez(False)
+    assert pedido == "o_045"
+    assert con[pedido]["accion"] == "saltar"
+    assert con[pedido]["restriccion"] == "shift_end_infeasible"
+    assert sin[pedido]["accion"] == "aceptar"
 
 
 def test_tick_avanza_un_minuto(api):
