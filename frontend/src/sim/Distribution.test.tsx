@@ -16,6 +16,7 @@ describe('Distribution', () => {
   const abierto = texto(renderToStaticMarkup(<Distribution abierto />))
 
   it('no vende al Oracle como óptimo teórico', () => {
+    expect(abierto).not.toMatch(/theoretical optimum/i)
     expect(abierto).not.toMatch(/theoretical/i)
     expect(abierto).toContain('best-known offline plan')
     expect(abierto).toContain('not a proven optimum')
@@ -30,6 +31,7 @@ describe('Distribution', () => {
     // El titular (+33.5%) es de comparar.py 200; la rejilla es results_table.csv (50).
     expect(abierto).toContain('Over 200 held-out shifts')
     expect(abierto).toContain('Mean earnings, 50 held-out shifts')
+    expect(abierto).toContain('· 120 min, moto, 14:00')
   })
 
   it('nombra los dos conjuntos de seeds', () => {

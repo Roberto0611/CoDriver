@@ -3,7 +3,13 @@
 // lib/resultsCopy.ts con el comando que los produjo.
 
 import { useState } from 'react'
-import { DELTA_200, RIVALES, SEEDS_TUNEO, porcentajeDelOracle } from '../lib/resultsCopy'
+import {
+  DELTA_200,
+  HISTOGRAMA,
+  RIVALES,
+  SEEDS_TUNEO,
+  porcentajeDelOracle,
+} from '../lib/resultsCopy'
 import { Icon } from '../ui/icons'
 
 const rango = ([desde, hasta]: readonly [number, number]) => `${desde}–${hasta}`
@@ -64,7 +70,8 @@ export function Distribution({ abierto = false }: Props) {
           </p>
           <p style={{ fontSize: '0.75rem', color: '#64748b', marginBottom: '6px' }}>
             Mean earnings, {RIVALES.turnos} held-out shifts (REPORTE {rango(RIVALES.seedsReporte)})
-            · 120 min, moto, 14:00
+            · {RIVALES.config.duracionMin} min, {RIVALES.config.vehiculo},{' '}
+            {String(RIVALES.config.horaInicio).padStart(2, '0')}:00
           </p>
           <div
             style={{
@@ -118,12 +125,12 @@ export function Distribution({ abierto = false }: Props) {
           </p>
           <img
             src="/distribucion_ganancias.png"
-            alt="Earnings per shift, Greedy vs Navie, 200 REPORTE shifts"
+            alt={`Earnings per shift, Greedy vs Navie, ${HISTOGRAMA.turnos} REPORTE shifts`}
             style={{ width: '100%', borderRadius: '4px', border: '1px solid #e2e8f0' }}
           />
           <p style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '6px' }}>
-            Histogram from an earlier engine build on the same 200 seeds (means MXN 200 and 259);
-            the figures above are current.
+            Histogram from an earlier engine build on the same {HISTOGRAMA.turnos} seeds (means MXN{' '}
+            {HISTOGRAMA.media.greedy} and {HISTOGRAMA.media.navie}); the figures above are current.
           </p>
         </div>
       )}

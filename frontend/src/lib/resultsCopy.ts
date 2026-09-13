@@ -12,6 +12,7 @@ export const SEEDS_TUNEO: readonly [number, number] = [0, 1999]
 export const RIVALES = {
   turnos: 50,
   seedsReporte: [2000, 2049] as readonly [number, number],
+  config: { duracionMin: 120, vehiculo: 'moto', horaInicio: 14 },
   media: {
     AcceptAll: 180.36,
     HighestPay: 133.19,
@@ -35,7 +36,18 @@ export const DELTA_200 = {
 } as const
 
 /**
- * Qué fracción del Oracle captura Nuez. El Oracle (`oracle.resolver`) se queda con
+ * Lo que dice `public/distribucion_ganancias.png` (título y leyenda de la imagen),
+ * no el motor de hoy: la imagen es de un build anterior y ningún script del repo
+ * la regenera. Si se regenera la imagen, se actualiza esto; si no, el pie la
+ * describe tal cual es.
+ */
+export const HISTOGRAMA = {
+  turnos: 200,
+  media: { greedy: 200, navie: 259 },
+} as const
+
+/**
+ * Qué fracción del Oracle captura Navie (OurAgent). El Oracle (`oracle.resolver`) se queda con
  * lo mejor entre su búsqueda en haz y las cinco políticas online, OurAgent
  * incluida: es el mejor plan offline que conocemos, no una cota demostrada.
  */

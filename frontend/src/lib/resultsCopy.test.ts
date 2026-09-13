@@ -41,6 +41,13 @@ describe('RIVALES espeja results_table.csv', () => {
     expect(hasta - desde + 1).toBe(RIVALES.turnos)
   })
 
+  it('la config del pie de la rejilla es la del encabezado', () => {
+    const { duracionMin, vehiculo, horaInicio } = RIVALES.config
+    const linea = comentario('Config')
+    expect(linea).toContain(`vehicle ${vehiculo}, start ${String(horaInicio).padStart(2, '0')}:00`)
+    expect(linea).toContain(`${duracionMin}-min shift`)
+  })
+
   it('el rango de TUNEO es el del encabezado', () => {
     expect(comentario('Tuning seeds')).toContain(`${SEEDS_TUNEO[0]}-${SEEDS_TUNEO[1]}`)
   })
