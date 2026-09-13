@@ -1,13 +1,14 @@
 // Banner del shock en vivo: qué se inyectó, hasta cuándo dura, qué le cambió a la
 // ruta de cada agente y cómo reaccionó cada uno en su primera decisión después.
 // Es el momento que se narra en el pitch, así que no se oculta solo: se queda
-// hasta que arranca otra sesión.
+// hasta que arranca otra sesión. El texto sale de lib/shockCopy (probado).
 
 import type { Decision } from '../contract'
 import { esSeguridad, etiquetaRestriccion, textoDecisionCorto } from '../lib/decision-text'
 import type { AgentKey } from '../lib/live'
-import { firstDecisionFrom, type LiveShockSeen, type LiveState } from '../lib/liveAccum'
-import { efectoShock, type AgentShockEffect } from '../lib/liveEffect'
+import { firstDecisionFrom, type LiveState } from '../lib/liveAccum'
+import { efectoShock } from '../lib/liveEffect'
+import { shockCopy, shockLine, type ShockCopy, type ShockCopyContext } from '../lib/shockCopy'
 import { minutosAHora } from '../lib/sim'
 import { Icon } from '../ui/icons'
 
@@ -19,22 +20,6 @@ interface Props {
 
 const AGENTES = ['greedy', 'nuez'] as const
 
-function titulo(s: LiveShockSeen): string {
-  if (s.type === 'closure') return 'Road closure'
-  if (s.type === 'surge') return `Surge ×${s.multiplier.toFixed(1)}`
-  return 'Rain'
-}
-
-function lugar(s: LiveShockSeen): string {
-  if (s.road && s.zone_name) return `${s.road}, ${s.zone_name}`
-  return s.road ?? s.zone_name ?? 'Whole city'
-}
-
-function vigencia(s: LiveShockSeen, minute: number, startHour: number): string {
-  const hora = minutosAHora(startHour, s.ends_at_min)
-  return minute >= s.ends_at_min ? `ended at ${hora}` : `active until ${hora}`
-}
-
 // Greedy no calcula ventaja: sin esto su línea diría "(+? edge)".
 function lineaDecision(agente: AgentKey, d: Decision): string {
   if (agente === 'greedy' && d.accion === 'aceptar') {
@@ -44,32 +29,18 @@ function lineaDecision(agente: AgentKey, d: Decision): string {
   return textoDecisionCorto(d)
 }
 
-const plural = (n: number, una: string, varias: string) => `${n} ${n === 1 ? una : varias}`
-
-function lineaRuta(e: AgentShockEffect): string | null {
-  const r = e.route
-  if (!r) return null
-  if (r.kind === 'closure') {
-    if (r.legs === 0) return `No legs through ${r.zone} yet`
-    return `${plural(r.legs, 'leg', 'legs')} through ${r.zone}, ${r.minutes.toFixed(0)} min`
-  }
-  if (r.offers === 0) return `No offers from ${r.zone} yet`
-  return `${plural(r.offers, 'offer', 'offers')} from ${r.zone}, took ${r.accepted}`
-}
-
 function Efecto({
   agente,
   decision,
-  efecto,
+  copy,
   startHour,
 }: {
   agente: AgentKey
   decision: Decision | null
-  efecto: AgentShockEffect
+  copy: ShockCopy
   startHour: number
 }) {
   const acepta = decision?.accion === 'aceptar'
-  const ruta = lineaRuta(efecto)
   return (
     <div className="shock-effect-row">
       <div className="shock-effect-head">
@@ -81,11 +52,9 @@ function Efecto({
         )}
       </div>
 
-      {ruta && <span className="shock-effect-route num">{ruta}</span>}
-      {efecto.cancelled > 0 && (
-        <span className="shock-effect-route num">
-          {plural(efecto.cancelled, 'order', 'orders')} cancelled since
-        </span>
+      {copy.route[agente] && <span className="shock-effect-route num">{copy.route[agente]}</span>}
+      {copy.cancelled[agente] && (
+        <span className="shock-effect-route num">{copy.cancelled[agente]}</span>
       )}
 
       {decision ? (
@@ -107,7 +76,7 @@ function Efecto({
           )}
         </>
       ) : (
-        <span className="shock-effect-waiting">Waiting for the next offer…</span>
+        <span className="shock-effect-waiting">{copy.noDecision}</span>
       )}
     </div>
   )
@@ -118,8 +87,14 @@ export function ShockBanner({ live, zonaDe }: Props) {
   if (shocks.length === 0) return null
   const actual = shocks[shocks.length - 1]
   const anteriores = shocks.slice(0, -1).reverse()
-  const efectos = efectoShock(live, actual, zonaDe)
-  const { minute, start_hour: startHour } = snapshot
+  const ctx: ShockCopyContext = {
+    minute: snapshot.minute,
+    durationMin: snapshot.duration_min,
+    startHour: snapshot.start_hour,
+    status: snapshot.status,
+    lastFrameT: live.nuez.frames.at(-1)?.t ?? -1,
+  }
+  const copy = shockCopy(actual, efectoShock(live, actual, zonaDe), ctx)
 
   return (
     <section className="glass-card shock-banner" aria-live="polite">
@@ -128,15 +103,13 @@ export function ShockBanner({ live, zonaDe }: Props) {
           {actual.type === 'surge' ? Icon.speed : Icon.closure}
         </span>
         <div className="shock-banner-heading">
-          <span className="caps">{titulo(actual)}</span>
-          <strong className="shock-banner-title">{lugar(actual)}</strong>
+          <span className="caps">{copy.title}</span>
+          <strong className="shock-banner-title">{copy.place}</strong>
         </div>
       </div>
 
-      <span className="shock-banner-status num">
-        Injected at {minutosAHora(startHour, actual.starts_at_min)},{' '}
-        {vigencia(actual, minute, startHour)}
-      </span>
+      <span className="shock-banner-status num">{copy.status}</span>
+      {copy.coverage && <span className="shock-banner-status num">{copy.coverage}</span>}
 
       <div className="shock-effect">
         {AGENTES.map((a) => (
@@ -144,8 +117,8 @@ export function ShockBanner({ live, zonaDe }: Props) {
             key={a}
             agente={a}
             decision={firstDecisionFrom(live[a].frames, actual.starts_at_min)}
-            efecto={efectos[a]}
-            startHour={startHour}
+            copy={copy}
+            startHour={ctx.startHour}
           />
         ))}
       </div>
@@ -154,7 +127,7 @@ export function ShockBanner({ live, zonaDe }: Props) {
         <ul className="shock-banner-earlier">
           {anteriores.map((s) => (
             <li key={`${s.type}-${s.starts_at_min}-${s.zone}`} className="num">
-              {titulo(s)} · {lugar(s)} · {vigencia(s, minute, startHour)}
+              {shockLine(s, ctx)}
             </li>
           ))}
         </ul>

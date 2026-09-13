@@ -65,7 +65,13 @@ export default function LiveSimView() {
   const speedRef = useRef(0)
   const sessionRef = useRef<string | null>(null)
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const tickEnVuelo = useRef(false)
+  // La sesión cuyo tick está en vuelo. Por sesión y no un booleano: un tick viejo que
+  // todavía no vuelve no debe impedir que arranque el loop de la sesión nueva.
+  const tickEnVuelo = useRef<string | null>(null)
+  // Sube en cada Start, en "Start new shift" y al desmontar. Un start que resuelve con
+  // otra generación llegó tarde: no se le pone sesión ni se arranca su loop, porque
+  // nadie lo detendría (el caso real: back del navegador con el start pendiente).
+  const generacion = useRef(0)
   // Una sola fila de peticiones: un shock no se cruza con un tick y las respuestas
   // llegan en el orden en que el backend las corrió.
   const colaRef = useRef<Promise<unknown>>(Promise.resolve())
@@ -85,6 +91,15 @@ export default function LiveSimView() {
   const detenerTimer = () => {
     if (timerRef.current) clearTimeout(timerRef.current)
     timerRef.current = null
+  }
+
+  // Suelta la sesión actual: sin timer, y cualquier respuesta que siga en camino ya
+  // es de otra generación. Devuelve la generación nueva.
+  const soltarSesion = () => {
+    generacion.current++
+    detenerTimer()
+    sessionRef.current = null
+    return generacion.current
   }
 
   const quitarResaltados = (hasta: number) => {
@@ -125,8 +140,7 @@ export default function LiveSimView() {
     cargarCatalogo()
     return () => {
       // Al salir de /live: nada de ticks ni respuestas tardías sobre un mapa muerto.
-      detenerTimer()
-      sessionRef.current = null
+      soltarSesion()
       quitarResaltados(Infinity)
     }
   }, [])
@@ -140,8 +154,8 @@ export default function LiveSimView() {
   const tick = async () => {
     timerRef.current = null
     const sid = sessionRef.current
-    if (!sid || phaseRef.current !== 'running' || tickEnVuelo.current) return
-    tickEnVuelo.current = true
+    if (!sid || phaseRef.current !== 'running' || tickEnVuelo.current === sid) return
+    tickEnVuelo.current = sid
     try {
       const snap = await enCola(() => tickLive(sid))
       if (sessionRef.current !== sid) return
@@ -152,31 +166,31 @@ export default function LiveSimView() {
       // Un tick perdido se lleva sus deltas: no se reintenta solo, se enseña.
       if (sessionRef.current === sid) fallar(e, 'tick')
     } finally {
-      tickEnVuelo.current = false
+      if (tickEnVuelo.current === sid) tickEnVuelo.current = null
     }
   }
 
   const reanudar = () => {
     setError(null)
     cambiarFase('running')
-    if (!tickEnVuelo.current) programar(0)
+    if (tickEnVuelo.current !== sessionRef.current) programar(0)
   }
 
   // ── Acciones ──
   const iniciar = async () => {
     unlock() // en el click: después el navegador ya deja sonar la voz
-    detenerTimer()
-    sessionRef.current = null
+    const gen = soltarSesion()
     quitarResaltados(Infinity)
     setError(null)
     cambiarFase('starting')
     try {
       const snap = await enCola(() => startLive(params))
+      if (gen !== generacion.current) return // desmontada o reemplazada mientras arrancaba
       sessionRef.current = snap.session_id
       setLive(initLiveState(snap, { vehiculo: params.vehiculo, margen_min: params.margen_min }))
       reanudar()
     } catch (e) {
-      fallar(e, 'start')
+      if (gen === generacion.current) fallar(e, 'start')
     }
   }
 
@@ -234,8 +248,7 @@ export default function LiveSimView() {
   // Vuelve al formulario. La sesión vieja se suelta (sus respuestas tardías se
   // ignoran) pero su banner y contadores se quedan hasta que arranque otra.
   const nuevoTurno = () => {
-    detenerTimer()
-    sessionRef.current = null
+    soltarSesion()
     setError(null)
     cambiarFase('idle')
   }
@@ -279,7 +292,7 @@ export default function LiveSimView() {
   const terminado = phase === 'finished' || snap?.status === 'ended'
 
   return (
-    <div className="app">
+    <div className="app live-page">
       <div ref={mapContainer} className="map-container" />
 
       <div className={`loading-overlay ${phase === 'starting' ? 'active' : ''}`}>

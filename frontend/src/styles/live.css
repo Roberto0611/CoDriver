@@ -1,9 +1,20 @@
 /* Turno en vivo (/live). Mismo layout que el replay: esto solo agrega lo que
-   /sim no tiene (formulario, botones de shock, banner, error). Tokens en tokens.css. */
+   /sim no tiene (formulario, botones de shock, banner, error). Tokens en tokens.css.
+   Todo lo que toca una clase compartida con /sim va bajo .live-page: este archivo
+   se carga para toda la app en cuanto alguien visita /live. */
 
 :root {
   /* El rojo del cierre es el mismo que pinta la calle en el mapa (CLOSURE_RED en map/style.ts). */
   --closure-red: #ef4444;
+}
+
+/* El panel se queda centrado a la izquierda como en /sim, pero nunca más alto que
+   el espacio libre bajo la píldora (top 20 + 56 de alto + 20 de aire = 96px arriba,
+   y lo mismo abajo para que siga centrado). /sim no lo necesita porque su panel es
+   corto; aquí el banner + contadores + decisiones pasan de la pantalla y se meterían
+   debajo de la píldora. Lo que sobra hace scroll dentro del panel. */
+.live-page .overlay-panel {
+  max-height: calc(100vh - 192px);
 }
 
 /* La marca a la derecha, donde la pone el replay. */
@@ -39,15 +50,19 @@
   border-radius: 3px;
 }
 
-.timeline-btn-play:disabled {
+.live-page .timeline-slider-track {
+  width: 140px;
+}
+
+.live-page .timeline-btn-play:disabled {
   background: var(--surface-high);
   color: var(--ink-3);
   cursor: not-allowed;
   transform: none;
 }
 
-.timeline-btn-play:focus-visible,
-.speed-btn:focus-visible {
+.live-page .timeline-btn-play:focus-visible,
+.live-page .speed-btn:focus-visible {
   outline: 2px solid var(--plum);
   outline-offset: 2px;
 }
@@ -56,19 +71,20 @@
 .live-actions {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 4px;
   padding-left: 14px;
   border-left: 1px solid var(--hairline);
 }
 
+/* Del alto de .timeline-toggle-btn: la píldora ya no crece hacia el panel. */
 .live-btn {
-  height: 38px;
-  padding: 0 14px;
+  height: 32px;
+  padding: 0 12px;
   border-radius: var(--r-pill);
   border: 1px solid var(--hairline);
   background: var(--card);
   color: var(--ink-2);
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 600;
   display: inline-flex;
   align-items: center;
@@ -83,8 +99,8 @@
 }
 
 .live-btn svg {
-  width: 16px;
-  height: 16px;
+  width: 14px;
+  height: 14px;
 }
 
 .live-btn:hover {
@@ -171,12 +187,12 @@
   padding: 0 12px;
 }
 
-.seed-btn:focus-visible {
+.live-page .seed-btn:focus-visible {
   outline: 2px solid var(--plum);
   outline-offset: 2px;
 }
 
-.seed-btn:disabled {
+.live-page .seed-btn:disabled {
   color: var(--ink-4);
   cursor: not-allowed;
   transform: none;
