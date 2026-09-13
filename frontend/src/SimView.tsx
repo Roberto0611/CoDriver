@@ -20,6 +20,7 @@ import { Counters } from './sim/Counters'
 import { Decisions } from './sim/Decisions'
 import { Distribution } from './sim/Distribution'
 import { DecisionToasts } from './sim/DecisionToasts'
+import { VozToggle } from './voice/VozToggle'
 
 maplibregl.setWorkerUrl(maplibreWorkerUrl)
 
@@ -298,6 +299,14 @@ export default function SimView() {
               {s}x
             </button>
           ))}
+          {nuez && (
+            <VozToggle
+              frames={nuez.frames}
+              t={t}
+              isPlaying={isPlaying}
+              vehiculo={nuez.config.vehiculo}
+            />
+          )}
         </div>
 
         {/* Shocks (Disrupciones) */}

@@ -1,5 +1,5 @@
-import { describe, expect, it } from 'vitest'
-import { sayUrl } from './nuez'
+import { afterEach, describe, expect, it, vi } from 'vitest'
+import { callar, prefetch, say, sayUrl } from './nuez'
 
 describe('sayUrl', () => {
   it('points at the backend voice route and encodes the text', () => {
@@ -10,5 +10,85 @@ describe('sayUrl', () => {
 
   it('trims surrounding whitespace so the backend cache key matches', () => {
     expect(sayUrl('  Skip it. ', 'http://api')).toBe('http://api/api/voice/say?text=Skip%20it.')
+  })
+})
+
+/** Un <audio> cuyo backend responde 502: como el navegador, dispara onerror y rechaza play(). */
+class AudioQueFalla {
+  onerror: (() => void) | null = null
+  onended: (() => void) | null = null
+  onplaying: (() => void) | null = null
+  preload = ''
+  play(): Promise<void> {
+    queueMicrotask(() => this.onerror?.())
+    return Promise.reject(new DOMException('no source', 'NotSupportedError'))
+  }
+  pause(): void {}
+}
+
+class Utterance {
+  lang = ''
+  rate = 1
+  onend: (() => void) | null = null
+  onerror: (() => void) | null = null
+  text: string
+  constructor(text: string) {
+    this.text = text
+  }
+}
+
+const tick = () => new Promise((r) => setTimeout(r, 0))
+
+afterEach(() => {
+  callar()
+  vi.unstubAllGlobals()
+})
+
+describe('say with ElevenLabs down', () => {
+  it('does not finish until the browser voice finishes speaking', async () => {
+    const dichas: Utterance[] = []
+    vi.stubGlobal('Audio', AudioQueFalla)
+    vi.stubGlobal('SpeechSynthesisUtterance', Utterance)
+    vi.stubGlobal('speechSynthesis', { speak: (u: Utterance) => dichas.push(u), cancel() {} })
+
+    let termino = false
+    const promesa = say('Take it.').then(() => {
+      termino = true
+    })
+    await tick()
+    await tick()
+
+    expect(dichas.map((u) => u.text)).toEqual(['Take it.'])
+    expect(termino).toBe(false) // resolving here lets lines pile up at 4x
+
+    dichas[0].onend?.()
+    await promesa
+    expect(termino).toBe(true)
+  })
+})
+
+describe('prefetch', () => {
+  it('a new call cancels the previous one so two never fetch at once', async () => {
+    const pedidas: string[] = []
+    const pendientes: Array<() => void> = []
+    vi.stubGlobal('fetch', (url: string) => {
+      pedidas.push(decodeURIComponent(url.split('text=')[1]))
+      return new Promise((resolve) => {
+        pendientes.push(() => resolve({ ok: true, arrayBuffer: async () => new ArrayBuffer(0) }))
+      })
+    })
+
+    const viejo = prefetch(['a', 'b', 'c'])
+    await tick()
+    const nuevo = prefetch(['z'])
+    await tick()
+    while (pendientes.length) {
+      pendientes.shift()?.()
+      await tick()
+    }
+    await Promise.all([viejo, nuevo])
+
+    expect(pedidas).toContain('z')
+    expect(pedidas).not.toContain('b')
   })
 })
