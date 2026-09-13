@@ -5,22 +5,17 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react'
 
-import { cargarPuntos } from './lib/loader'
 import { GEMINI_IDLE, vistaGemini } from './lib/gemini-status'
 import {
   DEMO_SHOCKS,
   SPEEDS,
   endLive,
-  getRehearsal,
-  getZones,
   shockLive,
   startLive,
   tickLive,
   type DemoShockKind,
-  type LiveRehearsal,
   type LiveSnapshot,
   type LiveStartParams,
-  type LiveZone,
 } from './lib/live'
 import { applySnapshot, countersOf, initLiveState, type LiveState } from './lib/liveAccum'
 import { zonasDePuntos } from './lib/liveEffect'
@@ -32,9 +27,11 @@ import { LiveControls, LiveStartForm, type LivePending, type LivePhase } from '.
 import { GeminiNoteView } from './sim/GeminiStatus'
 import { ShockBanner } from './sim/ShockBanner'
 import { LiveCounterfactual } from './sim/LiveCounterfactual'
+import { useLiveCatalog } from './sim/useLiveCatalog'
+import { useLiveEndScroll } from './sim/useLiveEndScroll'
 import { useSimMap } from './sim/useSimMap'
-import { handOff, initialNarration, phrasesToSay, type ShockRef } from './voice/liveNarration'
-import { callar, onFuente, say, unlock, type FuenteVoz } from './voice/nuez'
+import { unlock } from './voice/nuez'
+import { useLiveNarration } from './voice/useLiveNarration'
 import './styles/live.css'
 
 const MS_POR_TICK = 500 // 1 min simulado cada 0.5 s a ×1, igual que el replay
@@ -45,15 +42,6 @@ type Reintento = 'catalog' | 'start' | 'tick' | 'end'
 
 const semillaNueva = () => 2000 + Math.floor(Math.random() * 98000)
 const mensaje = (e: unknown) => (e instanceof Error ? e.message : String(e))
-const narracionNueva = () => ({
-  ultimoShock: null as ShockRef | null,
-  estado: initialNarration(),
-  callada: false,
-  /** La última frase encolada mientras no termine; null si Nuez está en silencio. */
-  hablando: null as Promise<void> | null,
-  /** La reacción a un shock mientras suena: solo otra reacción la corta (handOff). */
-  reaccion: null as Promise<void> | null,
-})
 
 export default function LiveSimView() {
   const [phase, setPhase] = useState<LivePhase>('idle')
@@ -61,11 +49,10 @@ export default function LiveSimView() {
   const [speedIdx, setSpeedIdx] = useState(0)
   const [error, setError] = useState<{ message: string; retry: Reintento } | null>(null)
   const [pending, setPending] = useState<LivePending>(null)
-  const [puntos, setPuntos] = useState<GeoJSON.FeatureCollection | null>(null)
-  const [zones, setZones] = useState<LiveZone[]>([])
-  const [rehearsal, setRehearsal] = useState<LiveRehearsal | null>(null)
-  const [voz, setVoz] = useState(true)
-  const [fuenteVoz, setFuenteVoz] = useState<FuenteVoz>('elevenlabs')
+  const { puntos, zones, rehearsal, recargar } = useLiveCatalog((message) =>
+    setError({ message, retry: 'catalog' })
+  )
+  const voz = useLiveNarration()
   const [params, setParams] = useState<LiveStartParams>(() => ({
     seed: semillaNueva(),
     duracion_min: 120,
@@ -94,11 +81,6 @@ export default function LiveSimView() {
   const resaltados = useRef<{ endsAt: number; cleanup: () => void }[]>([])
   const panelRef = useRef<HTMLDivElement>(null)
   const resultadoRef = useRef<HTMLDivElement>(null)
-  // Voz: el tick decide qué decir leyendo refs. `ultimoShock` es el shock más reciente de
-  // la sesión (con su pedido si es delay); `estado` lo que ya se narró (liveNarration);
-  // `callada` si la sesión se terminó a mano; `hablando` si Nuez no ha terminado.
-  const vozRef = useRef(true)
-  const narracion = useRef(narracionNueva())
 
   const cambiarFase = (f: LivePhase) => {
     phaseRef.current = f
@@ -122,9 +104,7 @@ export default function LiveSimView() {
     generacion.current++
     detenerTimer()
     sessionRef.current = null
-    // Lo que Nuez tenía en cola habla de la sesión que se suelta.
-    callar()
-    narracion.current = narracionNueva()
+    voz.reiniciar()
     return generacion.current
   }
 
@@ -138,51 +118,10 @@ export default function LiveSimView() {
 
   // Solo se llama con una respuesta de la sesión vigente (cada llamada va tras su guarda).
   const aplicar = (snap: LiveSnapshot) => {
-    const n = narracion.current
-    // Empate de minuto: gana el último de la lista, que es el último inyectado.
-    for (const s of snap.active_shocks) {
-      if (n.ultimoShock !== null && s.starts_at_min < n.ultimoShock.minute) continue
-      n.ultimoShock = { minute: s.starts_at_min, orderId: s.type === 'delay' ? s.order_id : null }
-    }
+    voz.verShocks(snap)
     setLive((prev) =>
       prev && prev.snapshot.session_id === snap.session_id ? applySnapshot(prev, snap) : prev
     )
-  }
-
-  // Las decisiones nuevas llegan en los frames del tick; qué decir y qué entregar lo
-  // deciden phrasesToSay y handOff (voice/liveNarration.ts). Con la voz apagada se sigue
-  // llevando la cuenta del shock: al encenderla no se dice tarde una reacción vieja.
-  const narrar = (snap: LiveSnapshot) => {
-    const n = narracion.current
-    const decisiones = snap.nuez.frames.flatMap((f) => f.decisiones)
-    const r = phrasesToSay(decisiones, n.ultimoShock, n.estado, params.vehiculo)
-    n.estado = r.state
-    // Un tick que ya venía en camino cuando se pausó no habla: la pausa calla a Nuez.
-    const puedeHablar = vozRef.current && !n.callada && phaseRef.current === 'running'
-    if (!puedeHablar || !r.phrases.length) return
-    const entrega = handOff(r.phrases, n.hablando !== null, n.estado, n.reaccion !== null)
-    n.estado = entrega.state
-    if (!entrega.say.length) return
-    if (entrega.interrupt) callar()
-    const frases = entrega.say.map((texto) => say(texto, { lang: 'en-US' }))
-    const esta = frases[frases.length - 1]
-    // `reaction` dice que say[0] es la reacción: se marca mientras suene esa frase.
-    const reaccion = entrega.reaction ? frases[0] : null
-    n.hablando = esta
-    n.reaccion = reaccion
-    void esta.then(() => {
-      if (n.hablando === esta) n.hablando = null
-    })
-    void reaccion?.then(() => {
-      if (n.reaccion === reaccion) n.reaccion = null
-    })
-  }
-
-  // Calla a Nuez y suelta la marca de "hablando" (las frases calladas resuelven tarde).
-  const callarVoz = () => {
-    callar()
-    narracion.current.hablando = null
-    narracion.current.reaccion = null
   }
 
   const fallar = (e: unknown, retry: Reintento) => {
@@ -191,23 +130,7 @@ export default function LiveSimView() {
     setError({ message: mensaje(e), retry })
   }
 
-  // ── Catálogo: zonas, seed ensayado y puntos del mapa ──
-  const cargarCatalogo = () => {
-    cargarPuntos()
-      .then(setPuntos)
-      .catch(() =>
-        setError({ message: "Couldn't load the map points (puntos.json)", retry: 'catalog' })
-      )
-    getZones()
-      .then(setZones)
-      .catch((e) => setError({ message: mensaje(e), retry: 'catalog' }))
-    getRehearsal()
-      .then(setRehearsal)
-      .catch((e) => setError({ message: mensaje(e), retry: 'catalog' }))
-  }
-
   useEffect(() => {
-    cargarCatalogo()
     return () => {
       // Al salir de /live: nada de ticks ni respuestas tardías sobre un mapa muerto.
       soltarSesion()
@@ -230,7 +153,7 @@ export default function LiveSimView() {
       const snap = await enCola(() => tickLive(sid))
       if (sessionRef.current !== sid) return
       aplicar(snap)
-      narrar(snap)
+      voz.narrar(snap, phaseRef.current === 'running', params.vehiculo)
       if (snap.status !== 'running') void terminar(sid)
       else if (phaseRef.current === 'running') programar(MS_POR_TICK / SPEEDS[speedRef.current])
     } catch (e) {
@@ -287,8 +210,7 @@ export default function LiveSimView() {
   const terminarAMano = () => {
     const sid = sessionRef.current
     if (!sid) return
-    narracion.current.callada = true
-    callarVoz()
+    voz.silenciarSesion()
     void terminar(sid)
   }
 
@@ -324,7 +246,7 @@ export default function LiveSimView() {
     const sid = sessionRef.current
     if (error.retry === 'catalog') {
       setError(null)
-      cargarCatalogo()
+      recargar()
     } else if (error.retry === 'start' || !sid) void iniciar()
     else if (error.retry === 'end') void terminar(sid)
     else reanudar()
@@ -343,7 +265,7 @@ export default function LiveSimView() {
     else if (phase === 'running') {
       detenerTimer()
       cambiarFase('paused')
-      callarVoz() // en pausa Nuez calla; al reanudar no se repite nada
+      voz.callarVoz() // en pausa Nuez calla; al reanudar no se repite nada
     } else if (phase === 'paused') reanudar()
     else if (phase === 'error') reintentar()
   }
@@ -352,16 +274,6 @@ export default function LiveSimView() {
     speedRef.current = i
     setSpeedIdx(i)
   }
-
-  const alternarVoz = () => {
-    unlock()
-    const encendida = !vozRef.current
-    vozRef.current = encendida
-    setVoz(encendida)
-    if (!encendida) callarVoz()
-  }
-
-  useEffect(() => onFuente(setFuenteVoz), [])
 
   // ── Derivados ──
   const snap = live?.snapshot
@@ -386,18 +298,8 @@ export default function LiveSimView() {
     quitarResaltados(minute)
   }, [minute])
 
-  // Al terminar, el resultado y la ruta del JSONL quedan bajo el banner, fuera de la vista.
-  // Una vez por sesión (event_log trae el session_id), y solo el scroll del panel:
-  // scrollIntoView también correría la página con el mapa.
-  const eventLog = snap?.event_log
-  useEffect(() => {
-    const panel = panelRef.current
-    const card = resultadoRef.current
-    if (!eventLog || !panel || !card) return
-    const fondo = card.offsetTop + card.offsetHeight - panel.clientHeight
-    // Toda la tarjeta si cabe; si no, que se vea desde su título.
-    panel.scrollTop = Math.min(card.offsetTop, Math.max(panel.scrollTop, fondo))
-  }, [eventLog])
+  // Al terminar, el resultado y la ruta del JSONL quedan bajo el banner: se baja hasta ahí.
+  useLiveEndScroll(panelRef, resultadoRef, snap?.event_log)
 
   const enForma =
     phase === 'idle' || phase === 'starting' || (phase === 'error' && error?.retry === 'start')
@@ -422,12 +324,12 @@ export default function LiveSimView() {
         minute={enForma ? 0 : minute}
         duration={enForma ? params.duracion_min : (snap?.duration_min ?? params.duracion_min)}
         speedIdx={speedIdx}
-        voice={voz}
-        voiceSource={fuenteVoz}
+        voice={voz.voz}
+        voiceSource={voz.fuenteVoz}
         pending={pending}
         onPlayPause={playPause}
         onSpeed={cambiarVelocidad}
-        onVoice={alternarVoz}
+        onVoice={voz.alternarVoz}
         onShock={(k) => void disparar(k)}
         onEnd={terminarAMano}
         onNewShift={nuevoTurno}
