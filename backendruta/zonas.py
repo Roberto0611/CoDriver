@@ -26,6 +26,13 @@ ALIAS_POR_NOMBRE = {
 # marcada por la noche. La aterrizamos en la zona marcada real de Nuez.
 ALIAS_EXTERNOS = {99: "Escobedo"}
 
+# Que zonas estan MARCADAS de noche en el endpoint del protocolo. Se decide con el
+# numero que manda el pedido, ANTES de traducirlo: sus numeros no son los nuestros
+# (su 8 es Mitras, nuestro 8 es San Nicolas) y el nombre es opcional "for display".
+# La unica convencion documentada es la 99 (courier-update/practice_pack/README.md).
+# Nuestro mapa de riesgo marca media ciudad y ahi no decide: sigue en el simulador.
+MARCADAS_PROTOCOLO = frozenset({99})
+
 
 def resolver(zone_id: int, zone_name: str | None = None) -> int:
     """Traduce una zona externa al id local sin alterar el catálogo público.

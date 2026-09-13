@@ -218,7 +218,8 @@ def _no_alcanza(
         if parada.tipo == "pickup":
             reloj = max(reloj, parada.listo_en)
         desde = parada.punto
-    return reloj + tramo(desde, ancla, reloj) > cfg.duracion_min - cfg.margen_min
+    regreso = tramo(desde, ancla, reloj) if cfg.regresar_al_ancla else 0.0
+    return reloj + regreso > cfg.duracion_min - cfg.margen_min
 
 
 def simular(
@@ -284,7 +285,8 @@ def politica_greedy(
     pago = o.pago * o.surge * activos.factor_pago(rutas.ZONA_DE[i_pick])
     neto = pago - rutas.km(i_pick, i_drop) * seguridad.VEHICULOS[cfg.vehiculo].costo_km
     propios = minutos - cola  # lo que cuesta ESTE pedido, sin la cola de adelante
-    para_terminar = minutos + leg(i_drop, ancla, minutos)
+    regreso = leg(i_drop, ancla, minutos) if cfg.regresar_al_ancla else 0.0
+    para_terminar = minutos + regreso
     terminos = {
         "pago_neto": round(neto, 1),
         "minutos": round(propios, 1),

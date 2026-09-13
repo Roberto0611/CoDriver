@@ -18,7 +18,7 @@ from fastapi import APIRouter, HTTPException
 import rutas
 import shocks
 import valor
-from backendruta import courier_format, explain, strategy, zonas
+from backendruta import courier_format, en_vuelo, explain, strategy, zonas
 from backendruta import database as db
 from backendruta.courier_models import (
     MAX_TURNO_MIN,
@@ -27,6 +27,7 @@ from backendruta.courier_models import (
     ShiftStartRequest,
     ShiftState,
     ShockRequest,
+    origen_del_turno,
 )
 from backendruta.event_log import EventLog
 from backendruta.strategy import CapaEstrategia
@@ -35,7 +36,7 @@ from backendruta.zonas import NOMBRES as ZONE_NAMES
 from contrato import ConfigTurno, EstadoRepartidor, Oferta
 from estrategia import Estrategia
 from nuez import politica_nuez
-from sim import Parada, _punto
+from sim import _punto
 
 
 class CourierService:
@@ -76,22 +77,25 @@ class CourierService:
                     status_code=422,
                     detail=f"el turno debe durar entre 1 y {MAX_TURNO_MIN} min",
                 )
+            origen, desfase = origen_del_turno(request.sim_time)
             config = ConfigTurno(
-                duracion_min=actual_duration,
+                duracion_min=actual_duration + desfase,
                 ancla=zonas.punto(start_zone),
                 margen_min=0,
                 vehiculo=request.vehicle,
                 seed=request.seed,
-                hora_inicio=request.sim_time.hour,
+                hora_inicio=origen.hour,
+                regresar_al_ancla=request.return_to_start,
             )
             # Falla al iniciar, no durante el primer ping, si falta una tabla adecuada.
             valor.para_turno(actual_duration)
             self.state = ShiftState(
                 config=config,
-                start_time=request.sim_time,
+                start_time=origen,
                 end_time=end_time,
-                current_minute=0,
+                current_minute=desfase,
                 position=position,
+                start_offset_min=desfase,
             )
             event = {
                 "event": "shift_start",
@@ -102,6 +106,7 @@ class CourierService:
                 "start_location_zone": request.start_location_zone,
                 "shift_end_time": courier_format.iso(end_time),
                 "fuel_mxn_per_km": courier_format.fuel_cost(request.vehicle),
+                "return_to_start": request.return_to_start,
             }
             self.log.start(event)
             self.explanations.clear()
@@ -137,7 +142,7 @@ class CourierService:
             try:
                 self._apply_time_and_overrides(request)
                 offer, courier = self._to_internal(request)
-                table = valor.para_turno(self.state.config.duracion_min)
+                table = valor.para_turno(min(self.state.duracion_real, MAX_TURNO_MIN))
                 direct_minutes = courier_format.direct_minutes(request)
                 new_route, decision = politica_nuez(
                     offer,
@@ -146,9 +151,11 @@ class CourierService:
                     self.state.config,
                     tabla=table,
                     minutos_directos=direct_minutes,
+                    minutos_en_vuelo=self.state.in_flight_remaining_min,
                     km_entrega=request.distance_delivery_km,
                     estrategia=self.estrategia.actual,
                     activos=self._activos(),
+                    zona_marcada=request.zone_dropoff in zonas.MARCADAS_PROTOCOLO,
                 )
             except ValueError as exc:
                 raise HTTPException(status_code=422, detail=str(exc)) from exc
@@ -193,14 +200,10 @@ class CourierService:
                     status_code=422, detail="el cierre no puede retroceder el reloj"
                 )
             self._advance(elapsed)
-            event = {
-                "event": "shift_end",
-                "sim_time": courier_format.iso(when),
-                "orders_offered": self.state.offered,
-                "orders_completed": self.state.completed,
-                "earnings_mxn": round(self.state.earnings_mxn, 2),
-                "safety_violations": 0,
-            }
+            state = self.state
+            event = courier_format.shift_end_event(
+                when, state.offered, state.completed, state.earnings_mxn
+            )
             self.log.append(event)
             self.estrategia.detener()
             return event
@@ -212,7 +215,7 @@ class CourierService:
             return {
                 "active": True,
                 "seed": self.state.config.seed,
-                "elapsed_min": self.state.current_minute,
+                "elapsed_min": self.state.current_minute - self.state.start_offset_min,
                 "remaining_min": max(0, self.state.config.duracion_min - self.state.current_minute),
                 "in_flight_orders": sorted(self.state.accepted),
                 "event_log": str(self.log.path),
@@ -259,12 +262,13 @@ class CourierService:
         elapsed = math.floor((request.sim_time - self.state.start_time).total_seconds() / 60)
         overrides = request.courier_state_overrides
         if overrides and overrides.shift_elapsed_hours is not None:
-            elapsed = round(overrides.shift_elapsed_hours * 60)
-            self.state.start_time = request.sim_time - timedelta(minutes=elapsed)
-            self.state.config = replace(self.state.config, hora_inicio=self.state.start_time.hour)
+            horas = overrides.shift_elapsed_hours
+            self.state.anclar(request.sim_time - timedelta(minutes=round(horas * 60)))
+            elapsed = math.floor((request.sim_time - self.state.start_time).total_seconds() / 60)
         if elapsed < self.state.current_minute:
             raise ValueError("sim_time retrocede dentro del turno; reinicia para hacer replay")
         self._advance(elapsed)
+        self.state.in_flight_remaining_min = None
 
         if overrides is None:
             # La ruta rapida solo despierta al hilo ya existente al cruzar treinta
@@ -274,7 +278,7 @@ class CourierService:
         if overrides.shift_end_time is not None:
             self.state.end_time = overrides.shift_end_time
             duration = round((self.state.end_time - self.state.start_time).total_seconds() / 60)
-            if not 0 < duration <= MAX_TURNO_MIN:
+            if not 0 < duration - self.state.start_offset_min <= MAX_TURNO_MIN:
                 raise ValueError(
                     f"shift_end_time deja un turno fuera del rango de 1 a {MAX_TURNO_MIN} min"
                 )
@@ -325,41 +329,18 @@ class CourierService:
 
     def _replace_in_flight(self, orders: list[dict[str, Any]]) -> None:
         assert self.state is not None
-        route: list[Parada] = []
-        accepted: dict[str, DecideRequest | None] = {}
-        for position, raw in enumerate(orders):
-            try:
-                order_id = str(raw["order_id"])
-                pickup_zone = self._resolve_zone(
-                    int(raw.get("zone_pickup", self._current_zone_id()))
-                )
-                dropoff_zone = self._resolve_zone(int(raw["zone_dropoff"]))
-            except (KeyError, TypeError, ValueError) as exc:
-                raise ValueError(f"in_flight_orders[{position}] incompleto") from exc
-            status = str(raw.get("status", "to_pickup"))
-            prep = max(0, round(float(raw.get("restaurant_prep_min", 0))))
-            if status not in {"picked_up", "to_dropoff"}:
-                route.append(
-                    Parada(
-                        "pickup",
-                        zonas.indice(pickup_zone),
-                        order_id,
-                        self.state.current_minute + prep,
-                    )
-                )
-            route.append(
-                Parada(
-                    "dropoff",
-                    zonas.indice(dropoff_zone),
-                    order_id,
-                    peso_kg=float(raw.get("weight_kg", 1)),
-                    volumen_l=float(raw.get("volume_liters", 5)),
-                )
-            )
-            accepted[order_id] = None
+        route, ids, declarado = en_vuelo.traducir(
+            orders,
+            resolver=self._resolve_zone,
+            zona_actual=self._current_zone_id(),
+            minuto=self.state.current_minute,
+        )
+        accepted: dict[str, DecideRequest | None] = {order_id: None for order_id in ids}
         self.state.route = route
         self.state.accepted = accepted
         self.state.arrival_minute = None
+        if declarado is not None:
+            self.state.in_flight_remaining_min = declarado
         if route:
             self._schedule_arrival(self.state.current_minute)
 
@@ -399,32 +380,19 @@ class CourierService:
 
     def _log_position(self, minute: int) -> None:
         assert self.state is not None
-        if not self.state.route:
-            status = "idle"
-        elif self.state.route[0].tipo == "pickup":
-            status = "to_pickup"
-        else:
-            status = "to_dropoff"
         self.log.append(
-            {
-                "event": "position_update",
-                "sim_time": courier_format.iso(self.state.start_time + timedelta(minutes=minute)),
-                "zone": self._current_zone_id(),
-                "status": status,
-            }
+            courier_format.position_event(
+                self.state.start_time, minute, self._current_zone_id(), self.state.route
+            )
         )
 
     def _log_earnings(self, minute: int) -> None:
         assert self.state is not None
-        hours = max(minute / 60, 1 / 60)
+        state = self.state
         self.log.append(
-            {
-                "event": "earnings_update",
-                "sim_time": courier_format.iso(self.state.start_time + timedelta(minutes=minute)),
-                "earnings_mxn": round(self.state.earnings_mxn, 2),
-                "orders_completed": self.state.completed,
-                "mxn_per_hr": round(self.state.earnings_mxn / hours, 2),
-            }
+            courier_format.earnings_event(
+                state.start_time, minute, state.earnings_mxn, state.completed
+            )
         )
 
     def _schedule_arrival(self, minute: int) -> None:

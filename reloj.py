@@ -65,6 +65,7 @@ class Turno:
         self.descansando = 0  # minutos seguidos parado; DESCANSO_MIN de estos resetean
         self.t_llegada = 0.0  # minuto en que se llega a la primera parada de la ruta
         self.regreso_en: float = 0.0  # arranca en el ancla, asi que a los 0 minutos ya esta
+        self.termino_en: float = 0.0  # ultima vez que quedo libre; sin regreso, ahi acaba
         self.listo_en: dict[str, int] = {}  # cuando esta listo cada pedido en el restaurante
         self.aceptadas: dict[str, Oferta] = {}
         self.carga_en_mochila: set[str] = set()
@@ -195,6 +196,8 @@ class Turno:
             res.trayecto.append((t, self.pos, parada.tipo))
             if self.pos == self.ancla:
                 self.regreso_en = self.t_llegada  # el minuto exacto, no el entero del reloj
+            if not self.ruta:
+                self.termino_en = libre_en
 
             if parada.tipo == "pickup" and parada.oferta_id:
                 self.carga_en_mochila.add(parada.oferta_id)
@@ -225,9 +228,10 @@ class Turno:
                     con_carga=bool(self.carga_en_mochila),
                 )
 
-        # Regresar al ancla es obligacion de cualquier politica: si ya no queda
-        # tiempo mas que para volver, el simulador encamina de regreso.
-        if not self.ruta and self.pos != self.ancla:
+        # Regresar al ancla es obligacion de cualquier politica cuando el turno lo pide
+        # (`regresar_al_ancla`): si ya no queda tiempo mas que para volver, el
+        # simulador encamina de regreso.
+        if cfg.regresar_al_ancla and not self.ruta and self.pos != self.ancla:
             regreso = viaje(self.pos, self.ancla, t)
             # Sale cuando esperar UN MINUTO MAS ya no lo dejaria volver a tiempo, no
             # cuando salir ahora apenas alcanza: lo segundo hace que llegue justo
@@ -262,8 +266,12 @@ class Turno:
         res.ganado = round(res.ganado, 2)
         res.km_con_carga = round(res.km_con_carga, 3)
         res.km_sin_carga = round(res.km_sin_carga, 3)
-        res.regreso_en = self.regreso_en if self.pos == self.ancla and not self.ruta else None
         limite = self.cfg.duracion_min - self.cfg.margen_min
-        res.llego_tarde = res.regreso_en is None or res.regreso_en > limite
+        if self.cfg.regresar_al_ancla:
+            res.regreso_en = self.regreso_en if self.pos == self.ancla and not self.ruta else None
+            res.llego_tarde = res.regreso_en is None or res.regreso_en > limite
+        else:
+            # Sin regreso el turno acaba con la ultima entrega, donde sea que quede.
+            res.llego_tarde = bool(self.ruta) or self.termino_en > limite
         self._cerrado = True
         return res

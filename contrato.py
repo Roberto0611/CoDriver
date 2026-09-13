@@ -47,6 +47,10 @@ class ConfigTurno:
     vehiculo: Vehiculo = "moto"
     seed: int = 0  # mismo seed = mismo turno, siempre
     hora_inicio: int = 14  # hora del día: afecta tráfico, surge y riesgo
+    # Volver al punto de partida es una opcion del producto, no la regla del spec.
+    # El estudiante con clase despues la enciende; el protocolo de Infosys pide
+    # terminar la entrega antes del fin del turno, sin regreso.
+    regresar_al_ancla: bool = True
 
 
 @dataclass(frozen=True)

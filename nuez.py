@@ -42,9 +42,11 @@ def politica_nuez(
     *,
     tabla: dict[int, float] | None = None,
     minutos_directos: float | None = None,
+    minutos_en_vuelo: float | None = None,
     km_entrega: float | None = None,
     estrategia: Estrategia = BASE,
     activos: shocks.Activos = shocks.NINGUNO,
+    zona_marcada: bool | None = None,
 ) -> tuple[list[Parada] | None, Decision]:
     hora = (cfg.hora_inicio + est.t // 60) % 24
     i_pick, i_drop = indice_de(o.pickup), indice_de(o.dropoff)
@@ -67,7 +69,12 @@ def politica_nuez(
     # En /decide Infosys puede mandar tiempos y distancias observados. Cuando el
     # repartidor esta libre, esos datos mandan sobre nuestra matriz sintetica.
     # Con trabajo en vuelo se conserva el ruteo exacto para calcular la insercion.
-    if not ruta and minutos_directos is not None:
+    # El runner de los jueces declara cuanto le falta a lo que ya viene en vuelo.
+    # Si tambien trae los tiempos del pedido, se suman sus numeros y no los nuestros:
+    # "neither side has to guess what the other's travel model is" (PP-014: 7 + 5).
+    if ruta and minutos_en_vuelo is not None and minutos_directos is not None:
+        cola = minutos_en_vuelo
+    if minutos_directos is not None and (not ruta or minutos_en_vuelo is not None):
         # El juez manda sus tiempos observados y mandan sobre nuestra matriz. Pero
         # la disrupcion se aplica igual encima: su estimacion es de un mundo sin la
         # calle cerrada, y la calle esta cerrada.
@@ -113,14 +120,20 @@ def politica_nuez(
     # como estara a las 15:10. Medirlo con la hora actual es como llega tarde el
     # repartidor con la cuenta cuadrada.
     hora_fin = (cfg.hora_inicio + int(est.t + cola + propios) // 60) % 24
-    regreso = rutas.minutos(fin, ancla, hora_fin, cfg.vehiculo)
-    regreso *= activos.factor_tiempo(rutas.ZONA_DE[fin], rutas.ZONA_DE[ancla])
+    # El regreso solo cuenta si el turno lo pide. El protocolo de Infosys dice
+    # "completed before shift end" y su clave suma solo el trabajo (PP-012, PP-014).
+    regreso = 0.0
+    if cfg.regresar_al_ancla:
+        regreso = rutas.minutos(fin, ancla, hora_fin, cfg.vehiculo)
+        regreso *= activos.factor_tiempo(rutas.ZONA_DE[fin], rutas.ZONA_DE[ancla])
     para_terminar = cola + propios + regreso
     # Quedan en los terminos para que explain_decision muestre la cuenta del fin de turno.
     terminos["minutos_ruta_actual"] = round(cola, 1)
     terminos["minutos_para_terminar"] = round(para_terminar, 1)
+    terminos["minutos_regreso"] = round(regreso, 1)
     terminos["minutos_de_turno"] = round(est.t_restante - cfg.margen_min, 1)
     bloqueo = seguridad.revisar(
+        zona_marcada=zona_marcada,
         vehiculo=cfg.vehiculo,
         hora=hora,
         zona_dropoff=rutas.ZONA_DE[i_drop],

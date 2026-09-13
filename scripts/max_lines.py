@@ -11,7 +11,19 @@ from pathlib import Path
 
 MAX = 500
 EXTS = {".py", ".ts", ".tsx", ".js", ".jsx", ".css"}
-SKIP = {"node_modules", "dist", ".venv", "venv", "__pycache__", ".git", "public", "cache"}
+# courier/ y courier-update/ son material de Infosys: se leen, no se tocan ni se parten.
+SKIP = {
+    "node_modules",
+    "dist",
+    ".venv",
+    "venv",
+    "__pycache__",
+    ".git",
+    "public",
+    "cache",
+    "courier",
+    "courier-update",
+}
 
 
 def too_long(root: Path) -> list[tuple[Path, int]]:

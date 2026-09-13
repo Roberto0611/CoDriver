@@ -21,6 +21,7 @@ export interface ConfigTurno {
   vehiculo: Vehiculo
   seed: number
   hora_inicio: number
+  regresar_al_ancla: boolean
 }
 
 /** Un ping de la app. El simulador las emite, el motor las juzga. */

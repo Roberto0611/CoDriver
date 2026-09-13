@@ -139,7 +139,9 @@ def test_mismo_id_con_otro_payload_se_rechaza(api):
 def test_overrides_activan_la_restriccion_real(api, sim_time, overrides, constraint):
     client, _ = api
     start(client)
-    dropoff = 11 if constraint == "flagged_zone_night" else 13
+    # 99 es la zona marcada del protocolo. Nuestra 11 (Escobedo) ya no decide en /decide:
+    # sus numeros de zona no son los nuestros.
+    dropoff = 99 if constraint == "flagged_zone_night" else 13
     response = client.post(
         "/decide",
         json=order(
