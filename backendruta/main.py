@@ -17,7 +17,14 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(BASE_DIR))
 
 import contrato  # noqa: E402
-from backendruta import analytics, courier_api, database, live_api, seed_traffic, voice  # noqa: E402
+from backendruta import (  # noqa: E402
+    analytics,
+    courier_api,
+    database,
+    live_api,
+    seed_traffic,
+    voice,
+)
 from data.export_geojson import route_to_geojson  # noqa: E402
 from mundo import ZONAS  # noqa: E402
 

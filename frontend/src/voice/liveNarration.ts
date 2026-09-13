@@ -7,9 +7,10 @@
 //   dinero. En cierre, surge y lluvia es la primera decisión desde `starts_at_min`. En un delay
 //   es la decisión sobre el pedido atrasado (`order_id`): la primera después puede ser de otro
 //   pedido que no tiene nada que ver;
-// - los bloqueos por seguridad, salvo que esa misma frase ya haya sonado en los últimos
-//   SILENCIO_REPETIDA_MIN minutos (la misma regla que /sim). "La misma" compara la frase con
-//   los números cambiados por # (claveFrase): "Llevas 90 min" y "Llevas 93 min" son la misma.
+// - los bloqueos por reglas duras (seguridad y vehículo lleno, como frases.ts), salvo que esa
+//   misma frase ya haya sonado en los últimos SILENCIO_REPETIDA_MIN minutos (la misma regla
+//   que /sim). "La misma" compara la frase con los números cambiados por # (claveFrase):
+//   "Llevas 90 min" y "Llevas 93 min" son la misma.
 //   Hay turnos con un bloqueo casi cada minuto, y todos dicen lo mismo.
 // Lo demás (aceptar de rutina, saltos por dinero) taparía lo importante.
 //
@@ -19,8 +20,12 @@
 // reacción la corta. Solo cuenta como dicho lo que de verdad se entregó a say() (handOff).
 
 import type { Decision, Restriccion } from '../contract'
-import { esSeguridad } from '../lib/decision-text'
+import { tipoRestriccion } from '../lib/decision-text'
 import { SILENCIO_REPETIDA_MIN } from './frases'
+
+/** Regla dura: todo salto que no es por dinero. La capacidad no es seguridad, pero se dice. */
+const esDura = (r: Restriccion | null): r is Restriccion =>
+  r != null && tipoRestriccion(r) !== 'money'
 
 /** Tope por tick: una ráfaga de bloqueos no debe encolar un minuto de audio. */
 export const MAX_FRASES_POR_TICK = 2
@@ -106,14 +111,13 @@ export function phrasesToSay(
     const key = claveFrase(text)
     const reaccion = i === iReaccion
     if (!reaccion) {
-      if (!esSeguridad(d.restriccion)) return
+      if (!esDura(d.restriccion)) return
       const ultima = state.lastSaid[key]
       const reciente = ultima !== undefined && d.t - ultima < SILENCIO_REPETIDA_MIN
       if (reciente || frasesDelTick.has(key)) return
     }
     const nueva =
-      d.restriccion !== null &&
-      esSeguridad(d.restriccion) &&
+      esDura(d.restriccion) &&
       !state.constraintsSaid.includes(d.restriccion) &&
       !restriccionesDelTick.has(d.restriccion)
     frasesDelTick.add(key)
@@ -156,7 +160,7 @@ export function handOff(
   for (const p of entregadas) {
     lastSaid[p.key] = p.t
     const r = p.restriccion
-    if (r && esSeguridad(r) && !constraintsSaid.includes(r)) constraintsSaid.push(r)
+    if (esDura(r) && !constraintsSaid.includes(r)) constraintsSaid.push(r)
   }
   return {
     say: entregadas.map((p) => p.text),

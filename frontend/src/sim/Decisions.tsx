@@ -3,7 +3,7 @@
 
 import { useState, type ReactNode } from 'react'
 import { Icon } from '../ui/icons'
-import type { Decision } from '../contract'
+import type { Decision, Restriccion } from '../contract'
 import type { Frame } from '../lib/turno'
 import {
   textoDecisionCorto,
@@ -18,6 +18,17 @@ const CHIP_ICON: Record<TipoRestriccion, ReactNode> = {
   safety: Icon.shield,
   capacity: Icon.box,
   money: Icon.dollar,
+}
+
+/** El chip de la restricción; también lo usa el banner del shock en vivo. */
+export function RestriccionChip({ restriccion }: { restriccion: Restriccion }) {
+  const tipo = tipoRestriccion(restriccion)
+  return (
+    <span className={`decision-chip is-${tipo}`}>
+      {CHIP_ICON[tipo]}
+      {etiquetaRestriccion(restriccion)}
+    </span>
+  )
 }
 
 interface Props {
@@ -62,12 +73,7 @@ export function Decisions({ frames, t, horaInicio }: Props) {
               <span className="decision-time num">{minutosAHora(horaInicio, d.minuto)}</span>
             </div>
 
-            {d.restriccion && (
-              <span className={`decision-chip is-${tipoRestriccion(d.restriccion)}`}>
-                {CHIP_ICON[tipoRestriccion(d.restriccion)]}
-                {etiquetaRestriccion(d.restriccion)}
-              </span>
-            )}
+            {d.restriccion && <RestriccionChip restriccion={d.restriccion} />}
 
             {isOpen && <div className="decision-detail">{textoDecisionDetalle(d)}</div>}
           </div>

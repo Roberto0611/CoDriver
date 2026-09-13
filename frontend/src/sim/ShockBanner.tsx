@@ -5,13 +5,14 @@
 // hasta que arranca otra sesión. El texto sale de lib/shockCopy (probado).
 
 import type { Decision } from '../contract'
-import { esSeguridad, etiquetaRestriccion, textoDecisionCorto } from '../lib/decision-text'
+import { textoDecisionCorto } from '../lib/decision-text'
 import type { AgentKey } from '../lib/live'
 import type { LiveState } from '../lib/liveAccum'
 import { efectoShock, reaccionAlShock } from '../lib/liveEffect'
 import { shockCopy, shockLine, type ShockCopy, type ShockCopyContext } from '../lib/shockCopy'
 import { minutosAHora } from '../lib/sim'
 import { Icon } from '../ui/icons'
+import { RestriccionChip } from './Decisions'
 
 interface Props {
   live: LiveState
@@ -70,12 +71,7 @@ function Efecto({
             <p className="shock-effect-reason">{decision.razon}</p>
           )}
           {agente === 'nuez' && decision.restriccion && (
-            <span
-              className={`decision-chip ${esSeguridad(decision.restriccion) ? 'is-safety' : 'is-money'}`}
-            >
-              {esSeguridad(decision.restriccion) ? Icon.shield : Icon.dollar}
-              {etiquetaRestriccion(decision.restriccion)}
-            </span>
+            <RestriccionChip restriccion={decision.restriccion} />
           )}
         </>
       ) : (
