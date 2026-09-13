@@ -20,6 +20,7 @@ import { Counters } from './sim/Counters'
 import { Decisions } from './sim/Decisions'
 import { Distribution } from './sim/Distribution'
 import { DecisionToasts } from './sim/DecisionToasts'
+import { DecisionHistory } from './sim/DecisionHistory'
 import { VozToggle } from './voice/VozToggle'
 
 maplibregl.setWorkerUrl(maplibreWorkerUrl)
@@ -197,6 +198,16 @@ export default function SimView() {
     ? contadoresEnT(nuez.frames, t)
     : { ganado: 0, entregas: 0, saltadas: 0 }
   const terminado = t >= maxT - 1
+
+  let lastDecisionId = undefined;
+  if (nuez && nuez.frames) {
+    for (let i = Math.min(t, nuez.frames.length - 1); i >= 0; i--) {
+      if (nuez.frames[i].decisiones.length > 0) {
+        lastDecisionId = `${i}-${nuez.frames[i].decisiones[nuez.frames[i].decisiones.length - 1].oferta_id}`;
+        break;
+      }
+    }
+  }
 
   return (
     <div className="app">
@@ -410,9 +421,11 @@ export default function SimView() {
           </div>
         )}
 
-        {/* Decisiones */}
+        {/* Decisiones y Analytics */}
         {nuez && (
-          <div className="glass-card">
+          <div className="glass-card" style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            <DecisionHistory lastDecisionId={lastDecisionId} />
+            <div style={{ borderTop: '1px solid var(--surface-high)' }} />
             <Decisions frames={nuez.frames} t={t} horaInicio={horaInicio} />
           </div>
         )}
