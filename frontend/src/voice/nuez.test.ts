@@ -66,7 +66,7 @@ describe('say with ElevenLabs down', () => {
     expect(termino).toBe(true)
   })
 
-  it('the browser voice is en-US by default and takes the lang option (Spanish reasons on /live)', async () => {
+  it('the browser voice is en-US by default and honors an explicit language option', async () => {
     const dichas: Utterance[] = []
     vi.stubGlobal('Audio', AudioQueFalla)
     vi.stubGlobal('SpeechSynthesisUtterance', Utterance)

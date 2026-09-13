@@ -156,7 +156,7 @@ export default function LiveSimView() {
   const narrar = (snap: LiveSnapshot) => {
     const n = narracion.current
     const decisiones = snap.nuez.frames.flatMap((f) => f.decisiones)
-    const r = phrasesToSay(decisiones, n.ultimoShock, n.estado)
+    const r = phrasesToSay(decisiones, n.ultimoShock, n.estado, params.vehiculo)
     n.estado = r.state
     // Un tick que ya venía en camino cuando se pausó no habla: la pausa calla a Nuez.
     const puedeHablar = vozRef.current && !n.callada && phaseRef.current === 'running'
@@ -165,7 +165,7 @@ export default function LiveSimView() {
     n.estado = entrega.state
     if (!entrega.say.length) return
     if (entrega.interrupt) callar()
-    const frases = entrega.say.map((texto) => say(texto, { lang: 'es-MX' }))
+    const frases = entrega.say.map((texto) => say(texto, { lang: 'en-US' }))
     const esta = frases[frases.length - 1]
     // `reaction` dice que say[0] es la reacción: se marca mientras suene esa frase.
     const reaccion = entrega.reaction ? frases[0] : null

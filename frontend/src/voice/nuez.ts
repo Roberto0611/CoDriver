@@ -86,7 +86,7 @@ function reproducir(text: string, lang: string): Promise<void> {
 
 /**
  * Habla una frase. Las frases se encolan en orden; la promesa resuelve al terminar esa frase.
- * `lang` es el idioma de la voz del navegador si ElevenLabs no responde (/live pasa es-MX).
+ * `lang` es el idioma de la voz del navegador si ElevenLabs no responde (/live pasa en-US).
  */
 export function say(text: string, { lang = 'en-US' }: { lang?: string } = {}): Promise<void> {
   const t = text.trim()

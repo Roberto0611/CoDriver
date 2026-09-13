@@ -38,7 +38,14 @@ def normalizar(texto: str) -> str:
 def cache_key(texto: str, cfg: Config = config) -> str:
     """Una frase con una voz, un modelo y un formato es un archivo. Cambia uno, cambia el key."""
     firma = json.dumps(
-        [normalizar(texto), cfg.voice_id, cfg.tts_model, cfg.output_format, cfg.voice_settings],
+        [
+            normalizar(texto),
+            cfg.voice_id,
+            cfg.tts_model,
+            cfg.output_format,
+            cfg.language,
+            cfg.voice_settings,
+        ],
         sort_keys=True,
     )
     return hashlib.sha256(firma.encode("utf-8")).hexdigest()[:16]

@@ -25,6 +25,10 @@ function dec(overrides: Partial<Decision> = {}): Decision {
 
 const MOTO = 'En moto solo caben 3 pedidos a la vez.'
 const FIN = 'No alcanzas a entregarlo y volver antes de que acabe tu turno.'
+const VOZ_MOTO = "Skip. That order won't fit on your motorbike."
+const VOZ_FIN = "Skip. You couldn't finish it before your shift ends."
+const VOZ_CALOR = 'Skip. Heat rule. 90 minutes riding in this heat is the limit.'
+const VOZ_ACEPTAR = 'Take it. 40 pesos for 20 minutes.'
 
 const seguridad = (t: number, razon = MOTO, restriccion: Restriccion = 'vehicle_capacity') =>
   dec({ t, restriccion, razon })
@@ -65,6 +69,12 @@ describe('phrasesToSay', () => {
     expect(r.phrases).toEqual([frase(MOTO, 10, 'vehicle_capacity', { priority: true })])
     // Decir no es registrar: eso lo hace handOff cuando la frase de verdad va a say().
     expect(r.state).toEqual(initialNarration())
+  })
+
+  it('conserva la razón del motor para auditoría, pero entrega inglés a la voz', () => {
+    const r = phrasesToSay([seguridad(10)], null, estado())
+    expect(r.phrases[0].text).toBe(MOTO)
+    expect(handOff(r.phrases, false, r.state).say).toEqual([VOZ_MOTO])
   })
 
   it('un salto por dinero y un aceptar de rutina sin shock se callan', () => {
@@ -345,8 +355,8 @@ describe('repetidas con otros números', () => {
       dichas.push(...h.say)
     }
     expect(dichas).toEqual([
-      'Llevas 90 min bajo el sol de las 15; para 20 min.',
-      'Llevas 105 min bajo el sol de las 15; para 20 min.',
+      VOZ_CALOR,
+      VOZ_CALOR,
     ])
   })
 
@@ -413,7 +423,7 @@ function replay(minutosHablando: number): [number, string][] {
 }
 
 function motoCadaQuince(dichas: [number, string][]) {
-  const minutos = dichas.filter(([, x]) => x === MOTO).map(([t]) => t)
+  const minutos = dichas.filter(([, x]) => x === VOZ_MOTO).map(([t]) => t)
   minutos.slice(1).forEach((t, i) => expect(t - minutos[i]).toBeGreaterThanOrEqual(15))
 }
 
@@ -421,12 +431,12 @@ describe('replay de seed 2005 (t=0–60)', () => {
   it('sin solaparse: cada restricción nueva suena, la moto a lo más cada 15 min', () => {
     const dichas = replay(0)
     expect(dichas).toEqual([
-      [6, MOTO],
-      [21, MOTO],
-      [32, 'Te deja $40 por encima de lo normal.'],
-      [36, MOTO],
-      [43, FIN],
-      [51, MOTO],
+      [6, VOZ_MOTO],
+      [21, VOZ_MOTO],
+      [32, VOZ_ACEPTAR],
+      [36, VOZ_MOTO],
+      [43, VOZ_FIN],
+      [51, VOZ_MOTO],
     ])
     motoCadaQuince(dichas)
   })
@@ -435,12 +445,12 @@ describe('replay de seed 2005 (t=0–60)', () => {
     const dichas = replay(8)
     // t=36–39 caen mientras habla la reacción: se sueltan sin registrar, y la moto vuelve en t=40.
     expect(dichas).toEqual([
-      [6, MOTO],
-      [21, MOTO],
-      [32, 'Te deja $40 por encima de lo normal.'],
-      [40, MOTO],
-      [43, FIN],
-      [58, MOTO],
+      [6, VOZ_MOTO],
+      [21, VOZ_MOTO],
+      [32, VOZ_ACEPTAR],
+      [40, VOZ_MOTO],
+      [43, VOZ_FIN],
+      [58, VOZ_MOTO],
     ])
     motoCadaQuince(dichas)
   })
