@@ -55,7 +55,7 @@ export default function NavieBackgroundPanel({
           colorMode="greyscale"
           contrast={100}
           lightness={100}
-          interactive
+          interactive = {false}
           overlayOpacity={0.12}
           overlayBlur={0}
           style={{

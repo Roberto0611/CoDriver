@@ -1,7 +1,7 @@
-import { Link } from 'react-router-dom'
+﻿import { Link } from 'react-router-dom'
 import PixelCanvasBackground from './PixelCanvasBackground'
 import NavieBackgroundPanel from './NavieBackgroundPanel'
-import tecFondoGif from './tec-fondo-compact.gif'
+import { NavieCompass } from './navie/NavieCompass'
 
 export default function LandingPage() {
   return (
@@ -38,18 +38,83 @@ export default function LandingPage() {
           minHeight: '100vh',
         }}
       >
-        {/* ── Hero Section (con USA Map Canvas de fondo y Grid Style) ── */}
+        {/* ── Navbar (Estilo Browserbase) ── */}
+        <header
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            padding: '16px 24px',
+            backgroundColor: 'var(--card)',
+            borderBottom: '1px solid var(--hairline)',
+            width: '100%',
+            boxSizing: 'border-box',
+            zIndex: 50,
+            overflowX: 'auto',
+          }}
+        >
+          {/* Logo y Nombre */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <div style={{ width: '40px', height: '40px', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', position: 'relative' }}>
+              <div style={{ transform: 'scale(0.2)', transformOrigin: 'center center', position: 'absolute' }}>
+                <NavieCompass mode="idle" />
+              </div>
+            </div>
+            <span style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--ink)', letterSpacing: '-0.02em' }}>
+              Codrive
+            </span>
+          </div>
+
+          {/* Enlaces de Navegación (Centro) */}
+          <nav 
+            style={{ 
+              display: 'flex', 
+              alignItems: 'center', 
+              gap: '24px', 
+              fontWeight: 600, 
+              fontSize: '0.9rem', 
+              color: 'var(--ink)',
+            }}
+          >
+            <a href="#" style={{ textDecoration: 'none', color: 'inherit' }}>Platform</a>
+            <a href="#" style={{ textDecoration: 'none', color: 'inherit' }}>Solutions</a>
+            <a href="#" style={{ textDecoration: 'none', color: 'inherit' }}>Resources</a>
+            <a href="#" style={{ textDecoration: 'none', color: 'inherit' }}>Pricing</a>
+            <a href="#" style={{ textDecoration: 'none', color: 'inherit' }}>Docs</a>
+          </nav>
+
+          {/* Botones Derecha */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '16px', fontWeight: 600, fontSize: '0.9rem' }}>
+            <a href="#" style={{ textDecoration: 'none', color: 'var(--ink)' }}>Log in</a>
+            <a href="#" style={{ textDecoration: 'none', color: 'var(--ink)' }}>Sign up</a>
+            <a href="#" style={{
+              backgroundColor: 'var(--ink)',
+              color: 'var(--canvas)',
+              padding: '8px 18px',
+              borderRadius: '9999px',
+              textDecoration: 'none',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px'
+            }}>
+              Get a demo 
+              <span style={{ fontSize: '1.1em' }}>›</span>
+            </a>
+          </div>
+        </header>
+
+        {/* â”€â”€ Hero Section (con USA Map Canvas de fondo y Grid Style) â”€â”€ */}
         <section
           style={{
           position: 'relative',
           width: '100%',
-          height: 'clamp(460px, 60vh, 580px)',
-          minHeight: '460px',
+          height: 'clamp(600px, 80vh, 800px)',
+          minHeight: '600px',
           display: 'flex',
           flexDirection: 'column',
           alignItems: 'center',
           justifyContent: 'flex-start',
-          paddingTop: 'clamp(36px, 6vh, 60px)',
+          paddingTop: 'clamp(70px, 15vh, 120px)',
           paddingLeft: '20px',
           paddingRight: '20px',
           textAlign: 'center',
@@ -64,7 +129,7 @@ export default function LandingPage() {
       >
         {/* Fondo interactivo de Video (.mp4) con PixelCanvas */}
         <PixelCanvasBackground
-          src={tecFondoGif}
+          src='/tec-fondo-compact-ezgif.com-gif-to-mp4-converter.mp4'
           pixelSize={8}
           overlayOpacity={0}
           style={{
@@ -89,7 +154,7 @@ export default function LandingPage() {
             width: '100%',
           }}
         >
-          {/* ── Main Highlighted Title ── */}
+          {/* â”€â”€ Main Highlighted Title â”€â”€ */}
           <h1
             style={{
               margin: 0,
@@ -114,15 +179,15 @@ export default function LandingPage() {
                 boxShadow: 'none',
               }}
             >
-              Navie decide qué aceptar y qué rechazar entre clases.
+              Navie decides what to accept and what to reject between classes.
             </span>
           </h1>
 
-          {/* ── Subtitle ── */}
+          {/* â”€â”€ Subtitle â”€â”€ */}
           <p
             style={{
               color: 'var(--ink)',
-              fontSize: 'clamp(1rem, 2vw, 1.25rem)',
+              fontSize: 'clamp(0.85rem, 1.5vw, 1.2rem)',
               fontWeight: 600,
               maxWidth: '560px',
               marginTop: '26px',
@@ -132,10 +197,10 @@ export default function LandingPage() {
               backgroundColor: 'var(--card)',
             }}
           >
-            Un copiloto de entrega para estudiantes: calcula el costo de oportunidad, revisa si puedes volver a clase y explica cada decisión en voz alta.
+            A delivery copilot for students: calculates opportunity cost, checks if you can make it back to class, and explains every decision out loud.
           </p>
 
-          {/* ── CTA Buttons ── */}
+          {/* â”€â”€ CTA Buttons â”€â”€ */}
           <div
             style={{
               display: 'flex',
@@ -170,13 +235,13 @@ export default function LandingPage() {
                 e.currentTarget.style.opacity = '1';
               }}
             >
-              Explora el demo ›
+              Explore the demo ›
             </Link>
           </div>
         </div>
       </section>
 
-      {/* ── Sección de Contenido Grid y Columna de 2 ── */}
+      {/* â”€â”€ SecciÃ³n de Contenido Grid y Columna de 2 â”€â”€ */}
       <section
         style={{
           width: '100%',
@@ -186,7 +251,7 @@ export default function LandingPage() {
           boxSizing: 'border-box',
         }}
       >
-        {/* Encabezado de la sección de hallazgos */}
+        {/* Encabezado de la secciÃ³n de hallazgos */}
         <div style={{ marginBottom: '32px', textAlign: 'left' }}>
           <h2
             style={{
@@ -198,7 +263,7 @@ export default function LandingPage() {
               margin: '0 0 10px 0',
             }}
           >
-            Navie optimiza cada pedido <span style={{ color: 'var(--plum)' }}>sin perder la ventana.</span>.
+            Navie optimizes every order <span style={{ color: 'var(--plum)' }}>without missing the window.</span>
           </h2>
           <p
             style={{
@@ -209,11 +274,11 @@ export default function LandingPage() {
               maxWidth: '680px',
             }}
           >
-            El agente compara pago, tiempo real, riesgo, regreso al ancla y costo de oportunidad para decidir en milisegundos qué vale la pena aceptar.
+            The agent compares payout, real-time traffic, risk, return to anchor, and opportunity cost to decide in milliseconds what's worth accepting.
           </p>
         </div>
 
-        {/* Grid de 2 Columnas (Pixel Canvas con fondo claro + Botón interactivo al lado) */}
+        {/* Grid de 2 Columnas (Pixel Canvas con fondo claro + BotÃ³n interactivo al lado) */}
         <div
           style={{
             display: 'grid',
@@ -225,7 +290,7 @@ export default function LandingPage() {
           {/* Columna 1: fondo animado + Navie, igual que en el playground */}
           <NavieBackgroundPanel mode="happy" minHeight={360} />
 
-          {/* Columna 2: Tarjeta al lado con el Botón y estilo Grid */}
+          {/* Columna 2: Tarjeta al lado con el BotÃ³n y estilo Grid */}
           <div
             style={{
               borderRadius: '16px',
@@ -260,7 +325,7 @@ export default function LandingPage() {
                   letterSpacing: '-0.02em',
                 }}
               >
-                El turno se juega minuto a minuto.
+                The shift is played minute by minute.
               </h3>
 
               <p
@@ -271,27 +336,27 @@ export default function LandingPage() {
                   margin: 0,
                 }}
               >
-                Navie no acepta todo lo que llega: evalúa si el pedido paga más que el valor de ese tiempo, si puedes regresar a tu ancla y si la ruta encaja con las restricciones del turno.
+                Navie doesn't accept everything that comes in: it evaluates if the order pays more than the value of that time, if you can return to your anchor, and if the route fits the shift constraints.
               </p>
 
-              {/* Puntos técnicos de grid */}
+              {/* Puntos tÃ©cnicos de grid */}
               <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '6px' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.88rem', color: 'var(--ink-2)', fontWeight: 600 }}>
                   <span style={{ color: 'var(--emerald)', fontWeight: 800 }}>✓</span>
-                  Costo de oportunidad por minuto restante
+                  Opportunity cost per remaining minute
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.88rem', color: 'var(--ink-2)', fontWeight: 600 }}>
                   <span style={{ color: 'var(--emerald)', fontWeight: 800 }}>✓</span>
-                  Regreso factible al ancla y restricciones de seguridad
+                  Feasible return to anchor and safety constraints
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.88rem', color: 'var(--ink-2)', fontWeight: 600 }}>
                   <span style={{ color: 'var(--emerald)', fontWeight: 800 }}>✓</span>
-                  Batching y ruteo para sacar más valor del mismo turno
+                  Batching and routing to extract more value from the same shift
                 </div>
               </div>
             </div>
 
-            {/* El botón de acción */}
+            {/* El botÃ³n de acciÃ³n */}
             <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', width: '100%', marginTop: '8px' }}>
               <Link
                 to="/map"
@@ -324,7 +389,7 @@ export default function LandingPage() {
                   e.currentTarget.style.boxShadow = 'none';
                 }}
               >
-                Ver a Navie en acción
+                See Navie in action
               </Link>
 
               <Link
@@ -350,7 +415,7 @@ export default function LandingPage() {
                   e.currentTarget.style.backgroundColor = 'var(--surface-low)';
                 }}
               >
-                 Explorar el mapa ›
+                 Explore the map ›
               </Link>
             </div>
           </div>
@@ -360,3 +425,4 @@ export default function LandingPage() {
     </div>
   );
 }
+
