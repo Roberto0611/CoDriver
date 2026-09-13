@@ -45,7 +45,8 @@ def say(text: str = Query(..., min_length=1, max_length=MAX_CHARS)) -> Streaming
         # Se fuerza la primera llamada aqui: un error debe ser un 502, no un stream roto.
         primero = next(chunks)
     except tts.VozError as e:
-        _caida_hasta, _ultima_falla = _ahora() + PAUSA_TRAS_FALLA_S, str(e)
+        if e.pausar:  # texto vacio o "demasiadas a la vez" no dicen que la API este caida
+            _caida_hasta, _ultima_falla = _ahora() + PAUSA_TRAS_FALLA_S, str(e)
         raise HTTPException(status_code=502, detail=str(e)) from e
     except StopIteration:
         raise HTTPException(status_code=502, detail="ElevenLabs no devolvio audio.") from None

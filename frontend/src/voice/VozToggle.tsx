@@ -9,7 +9,7 @@ import { useEffect, useRef, useState } from 'react'
 import type { Vehiculo } from '../contract'
 import type { Frame } from '../lib/turno'
 import { Icon } from '../ui/icons'
-import { frasesDelTurno, siguienteFrase, type Dicha } from './frases'
+import { debeCallar, frasesDelTurno, siguienteFrase, type Dicha } from './frases'
 import { callar, onFuente, prefetch, say, unlock, type FuenteVoz } from './nuez'
 
 interface Props {
@@ -39,15 +39,14 @@ export function VozToggle({ frames, t, isPlaying, vehiculo }: Props) {
   }, [frames, vehiculo, encendida])
 
   useEffect(() => {
-    const salto = t !== tAnterior.current + 1
+    const anterior = tAnterior.current
     tAnterior.current = t
     if (!encendida) return
-    if (!isPlaying || salto) {
-      // Pausa o seek a mano: la frase que sonaba habla de otro minuto.
+    if (debeCallar(anterior, t, isPlaying, frames.length - 1)) {
       callar()
       ocupada.current = false
-      if (!isPlaying) return
     }
+    if (!isPlaying) return
     if (ocupada.current) return // a velocidad alta se omite en vez de amontonar
     const dicha = siguienteFrase(frames[t]?.decisiones ?? [], t, vehiculo, ultima.current)
     if (!dicha) return

@@ -67,11 +67,20 @@ function reproducir(text: string): Promise<void> {
     audio.onplaying = () => avisar('elevenlabs')
     audio.onended = () => resolve()
     // 502 del backend (llave rechazada, sin cuota, sin red y sin cache): habla el navegador.
-    audio.onerror = () => {
+    // El navegador avisa dos veces (onerror y play() rechazado); se cae una sola vez, y la
+    // promesa espera a que la voz del navegador termine para que las frases no se amontonen.
+    let cayo = false
+    const caer = () => {
+      if (cayo || sonando?.audio !== audio) return // ya cayó, o callar() la descartó
+      cayo = true
       avisar('browser')
       void hablarNavegador(text).then(resolve)
     }
-    void audio.play().catch(() => resolve())
+    audio.onerror = caer
+    void audio.play().catch((e: unknown) => {
+      if (e instanceof DOMException && e.name === 'NotSupportedError') caer()
+      else if (!cayo) resolve() // autoplay bloqueado o pause() de callar(): no hay nada que esperar
+    })
   })
 }
 
@@ -99,9 +108,14 @@ export function callar(): void {
 
 /** Calienta la cache del backend con frases que se van a decir, sin sonarlas. */
 // Una por una y leyendo el cuerpo: el backend escribe la cache al terminar el stream, y el
-// plan free de ElevenLabs rechaza (429) si se le mandan muchas a la vez.
+// plan free de ElevenLabs rechaza (429) si se le mandan muchas a la vez. Una llamada nueva
+// (otro seed) cancela a la anterior: nunca hay dos recorridos pidiendo frases al mismo tiempo.
+let recorrido = 0
+
 export async function prefetch(texts: string[]): Promise<void> {
+  const mio = ++recorrido
   for (const t of texts) {
+    if (mio !== recorrido) return
     try {
       const res = await fetch(sayUrl(t))
       await res.arrayBuffer()

@@ -63,6 +63,22 @@ export function siguienteFrase(
   return null
 }
 
+/**
+ * ¿Cortar la frase que suena? Sí ante un seek a mano o una pausa: habla de otro minuto.
+ * No cuando el reproductor se detiene solo en el último minuto (SimView pausa al llegar al
+ * final): ahí se amontonan los rechazos de fin de turno y cortarlos arruina el cierre.
+ */
+export function debeCallar(
+  tAnterior: number,
+  t: number,
+  isPlaying: boolean,
+  ultimoMinuto: number
+): boolean {
+  const salto = t !== tAnterior && t !== tAnterior + 1
+  if (salto) return true
+  return !isPlaying && t !== ultimoMinuto
+}
+
 /** Las frases distintas que sonarían en el turno completo. Sirve para calentar la cache. */
 export function frasesDelTurno(frames: Frame[], vehiculo: Vehiculo): string[] {
   const vistas = new Set<string>()

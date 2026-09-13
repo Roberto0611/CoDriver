@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { fraseVoz, siguienteFrase, frasesDelTurno } from './frases'
+import { fraseVoz, siguienteFrase, frasesDelTurno, debeCallar } from './frases'
 import type { Decision } from '../contract'
 import type { Frame } from '../lib/turno'
 
@@ -69,6 +69,31 @@ describe('siguienteFrase', () => {
 
   it('un minuto sin nada que decir devuelve null', () => {
     expect(siguienteFrase([dec()], 3, 'moto', null)).toBeNull()
+  })
+})
+
+describe('debeCallar', () => {
+  const ULTIMO = 119
+
+  it('avanzar un minuto reproduciendo no corta la frase', () => {
+    expect(debeCallar(40, 41, true, ULTIMO)).toBe(false)
+  })
+
+  it('un seek a mano corta la frase, hacia atrás o hacia adelante', () => {
+    expect(debeCallar(40, 10, true, ULTIMO)).toBe(true)
+    expect(debeCallar(40, 90, true, ULTIMO)).toBe(true)
+  })
+
+  it('pausar a media sesión corta la frase', () => {
+    expect(debeCallar(40, 40, false, ULTIMO)).toBe(true)
+  })
+
+  it('cuando el turno se detiene solo en el último minuto, la última frase termina', () => {
+    expect(debeCallar(ULTIMO, ULTIMO, false, ULTIMO)).toBe(false)
+  })
+
+  it('cambiar solo el play sin mover el minuto no cuenta como seek', () => {
+    expect(debeCallar(40, 40, true, ULTIMO)).toBe(false)
   })
 })
 
