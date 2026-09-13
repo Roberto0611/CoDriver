@@ -1,6 +1,7 @@
 // Contadores lado a lado: ganancia, entregas, saltadas. Greedy vs Nuez.
 // Colores con significado: esmeralda = dinero, ámbar = greedy, índigo = nuez.
 
+import { entregasTexto, renglonDeRegreso, type ConfigRegreso } from '../lib/countersCopy'
 import type { Contadores } from '../lib/sim'
 import type { TurnoMeta } from '../lib/turno'
 
@@ -10,9 +11,15 @@ interface Props {
   greedyMeta: TurnoMeta
   nuezMeta: TurnoMeta
   terminado: boolean
+  /**
+   * El config del turno, para decir a qué hora hay que volver. Opcional para que
+   * /live siga compilando sin tocarlo: sin config no se inventa una hora, se dice
+   * solo en qué minuto volvió.
+   */
+  config?: ConfigRegreso
 }
 
-export function Counters({ greedy, nuez, greedyMeta, nuezMeta, terminado }: Props) {
+export function Counters({ greedy, nuez, greedyMeta, nuezMeta, terminado, config }: Props) {
   const diff = nuez.ganado - greedy.ganado
   const diffClass = diff > 0 ? 'is-positive' : diff < 0 ? 'is-negative' : 'is-neutral'
   const diffSign = diff > 0 ? '+' : ''
@@ -30,7 +37,7 @@ export function Counters({ greedy, nuez, greedyMeta, nuezMeta, terminado }: Prop
             <small>MXN</small>
           </span>
           <span className="counter-sub">
-            {greedy.entregas} deliveries · {greedy.saltadas} skipped
+            {entregasTexto(greedy.entregas)} · {greedy.saltadas} skipped
           </span>
         </div>
         <div className="counter-agent">
@@ -40,7 +47,7 @@ export function Counters({ greedy, nuez, greedyMeta, nuezMeta, terminado }: Prop
             <small>MXN</small>
           </span>
           <span className="counter-sub">
-            {nuez.entregas} deliveries · {nuez.saltadas} skipped
+            {entregasTexto(nuez.entregas)} · {nuez.saltadas} skipped
           </span>
         </div>
       </div>
@@ -67,9 +74,12 @@ export function Counters({ greedy, nuez, greedyMeta, nuezMeta, terminado }: Prop
             <strong>{nuezMeta.violaciones ?? 0}</strong>
           </div>
           <div className="turno-summary-row">
-            <span>Back by 14:50</span>
+            <span>{config ? renglonDeRegreso(config) : 'Back at anchor'}</span>
             <strong>
-              {nuezMeta.regreso_en?.toFixed(1) ?? '?'} min {nuezMeta.llego_tarde ? '✗' : '✓'}
+              {config?.regresar_al_ancla === false
+                ? ''
+                : `${nuezMeta.regreso_en?.toFixed(1) ?? '?'} min `}
+              {nuezMeta.llego_tarde ? '✗' : '✓'}
             </strong>
           </div>
           {(nuezMeta.cancelados ?? 0) > 0 && (

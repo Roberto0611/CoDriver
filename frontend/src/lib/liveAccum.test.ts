@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 
 import type { Decision } from '../contract'
+import { horaDeRegreso } from './countersCopy'
 import type { LiveAgent, LiveShock, LiveSnapshot } from './live'
 import { applySnapshot, countersOf, firstDecisionFrom, initLiveState } from './liveAccum'
 import type { Frame, Tramo } from './turno'
@@ -106,6 +107,11 @@ describe('initLiveState', () => {
       margen_min: 5,
       ancla: { lat: 25.65, lon: -100.29 },
     })
+  })
+
+  it('el config en vivo alcanza para el "Back by" de /live', () => {
+    const s = initLiveState(snap(0), { margen_min: 10 })
+    expect(horaDeRegreso(s.nuez.config)).toBe('15:50')
   })
 })
 

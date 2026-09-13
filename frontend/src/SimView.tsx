@@ -240,6 +240,7 @@ export default function SimView() {
               greedyMeta={greedy.meta}
               nuezMeta={nuez.meta}
               terminado={terminado}
+              config={nuez.config}
             />
             <Counterfactual seed={seed} terminado={terminado} horaInicio={horaInicio} />
           </div>

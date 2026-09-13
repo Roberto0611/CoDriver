@@ -23,6 +23,50 @@ existentes. Las cinco pasan por `seguridad.revisar`. `Oracle` corre sólo offlin
 conoce el stream completo, explora agendas sin pedidos apilados y conserva el
 mejor resultado reproducible frente a las políticas online.
 
+## Resultados
+
+Los números no se copian a mano: salen de los scripts y se regeneran con ellos.
+
+- **Seeds** (`seeds.py`): **TUNEO 0–1999** para la tabla de valor y los barridos;
+  **REPORTE 2000+** para todo lo que se reporta. `comparar.py` y `scripts/results_table.py`
+  truenan con un assert si alguien reporta sobre un seed de tuneo.
+- **Tabla de Results** (la plantilla de `courier-update/`): `results_table.csv` (120 min) y
+  `results_table_8h.csv` (480 min). 50 turnos de REPORTE 2000–2049, moto (20 kg, 20 L, 3
+  pedidos), inicio 14:00, ancla Tec, margen 10 min. Los dos miden el turno del simulador, que
+  exige **volver al ancla** antes de fin − margen (`regresar_al_ancla`); `/decide` usa la regla
+  del spec, que solo pide terminar la entrega. El encabezado de cada CSV dice seeds, n, config,
+  límites y regla de fin de turno.
+
+  ```bash
+  python scripts/results_table.py
+  python scripts/results_table.py --duracion 480 --salida results_table_8h.csv
+  ```
+
+- **Nuez contra greedy en 200 turnos** (REPORTE 2000–2199): `python comparar.py 200`, y lo mismo
+  con `--shocks` o `--duracion 480`.
+- **El Oracle no es un óptimo teórico.** Ve el stream completo y se queda con lo mejor entre su
+  búsqueda en haz y las cinco políticas online, OurAgent incluida (`oracle.resolver`). Es el
+  mejor plan offline que conocemos; el porcentaje de Nuez se dice contra eso.
+
+## Qué recortamos y por qué
+
+- **Un modelo dentro de la decisión.** Gemini solo mueve tres perillas acotadas
+  (`estrategia.py`) desde un hilo aparte, y `/decide` lee la última estrategia de memoria. Con
+  50 ms de presupuesto, un modelo en la ventana de decisión reprueba Feasibility.
+- **ML para predecir demanda, tiempos y surge.** Las ofertas y el surge los genera el simulador a
+  partir del seed, y no se predice lo que uno mismo escribió; los tiempos son una matriz
+  precalculada sobre el grafo de OSMnx por un factor de tráfico por hora y corredor
+  (`rutas.py`). La tabla de valor es tabular para poder auditarla.
+- **OR-Tools.** `ruteo.py` enumera los órdenes de paradas válidos y se queda con el más rápido:
+  exacto mientras queden hasta seis paradas por ordenar, y con más inserta cada una en su mejor
+  posición. Tarda microsegundos; un solver solo agregaba una dependencia.
+- **Snowflake y Solana.** Snowflake hacía el mismo trabajo que TigerData (dos bases para una
+  tarea) y Solana era el track menos pegado al reto; se cortaron para no perder el principal
+  (`agents.md` §7).
+- **Refinamientos del motor que medimos y empeoraron.** Iteración de política, tabla de valor por
+  zona (sesgo de selección), descuento global al costo de oportunidad y un colchón de fin de turno
+  que crece con la disrupción. Las mediciones están en `agents.md` §0b.
+
 ## Protocolo de Infosys
 
 El adaptador HTTP conserva el motor en minutos relativos y traduce solamente en
