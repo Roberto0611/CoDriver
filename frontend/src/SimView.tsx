@@ -201,12 +201,12 @@ export default function SimView() {
     : { ganado: 0, entregas: 0, saltadas: 0 }
   const terminado = t >= maxT - 1
 
-  let lastDecisionId = undefined;
+  let lastDecisionId = undefined
   if (nuez && nuez.frames) {
     for (let i = Math.min(t, nuez.frames.length - 1); i >= 0; i--) {
       if (nuez.frames[i].decisiones.length > 0) {
-        lastDecisionId = `${i}-${nuez.frames[i].decisiones[nuez.frames[i].decisiones.length - 1].oferta_id}`;
-        break;
+        lastDecisionId = `${i}-${nuez.frames[i].decisiones[nuez.frames[i].decisiones.length - 1].oferta_id}`
+        break
       }
     }
   }
@@ -392,7 +392,10 @@ export default function SimView() {
 
         {/* Decisiones y Analytics */}
         {nuez && (
-          <div className="glass-card" style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+          <div
+            className="glass-card"
+            style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}
+          >
             <DecisionHistory lastDecisionId={lastDecisionId} />
             <div style={{ borderTop: '1px solid var(--surface-high)' }} />
             <Decisions frames={nuez.frames} t={t} horaInicio={horaInicio} />
