@@ -15,6 +15,7 @@ import rutas
 import seguridad
 from baselines import POLITICAS, politica_accept_all
 from contrato import ConfigTurno, Decision, EstadoRepartidor, Oferta
+import shocks
 from mundo import es_segura
 from nuez import politica_nuez
 from sim import Parada, Politica, Resultado, generar_ofertas, indice_de, politica_greedy, simular
@@ -28,10 +29,11 @@ class PlanOracle:
     ganancia_estimada: float
 
 
-def _pago_neto(oferta: Oferta, cfg: ConfigTurno) -> float:
+def _pago_neto(pos: int, oferta: Oferta, cfg: ConfigTurno) -> float:
     pickup, dropoff = indice_de(oferta.pickup), indice_de(oferta.dropoff)
     return (
         oferta.pago * oferta.surge
+        - rutas.km(pos, pickup) * seguridad.VEHICULOS[cfg.vehiculo].costo_km
         - rutas.km(pickup, dropoff) * seguridad.VEHICULOS[cfg.vehiculo].costo_km
     )
 
@@ -75,7 +77,11 @@ ANCHO_HAZ = 48
 SIGUIENTES_POR_ESTADO = 18
 
 
-def planificar(cfg: ConfigTurno, ofertas: list[Oferta] | None = None) -> PlanOracle:
+def planificar(
+    cfg: ConfigTurno,
+    ofertas: list[Oferta] | None = None,
+    disrupciones: tuple[shocks.Shock, ...] = (),
+) -> PlanOracle:
     """Busca una agenda offline de pedidos individuales con el stream completo.
 
     Conserva las 48 agendas más rentables en cada ronda y expande las 18 ofertas
@@ -92,12 +98,12 @@ def planificar(cfg: ConfigTurno, ofertas: list[Oferta] | None = None) -> PlanOra
         for estado in frontera:
             candidatas = []
             for oferta in stream:
-                if oferta.t_aparece < estado.disponible or oferta.id in estado.oferta_ids:
+                if oferta.id in estado.oferta_ids:
                     continue
                 fin = _fin_de_pedido(estado.pos, estado.disponible, oferta, cfg)
                 if fin is None:
                     continue
-                pago = _pago_neto(oferta, cfg)
+                pago = _pago_neto(estado.pos, oferta, cfg)
                 puntaje = pago / max(fin - estado.disponible, 1)
                 candidatas.append((puntaje, oferta, fin, pago))
             for _, oferta, fin, pago in sorted(
@@ -146,37 +152,28 @@ def politica_del_plan(plan: PlanOracle) -> Politica:
                 est.t,
                 oferta.id,
                 "saltar",
-                {"pago_neto": round(_pago_neto(oferta, cfg), 1)},
+                {"pago_neto": round(_pago_neto(indice_de(est.pos), oferta, cfg), 1)},
                 "El Oracle reserva el tiempo para una oferta futura mejor.",
                 "reservation_wage",
             )
         siguiente += 1
-        if ruta:
-            return None, Decision(
-                est.t,
-                oferta.id,
-                "saltar",
-                {"pago_neto": round(_pago_neto(oferta, cfg), 1)},
-                "La agenda perdió factibilidad; conserva la ruta en curso.",
-                "shift_end_infeasible",
-            )
         return politica_accept_all(oferta, est, ruta, cfg)
 
     return politica
 
 
 def resolver(
-    cfg: ConfigTurno, *, tabla: dict[int, float] | None = None
+    cfg: ConfigTurno, *, tabla: dict[int, float] | None = None, disrupciones: tuple[shocks.Shock, ...] = ()
 ) -> tuple[Resultado, str, PlanOracle]:
     """Corre el plan y las políticas online; devuelve el mejor resultado reproducible."""
-    plan = planificar(cfg)
+    plan = planificar(cfg, disrupciones=disrupciones)
     candidatos: dict[str, Politica] = {
         "AgendaOracle": politica_del_plan(plan),
         **POLITICAS,
         "GreedyRate": politica_greedy,
         "OurAgent": partial(politica_nuez, tabla=tabla),
     }
-    resultados = {nombre: simular(cfg, politica) for nombre, politica in candidatos.items()}
+    resultados = {nombre: simular(cfg, politica, disrupciones=disrupciones) for nombre, politica in candidatos.items()}
     nombre = max(
         resultados,
         key=lambda candidato: (
@@ -188,6 +185,8 @@ def resolver(
     return resultados[nombre], nombre, plan
 
 
-def simular_oracle(cfg: ConfigTurno, *, tabla: dict[int, float] | None = None) -> Resultado:
+def simular_oracle(
+    cfg: ConfigTurno, *, tabla: dict[int, float] | None = None, disrupciones: tuple[shocks.Shock, ...] = ()
+) -> Resultado:
     """Punto de entrada para la tabla de resultados; sólo debe usarse offline."""
-    return resolver(cfg, tabla=tabla)[0]
+    return resolver(cfg, tabla=tabla, disrupciones=disrupciones)[0]

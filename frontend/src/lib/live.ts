@@ -283,3 +283,47 @@ export function getZones(): Promise<LiveZone[]> {
 export function getRehearsal(): Promise<LiveRehearsal> {
   return pedir('/live/rehearsal')
 }
+
+export interface LiveOracleReport {
+  session_id: string
+  earnings_mxn: number
+  deliveries: number
+}
+
+export type LiveOracleState =
+  | { status: 'computing' }
+  | { status: 'ready'; report: LiveOracleReport }
+  | { status: 'failed'; message: string }
+
+export async function getOracle(
+  sessionId: string
+): Promise<LiveOracleReport | null> {
+  const datos = await pedir<unknown>(`/live/oracle/${encodeURIComponent(sessionId)}`)
+  if (typeof datos === 'object' && datos !== null && 'status' in datos) {
+    if (datos.status === 'computing') return null
+  }
+  if (!datos || typeof datos !== 'object' || !('session_id' in datos) || typeof (datos as any).session_id !== 'string') {
+    throw new LiveApiError('The live backend sent an oracle result in an unexpected shape', 200)
+  }
+  return datos as LiveOracleReport
+}
+
+export async function esperarOracle(
+  sessionId: string,
+  vigente: () => boolean,
+  pausaMs = COUNTERFACTUAL_POLL_MS
+): Promise<LiveOracleState | null> {
+  for (;;) {
+    let report: LiveOracleReport | null
+    try {
+      report = await getOracle(sessionId)
+    } catch (e) {
+      if (!vigente()) return null
+      return { status: 'failed', message: e instanceof Error ? e.message : String(e) }
+    }
+    if (!vigente()) return null
+    if (report) return { status: 'ready', report }
+    await new Promise((listo) => setTimeout(listo, pausaMs))
+    if (!vigente()) return null
+  }
+}

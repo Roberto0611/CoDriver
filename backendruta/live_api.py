@@ -49,6 +49,7 @@ from backendruta.live_demo import (
 from backendruta.live_geometry import Geometria, linea_recta
 from contrafactual import reporte
 from contrato import ConfigTurno, Vehiculo
+from oracle import simular_oracle
 from valor import para_turno
 
 MAX_SESIONES = 8
@@ -81,6 +82,28 @@ def _calcular(calculo: Contrafactual, sesion: LiveDemoSession) -> None:
         calculo.listo.set()
 
 
+@dataclass
+class CalculoOracle:
+    listo: threading.Event = field(default_factory=threading.Event)
+    reporte: dict[str, Any] | None = None
+    error: str | None = None
+
+
+def _calcular_oracle(calculo: CalculoOracle, sesion: LiveDemoSession) -> None:
+    with sesion.lock:
+        cfg, disrupciones = sesion.cfg, tuple(sesion.shocks)
+    try:
+        resultado = simular_oracle(cfg, disrupciones=disrupciones)
+        calculo.reporte = {
+            "earnings_mxn": resultado.ganado,
+            "deliveries": resultado.entregas
+        }
+    except Exception as exc:
+        calculo.error = f"{type(exc).__name__}: {exc}"
+    finally:
+        calculo.listo.set()
+
+
 class LiveRegistry:
     """Vivas en memoria, una bitacora JSONL por sesion. Su lock es solo del dict: dos
     ticks del mismo id no corren a la vez por el lock de la sesion, no por este."""
@@ -91,6 +114,7 @@ class LiveRegistry:
         self._lock = RLock()
         self._sesiones: dict[str, LiveDemoSession] = {}
         self._contrafactuales: dict[str, Contrafactual] = {}
+        self._oracles: dict[str, CalculoOracle] = {}
 
     def usar_grafo(self, grafo: Any) -> None:
         """`main.py` lo llama una vez con el grafo (o None) recien cargado."""
@@ -115,6 +139,7 @@ class LiveRegistry:
                 viejo = next(iter(self._sesiones))  # el mas viejo por insercion
                 sacada = self._sesiones.pop(viejo)
                 self._contrafactuales.pop(viejo, None)
+                self._oracles.pop(viejo, None)
                 # Una sesion que sale corriendo dejaria su hilo de Gemini consultando cada
                 # cinco minutos sin nadie que lo pare. detener() espera al hilo hasta 26 s:
                 # va en otro hilo para no frenar este /live/start.
@@ -141,6 +166,20 @@ class LiveRegistry:
             calculo = self._contrafactuales[sesion.session_id] = Contrafactual()
         hilo = threading.Thread(
             target=_calcular, args=(calculo, sesion), name="contrafactual", daemon=True
+        )
+        hilo.start()
+        return calculo
+
+    def oracle(self, sesion: LiveDemoSession) -> CalculoOracle:
+        with self._lock:
+            if self._sesiones.get(sesion.session_id) is not sesion:
+                raise KeyError(sesion.session_id)
+            calculo = self._oracles.get(sesion.session_id)
+            if calculo is not None:
+                return calculo
+            calculo = self._oracles[sesion.session_id] = CalculoOracle()
+        hilo = threading.Thread(
+            target=_calcular_oracle, args=(calculo, sesion), name="oracle_calc", daemon=True
         )
         hilo.start()
         return calculo
@@ -274,6 +313,7 @@ def end(request: SessionRequest) -> dict[str, Any]:
     # Ya sin candado: el calculo arranca aqui y cuando el front pregunte lleva ventaja.
     try:
         registry.contrafactual(sesion)
+        registry.oracle(sesion)
     except KeyError:
         pass  # la saco del registro otro /live/start mientras terminaba: ya no hay a quien
     return fin
@@ -304,4 +344,26 @@ def counterfactual(session_id: str, response: Response) -> dict[str, Any]:
     if calculo.reporte is None:
         # En ingles: el panel de /live lo ensena tal cual despues de "Couldn't compute...".
         raise HTTPException(status_code=500, detail=f"re-simulation failed with {calculo.error}")
+    return {**calculo.reporte, "session_id": session_id}
+
+
+@router.get("/oracle/{session_id}")
+def oracle(session_id: str, response: Response) -> dict[str, Any]:
+    sesion = _sesion(session_id)
+    with sesion.lock:
+        corriendo = sesion.status == "running"
+    if corriendo:
+        raise HTTPException(
+            status_code=409,
+            detail=f"la sesion {session_id} sigue corriendo: termina el turno primero",
+        )
+    try:
+        calculo = registry.oracle(sesion)
+    except KeyError:
+        raise HTTPException(status_code=404, detail=f"sesion {session_id!r} no existe") from None
+    if not calculo.listo.is_set():
+        response.status_code = 202
+        return {"status": "computing", "session_id": session_id}
+    if calculo.reporte is None:
+        raise HTTPException(status_code=500, detail=f"oracle simulation failed with {calculo.error}")
     return {**calculo.reporte, "session_id": session_id}
