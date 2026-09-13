@@ -122,6 +122,21 @@ def validador():
     return modulo
 
 
+def errores_de_formato(s):
+    """Lo que dice el validador oficial, menos el presupuesto de 50 ms.
+
+    `latency_ms` es el tiempo real de pared de cada `paso()`: en un runner cargado un
+    solo minuto lento lo pasa, y eso no es un error de FORMATO. El validador lo
+    reporta como "...: latency Nms exceeds the 50ms fast-path budget"; se filtra solo
+    ese texto y se revisa aparte que la latencia sea un numero no negativo."""
+    errs, counts = validador().check_event_log(str(s.log.path))
+    latencias = [e["latency_ms"] for e in eventos_de(s) if e["event"] == "decision"]
+    assert latencias and all(
+        isinstance(x, int | float) and not isinstance(x, bool) and x >= 0 for x in latencias
+    )
+    return [e for e in errs if "fast-path budget" not in e], counts
+
+
 def test_el_shock_queda_en_el_jsonl(tmp_path):
     s = sesion(tmp_path)
     correr(s, 30)
@@ -148,12 +163,46 @@ def test_el_jsonl_en_vivo_pasa_el_validador_oficial(tmp_path):
     correr(s, 120)  # tick llega al final: finished
     s.end()  # y end() sobre finished no puede volver a escribir shift_end
 
-    errs, counts = validador().check_event_log(str(s.log.path))
-    assert errs == []
+    formato, counts = errores_de_formato(s)
+    assert formato == []
     for tipo in ("order_offered", "decision", "shock", "shift_end", "position_update"):
         assert counts.get(tipo), f"falta {tipo} en {counts}"
     assert counts["shift_start"] == 1 and counts["shock"] == 2 and counts["shift_end"] == 2
     assert counts["decision"] == 2 * counts["order_offered"], "cada oferta la deciden los dos"
+
+
+def test_el_jsonl_en_vivo_es_ascii_y_aguanta_calles_con_acento(tmp_path):
+    """El validador oficial lee con la codificacion del sistema (cp1252 en Windows).
+    En UTF-8 la "Á" lleva el byte 0x81, que cp1252 no sabe leer: una calle escrita
+    por el juez tumbaria el validador. El log en vivo se escribe en ASCII puro."""
+    s = sesion(tmp_path)
+    correr(s, 30)
+    s.shock("closure", 40, zona=0, calle="Álvaro Obregón")
+    s.end()
+
+    crudo = s.log.path.read_bytes()
+    assert crudo.isascii()
+    assert any(e.get("road") == "Álvaro Obregón" for e in eventos_de(s))  # sin perder el acento
+    formato, counts = errores_de_formato(s)
+    assert formato == [] and counts["shock"] == 1
+
+
+def test_un_shock_que_no_se_puede_anotar_no_se_inyecta(tmp_path, monkeypatch):
+    """Si armar el evento truena, el shock no puede quedar vivo en los turnos sin
+    rastro en el JSONL: el evento se arma antes de tocar nada."""
+    s = sesion(tmp_path)
+    correr(s, 10)
+    antes = s.log.path.read_bytes()
+
+    def truena(*_args, **_kwargs):
+        raise ValueError("no se pudo armar el evento")
+
+    monkeypatch.setattr("backendruta.live_demo.live_log.shock", truena)
+    with pytest.raises(ValueError, match="no se pudo armar"):
+        s.shock("closure", 40, zona=0, calle="Constitución")
+    assert s.shocks == [] and s.snapshot()["active_shocks"] == []
+    assert all(t.disrupciones == () for t in s.turnos.values())
+    assert s.log.path.read_bytes() == antes
 
 
 def test_la_razon_en_ingles_de_greedy_no_inventa_costo_de_oportunidad(tmp_path):

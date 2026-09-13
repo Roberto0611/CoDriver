@@ -12,9 +12,14 @@ AfterAppend = Callable[[dict[str, Any], Path], None]
 class EventLog:
     """Escribe eventos cronologicos sin depender de TigerData ni de la red."""
 
-    def __init__(self, path: Path, after_append: AfterAppend | None = None):
+    def __init__(self, path: Path, after_append: AfterAppend | None = None, ascii: bool = False):
         self.path = path
         self._after_append = after_append
+        # Opt-in. El validador oficial abre el archivo con la codificacion del sistema
+        # (cp1252 en Windows), y una "Á" en UTF-8 trae el byte 0x81 que cp1252 no lee.
+        # Con ascii=True los acentos van como Á: el mismo JSON, en bytes que lee
+        # cualquier codificacion. Apagado por defecto: el log de /decide no cambia.
+        self.ascii = ascii
         self._lock = Lock()
 
     def start(self, event: dict[str, Any]) -> None:
@@ -47,8 +52,7 @@ class EventLog:
             # perder el evento local ni para retrasar una decision.
             return
 
-    @staticmethod
-    def _serialize(event: dict[str, Any]) -> str:
+    def _serialize(self, event: dict[str, Any]) -> str:
         if not isinstance(event.get("event"), str):
             raise ValueError("cada evento necesita el campo event")
-        return json.dumps(event, ensure_ascii=False, separators=(",", ":"), default=str)
+        return json.dumps(event, ensure_ascii=self.ascii, separators=(",", ":"), default=str)

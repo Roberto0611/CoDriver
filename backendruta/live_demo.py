@@ -149,7 +149,9 @@ class LiveDemoSession:
         self._resultado: dict[str, dict[str, Any] | None] = dict.fromkeys(AGENTES)
 
         self.ancla = rutas.indice_mas_cercano(cfg.ancla.lat, cfg.ancla.lon)
-        self.log = EventLog(log_path)
+        # ASCII puro: la calle del cierre la teclea el juez y el validador oficial
+        # lee con cp1252 en Windows (ver EventLog).
+        self.log = EventLog(log_path, ascii=True)
         self.log.start(live_log.shift_start(session_id, cfg, self.ancla))
 
     @property
@@ -230,11 +232,13 @@ class LiveDemoSession:
             oferta_id=objetivo.id if objetivo else None,
             retraso_min=retraso,
         )
+        # El evento se arma ANTES de tocar los turnos: si armarlo truena, el shock no
+        # puede quedar vivo en el motor sin rastro en el JSONL que se va a auditar.
+        evento = live_log.shock(s, self.cfg, zona)
         for turno in self.turnos.values():
             turno.inyectar(s)
         self.shocks.append(s)
-
-        self.log.append(live_log.shock(s, self.cfg, zona))
+        self.log.append(evento)
         return {"shock": self._shock(s), "snapshot": self.snapshot()}
 
     def end(self) -> dict[str, Any]:
