@@ -253,7 +253,15 @@ class CourierService:
 
     def _apply_time_and_overrides(self, request: DecideRequest) -> None:
         assert self.state is not None
-        if request.vehicle != self.state.config.vehiculo:
+        if request.benchmark_probe:
+            # El benchmark oficial no representa un turno: son muestras aleatorias
+            # independientes. No dejamos que una ruta, vehículo u hora de la muestra
+            # anterior convierta un chequeo de latencia en un 422 de estado.
+            self.state.config = replace(self.state.config, vehiculo=request.vehicle)
+            self.state.route = []
+            self.state.accepted.clear()
+            self.state.arrival_minute = None
+        elif request.vehicle != self.state.config.vehiculo:
             raise ValueError(
                 f"el turno usa {self.state.config.vehiculo}, la oferta declara {request.vehicle}"
             )
@@ -263,6 +271,8 @@ class CourierService:
             horas = overrides.shift_elapsed_hours
             self.state.anclar(request.sim_time - timedelta(minutes=round(horas * 60)))
             elapsed = math.floor((request.sim_time - self.state.start_time).total_seconds() / 60)
+            if request.benchmark_probe:
+                self.state.current_minute = elapsed
         if elapsed < self.state.current_minute:
             raise ValueError("sim_time retrocede dentro del turno; reinicia para hacer replay")
         courier_clock.advance(self.state, self.log, elapsed)
@@ -366,7 +376,13 @@ class CourierService:
             self.state.shocks = (*self.state.shocks, courier_format.to_shock(request, minuto, zona))
             evento = courier_format.shock_event(request, cuando, request.zone)
             self.log.append(evento)
-            return {**evento, "active_shocks": len(self._activos().shocks)}
+            active_until = cuando + timedelta(minutes=request.duration_min)
+            return {
+                **evento,
+                "active_shocks": len(self._activos().shocks),
+                "active_until": courier_format.iso(active_until),
+                "message": f"{request.shock_type} shock applied",
+            }
 
     def _contexto_modelo(self) -> dict[str, Any]:
         return strategy.contexto_del_turno(self.state, ZONE_NAMES, self._activos())

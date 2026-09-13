@@ -86,6 +86,30 @@ def test_probe_directo_funciona_y_es_idempotente(api):
     }
 
 
+def test_benchmark_anidado_llega_a_tier1(api):
+    client, _ = api
+    payload = {
+        "order": {
+            **order("BENCH-001", zone_pickup=11, zone_dropoff=41),
+            "restaurant_name": "Benchmark only",
+        },
+        "courier": {
+            "current_zone": 7,
+            "continuous_riding_min": 30,
+            "shift_elapsed_hours": 1.0,
+            "shift_end_time": "2026-03-21T20:00:00",
+            "vehicle": "moto",
+        },
+    }
+    response = client.post("/decide", json=payload)
+    assert response.status_code == 200, response.text
+    assert response.json()["order_id"] == "BENCH-001"
+    second = client.post(
+        "/decide", json={**payload, "order": {**payload["order"], "order_id": "BENCH-002"}}
+    )
+    assert second.status_code == 200, second.text
+
+
 def test_turno_de_ocho_horas_y_media_usa_tabla_que_cubre_el_horizonte(api):
     client, service = api
     response = client.post(
@@ -373,3 +397,16 @@ def test_el_shock_estira_el_viaje_de_verdad(api):
 def test_un_shock_sin_turno_es_conflicto(api):
     client, _ = api
     assert client.post("/shock", json={"shock_type": "rain"}).status_code == 409
+
+
+def test_inyector_acepta_type_y_responde_campos_del_juez(api):
+    client, _ = api
+    start(client)
+    response = client.post(
+        "/shock", json={"type": "surge", "zone": 11, "duration_min": 25, "multiplier": 1.6}
+    )
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert body["shock_type"] == "surge"
+    assert body["zone"] == 2
+    assert body["active_until"] and body["message"]
