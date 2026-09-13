@@ -22,6 +22,23 @@ describe('vistaGemini', () => {
     expect(vistaGemini({ active: false, strategy_note: NOTA }).note).toBeNull()
   })
 
+  it('turno cerrado (active sigue en true, la capa ya no corre) → idle de "no live shift"', () => {
+    const vista = vistaGemini({
+      active: true,
+      degraded: false,
+      strategy_source: 'base',
+      strategy_note: null,
+      strategy_running: false,
+    })
+    expect(vista).toEqual(GEMINI_IDLE)
+    expect(vista.placeholder).not.toMatch(/live\./)
+  })
+
+  it('backend sin strategy_running no se toma como turno cerrado', () => {
+    const vista = vistaGemini({ active: true, degraded: false, strategy_source: 'gemini' })
+    expect(vista.state).toBe('active')
+  })
+
   it('turno vivo con estrategia de Gemini → active con su nota', () => {
     const vista = vistaGemini({
       active: true,

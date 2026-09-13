@@ -22,6 +22,8 @@ export interface ShiftStatus {
   degraded?: boolean
   strategy_source?: string | null
   strategy_note?: string | null
+  /** false después de /shift/end: el backend conserva el turno, pero ya no está vivo. */
+  strategy_running?: boolean
 }
 
 export const POLL_MS = 3000
@@ -53,6 +55,8 @@ function limpiarNota(nota: unknown): string | null {
 /** Respuesta de `/shift/status` (ya parseada, de forma desconocida) → vista del badge. */
 export function vistaGemini(respuesta: unknown): GeminiView {
   if (!esEstado(respuesta) || respuesta.active !== true) return GEMINI_IDLE
+  // Turno cerrado: `active` sigue en true, pero la capa ya no corre. Nada de "Shift is live".
+  if (respuesta.strategy_running === false) return GEMINI_IDLE
 
   const note = limpiarNota(respuesta.strategy_note)
   if (respuesta.degraded === true) {

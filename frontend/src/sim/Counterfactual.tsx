@@ -25,6 +25,8 @@ export function Counterfactual({ seed, terminado, horaInicio }: Props) {
   // Se guarda junto con su seed: al cambiar de turno no se pinta el reporte del anterior.
   const [cargado, setCargado] = useState<{ seed: number; datos: Contrafactual | null } | null>(null)
 
+  // Se pide al elegir el turno y otra vez al terminarlo: si la primera vez falló la red,
+  // al llegar al final se reintenta. Lo que sí contestó sale del cache, sin otro fetch.
   useEffect(() => {
     if (seed == null) return
     let vigente = true
@@ -34,7 +36,7 @@ export function Counterfactual({ seed, terminado, horaInicio }: Props) {
     return () => {
       vigente = false
     }
-  }, [seed])
+  }, [seed, terminado])
 
   const datos = cargado && cargado.seed === seed ? cargado.datos : null
   if (!terminado || !datos) return null

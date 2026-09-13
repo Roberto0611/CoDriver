@@ -5,6 +5,9 @@ antes de la primera respuesta tambien es False. Por eso el estado publico trae l
 fuente de la estrategia vigente, y estos tests fijan que cada caso se distinga.
 """
 
+import threading
+import time
+
 import pytest
 
 from backendruta.strategy import CapaEstrategia, ModeloNoDisponible
@@ -24,6 +27,7 @@ def test_antes_de_la_primera_vuelta_no_hay_nada_que_presumir():
         "degraded": False,
         "strategy_source": "base",
         "strategy_note": None,
+        "strategy_running": False,
     }, "sin respuesta todavia: ni degradado ni gemini, y sin nota"
 
 
@@ -68,6 +72,7 @@ def test_al_detener_vuelve_a_base_y_no_presume_gemini():
         "degraded": False,
         "strategy_source": "base",
         "strategy_note": None,
+        "strategy_running": False,
     }
 
 
@@ -79,6 +84,62 @@ def test_una_respuesta_tardia_no_se_cuela_despues_de_detener():
     capa.proveedor = caido
     capa.refrescar()
     assert capa.estado_publico()["degraded"] is False
+
+
+def _esperar(condicion, segundos: float = 5.0) -> None:
+    limite = time.monotonic() + segundos
+    while not condicion():
+        assert time.monotonic() < limite, "el hilo no llego a tiempo"
+        time.sleep(0.01)
+
+
+def test_un_hilo_atorado_no_le_escribe_encima_al_turno_siguiente():
+    """Gemini se atora, el juez arranca otro turno sin cerrar: lo viejo se tira."""
+    suelta = threading.Event()
+    llamadas: list[int] = []
+
+    def lento(_contexto):
+        llamadas.append(1)
+        if len(llamadas) == 1:
+            suelta.wait(5)  # el turno viejo sigue esperando a Gemini
+            return {"margen_mxn": 9.0, "nota": "del turno viejo"}
+        return {"margen_mxn": 2.0, "nota": "del turno nuevo"}
+
+    capa = CapaEstrategia(lento, fuente="gemini", intervalo=60)
+    capa.arrancar()
+    _esperar(lambda: len(llamadas) == 1)
+    viejo = capa._hilo
+    assert viejo is not None
+
+    capa.arrancar()  # /shift/start otra vez, sin /shift/end
+    _esperar(lambda: capa.estado_publico()["strategy_note"] == "del turno nuevo")
+
+    suelta.set()
+    viejo.join(5)
+    assert not viejo.is_alive(), "el hilo soltado sale en vez de seguir llamando a Gemini"
+    assert capa.estado_publico()["strategy_note"] == "del turno nuevo"
+    assert len(llamadas) == 2
+    capa.detener()
+
+
+def test_arrancar_otro_turno_sin_cerrar_vuelve_a_base():
+    capa = CapaEstrategia(caido, fuente="gemini", intervalo=60)
+    capa.arrancar()
+    _esperar(lambda: capa.estado_publico()["degraded"])
+
+    def todavia_no(_contexto):
+        time.sleep(1)  # el turno nuevo aun no contesta
+        return {}
+
+    capa.proveedor = todavia_no
+    capa.arrancar()
+    assert capa.estado_publico() == {
+        "degraded": False,
+        "strategy_source": "base",
+        "strategy_note": None,
+        "strategy_running": True,
+    }
+    capa.detener()
 
 
 def test_una_nota_vacia_sale_como_none():
@@ -98,8 +159,9 @@ def api(tmp_path, monkeypatch):
     from backendruta import courier_api
 
     servicio = courier_api.CourierService(tmp_path / "shift.jsonl")
-    # Sin hilo: las vueltas se dan a mano para que el orden sea determinista.
-    monkeypatch.setattr(servicio.estrategia, "arrancar", lambda: None)
+    # Hilo que sale en seguida: arrancar/detener corren de verdad, pero las vueltas
+    # se dan a mano para que el orden sea determinista.
+    monkeypatch.setattr(servicio.estrategia, "_ciclo", lambda _alto: None)
     servicio.estrategia.proveedor = gemini_doble
     servicio.estrategia.fuente = "gemini"
     monkeypatch.setattr(courier_api, "service", servicio)
@@ -115,6 +177,7 @@ def test_status_sin_turno_trae_los_campos_de_gemini(api):
         "degraded": False,
         "strategy_source": "base",
         "strategy_note": None,
+        "strategy_running": False,
     }
 
 
@@ -132,6 +195,7 @@ def test_status_en_turno_ensena_la_nota_y_el_degradado(api):
     )
     antes = cliente.get("/shift/status").json()
     assert antes["active"] is True
+    assert antes["strategy_running"] is True
     assert (antes["degraded"], antes["strategy_source"], antes["strategy_note"]) == (
         False,
         "base",
@@ -157,3 +221,5 @@ def test_status_en_turno_ensena_la_nota_y_el_degradado(api):
         "base",
         None,
     ), "con el turno cerrado el badge no puede seguir diciendo que Gemini habla"
+    assert cerrado["active"] is True, "el adaptador conserva el turno cerrado..."
+    assert cerrado["strategy_running"] is False, "...y esto es lo que dice que ya no esta vivo"
