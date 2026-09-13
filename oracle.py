@@ -167,15 +167,6 @@ def politica_del_plan(plan: PlanOracle) -> Politica:
                 "reservation_wage",
             )
         siguiente += 1
-        if ruta:
-            return None, Decision(
-                est.t,
-                oferta.id,
-                "saltar",
-                {"pago_neto": round(_pago_neto(oferta, cfg), 1)},
-                "La agenda perdió factibilidad; conserva la ruta en curso.",
-                "shift_end_infeasible",
-            )
         return politica_accept_all(oferta, est, ruta, cfg)
 
     return politica
