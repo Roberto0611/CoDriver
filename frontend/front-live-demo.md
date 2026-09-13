@@ -252,11 +252,11 @@ Una persona que no escribió el código puede hacer esto sin modificar archivos:
   estrategia de cada pedido se queda como estaba: no se inventa qué habría contestado Gemini.
   No hay grabado ni referencia: nunca cae a `contrafactual_2000.json` ni a otro seed; los
   `contrafactual_<seed>.json` son solo de `/sim`.
-- **Tiempos.** Crece con los saltos por dinero. Medido en proceso, 2 h tarda 0.1-0.25 s (seeds
-  2000, 2005, 3141) y 8 h tarda 3.0 s (seed 2000, 12 saltos), 4.0 s (2005, 15) y 8.0 s (3141,
-  34), hasta ~11 s la primera vez en frío. Con el API de dev corriendo (uvicorn, grafo cargado),
-  3141 a 8 h tardó 16.6 s entre _Re-simulating_ y el reporte. Por eso corre en un hilo
-  aparte: `/live/end` lo arranca al soltar el candado de la sesión y contesta enseguida;
+- **Tiempos.** Crece con los saltos por dinero. Medido en proceso, 2 h tarda 0.1-0.3 s (seeds
+  2000, 2005, 3141); 8 h tarda 3.2-4.2 s (seed 2000, 12 saltos), 4.4-6.1 s (2005, 15) y
+  5.9-6.4 s (3141, 30); 8.5 h con 3141 tarda 6.1 s (31). Con el API de dev corriendo (uvicorn,
+  grafo cargado), 3141 a 8 h tardó 8.8 s entre _Re-simulating_ y el reporte (16.6 s en otra
+  corrida con la máquina cargada). Por eso corre en un hilo aparte: `/live/end` lo arranca al soltar el candado de la sesión y contesta enseguida;
   `GET /live/counterfactual/{id}` da 202 mientras calcula y el front vuelve a preguntar cada
   700 ms. Ningún candado queda tomado durante el cálculo, y se calcula una vez por sesión.
 - **En el panel** (`sim/LiveCounterfactual.tsx`): mientras calcula, _Re-simulating this
