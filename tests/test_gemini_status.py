@@ -23,12 +23,14 @@ def caido(_contexto):
 
 def test_antes_de_la_primera_vuelta_no_hay_nada_que_presumir():
     capa = CapaEstrategia(gemini_doble, fuente="gemini")
-    assert capa.estado_publico() == {
+    estado = capa.estado_publico()
+    assert {clave: estado[clave] for clave in estado if clave != "gemini_usage"} == {
         "degraded": False,
         "strategy_source": "base",
         "strategy_note": None,
         "strategy_running": False,
     }, "sin respuesta todavia: ni degradado ni gemini, y sin nota"
+    assert estado["gemini_usage"]["calls"] == 0
 
 
 def test_con_respuesta_sale_la_fuente_y_la_nota():
@@ -68,12 +70,14 @@ def test_al_detener_vuelve_a_base_y_no_presume_gemini():
     assert capa.estado_publico()["degraded"] is True
 
     capa.detener()
-    assert capa.estado_publico() == {
+    estado = capa.estado_publico()
+    assert {clave: estado[clave] for clave in estado if clave != "gemini_usage"} == {
         "degraded": False,
         "strategy_source": "base",
         "strategy_note": None,
         "strategy_running": False,
     }
+    assert estado["gemini_usage"]["calls"] == 2
 
 
 def test_una_respuesta_tardia_no_se_cuela_despues_de_detener():
@@ -133,12 +137,14 @@ def test_arrancar_otro_turno_sin_cerrar_vuelve_a_base():
 
     capa.proveedor = todavia_no
     capa.arrancar()
-    assert capa.estado_publico() == {
+    estado = capa.estado_publico()
+    assert {clave: estado[clave] for clave in estado if clave != "gemini_usage"} == {
         "degraded": False,
         "strategy_source": "base",
         "strategy_note": None,
         "strategy_running": True,
     }
+    assert estado["gemini_usage"]["calls"] == 0, "el contador es por turno"
     capa.detener()
 
 
@@ -172,13 +178,15 @@ def api(tmp_path, monkeypatch):
 
 def test_status_sin_turno_trae_los_campos_de_gemini(api):
     cliente, _ = api
-    assert cliente.get("/shift/status").json() == {
+    estado = cliente.get("/shift/status").json()
+    assert {clave: estado[clave] for clave in estado if clave != "gemini_usage"} == {
         "active": False,
         "degraded": False,
         "strategy_source": "base",
         "strategy_note": None,
         "strategy_running": False,
     }
+    assert estado["gemini_usage"]["calls"] == 0
 
 
 def test_status_en_turno_ensena_la_nota_y_el_degradado(api):
