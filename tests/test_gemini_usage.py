@@ -15,8 +15,7 @@ def test_uso_acumula_llamadas_tokens_y_costo_configurable(monkeypatch):
     monkeypatch.setenv("GEMINI_INPUT_USD_PER_MILLION", "0.10")
     monkeypatch.setenv("GEMINI_OUTPUT_USD_PER_MILLION", "0.40")
     monkeypatch.setenv("USD_TO_MXN", "18")
-    eventos: list[dict] = []
-    capa = CapaEstrategia(respuesta, fuente="gemini", al_uso=eventos.append)
+    capa = CapaEstrategia(respuesta, fuente="gemini")
 
     assert capa.refrescar() is True
     uso = capa.estado_publico()["gemini_usage"]
@@ -35,7 +34,6 @@ def test_uso_acumula_llamadas_tokens_y_costo_configurable(monkeypatch):
         "cost_configured": True,
         "interval_s": 300.0,
     }
-    assert eventos == [uso]
 
 
 def test_uso_cuenta_falla_sin_inventar_tokens():

@@ -169,14 +169,12 @@ class CapaEstrategia:
         fuente: str | None = None,
         intervalo: float = INTERVALO_S,
         al_cambiar: Callable[[Estrategia, bool], None] | None = None,
-        al_uso: Callable[[dict[str, Any]], None] | None = None,
     ):
         por_entorno, nombre = proveedor_por_entorno()
         self.proveedor = proveedor or por_entorno
         self.fuente = fuente or (nombre if proveedor is None else "modelo")
         self.intervalo = intervalo
         self.al_cambiar = al_cambiar
-        self.al_uso = al_uso
         self.actual = BASE
         self.degradado = False
         self.contexto: Callable[[], dict[str, Any]] = dict
@@ -238,9 +236,6 @@ class CapaEstrategia:
             self._tokens_salida += uso.salida
             if modelo:
                 self._modelo_uso = modelo
-            resumen = self._uso_publico()
-        if self.al_uso:
-            self.al_uso(resumen)
 
     @staticmethod
     def _tarifa(variable: str) -> float | None:
@@ -432,17 +427,4 @@ def evento_actualizacion(
         "reasoning": " ".join(razon.split()[:40]),
         "confidence": "low" if degradado else "high",
         "degraded": degradado,
-    }
-
-
-def evento_uso_modelo(state: Any, uso: dict[str, Any]) -> dict[str, Any] | None:
-    """Snapshot auditable de uso; no participa en decisiones ni bloquea el turno."""
-    if state is None:
-        return None
-    return {
-        "event": "model_usage",
-        "sim_time": (state.start_time + timedelta(minutes=state.current_minute)).isoformat(
-            timespec="seconds"
-        ),
-        **uso,
     }

@@ -47,10 +47,7 @@ class CourierService:
         self._lock = RLock()
         # La capa lenta. Vive aqui pero NO se llama desde decide(): solo se lee
         # `self.estrategia.actual`, que es leer una variable.
-        self.estrategia = CapaEstrategia(
-            al_cambiar=self._log_strategy,
-            al_uso=self._log_model_usage,
-        )
+        self.estrategia = CapaEstrategia(al_cambiar=self._log_strategy)
         self.estrategia.contexto = self._contexto_modelo
 
     @property
@@ -454,12 +451,6 @@ class CourierService:
         presupuesto de 50 ms prohibe. El EventLog ya trae su propio lock.
         """
         evento = strategy.evento_actualizacion(self.state, propuesta, degraded)
-        if evento is not None:
-            self.log.append(evento)
-
-    def _log_model_usage(self, uso: dict[str, Any]) -> None:
-        """La telemetria de Gemini es evidencia del pitch, no parte de /decide."""
-        evento = strategy.evento_uso_modelo(self.state, uso)
         if evento is not None:
             self.log.append(evento)
 

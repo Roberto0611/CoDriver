@@ -65,6 +65,27 @@ describe('say with ElevenLabs down', () => {
     await promesa
     expect(termino).toBe(true)
   })
+
+  it('the browser voice is en-US by default and takes the lang option (Spanish reasons on /live)', async () => {
+    const dichas: Utterance[] = []
+    vi.stubGlobal('Audio', AudioQueFalla)
+    vi.stubGlobal('SpeechSynthesisUtterance', Utterance)
+    vi.stubGlobal('speechSynthesis', {
+      speak: (u: Utterance) => {
+        dichas.push(u)
+        queueMicrotask(() => u.onend?.())
+      },
+      cancel() {},
+    })
+
+    await say('Take it.')
+    await say('Zona marcada.', { lang: 'es-MX' })
+
+    expect(dichas.map((u) => [u.text, u.lang])).toEqual([
+      ['Take it.', 'en-US'],
+      ['Zona marcada.', 'es-MX'],
+    ])
+  })
 })
 
 describe('prefetch', () => {
