@@ -31,9 +31,8 @@ import { DecisionToasts } from './sim/DecisionToasts'
 import { LiveControls, LiveStartForm, type LivePending, type LivePhase } from './sim/LiveControls'
 import { GeminiNoteView } from './sim/GeminiStatus'
 import { ShockBanner } from './sim/ShockBanner'
+import { LiveCounterfactual } from './sim/LiveCounterfactual'
 import { useSimMap } from './sim/useSimMap'
-
-
 import { handOff, initialNarration, phrasesToSay, type ShockRef } from './voice/liveNarration'
 import { callar, onFuente, say, unlock, type FuenteVoz } from './voice/nuez'
 import './styles/live.css'
@@ -413,8 +412,6 @@ export default function LiveSimView() {
         <div className="loading-text">Starting live shift…</div>
       </div>
 
-
-
       <DecisionToasts frame={ultimoFrame} seed={snap?.seed ?? null} t={ultimoFrame?.t ?? 0} />
 
       <LiveControls
@@ -478,6 +475,7 @@ export default function LiveSimView() {
               nuezMeta={live.nuez.meta}
               terminado={terminado}
             />
+            <LiveCounterfactual seed={snap.seed} terminado={terminado} />
             {snap.event_log && (
               <div className="live-event-log">
                 <span className="caps">Event log</span>
