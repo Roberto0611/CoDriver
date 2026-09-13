@@ -53,8 +53,9 @@ def test_road_de_mas_de_60_es_422(api):
 
 
 def test_duracion_que_ninguna_tabla_cubre_es_422(api, monkeypatch):
-    # Sin la tabla de 8 h, 480 min no tiene costo de oportunidad con que decidir.
+    # Sin las tablas de 8 y 8.5 h, 480 min no tiene costo de oportunidad con que decidir.
     monkeypatch.setattr(valor, "ARCHIVO_LARGO", valor.ARCHIVO)
+    monkeypatch.setattr(valor, "ARCHIVO_510", valor.ARCHIVO)
     r = api.post("/live/start", json={"seed": 2000, "duracion_min": 480})
     assert r.status_code == 422
     assert "la tabla cubre" in r.json()["detail"]
