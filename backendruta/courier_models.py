@@ -10,6 +10,8 @@ from contrato import ConfigTurno, Vehiculo
 from shocks import Shock
 from sim import Parada
 
+MAX_TURNO_MIN = 510  # el practice pack oficial cubre una jornada de 8.5 h
+
 
 class CourierStateOverrides(BaseModel):
     model_config = ConfigDict(extra="allow")
@@ -26,7 +28,7 @@ class ShiftStartRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     seed: int
-    shift_hours: float = Field(gt=0, le=8)
+    shift_hours: float = Field(gt=0, le=MAX_TURNO_MIN / 60)
     vehicle: Vehiculo
     start_location_zone: int
     sim_time: datetime = datetime(2026, 3, 21, 14, 0)

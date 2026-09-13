@@ -86,6 +86,24 @@ def test_probe_directo_funciona_y_es_idempotente(api):
     }
 
 
+def test_turno_de_ocho_horas_y_media_usa_tabla_que_cubre_el_horizonte(api):
+    client, service = api
+    response = client.post(
+        "/shift/start",
+        json={
+            "seed": 1234,
+            "shift_hours": 8.5,
+            "vehicle": "moto",
+            "start_location_zone": 4,
+            "sim_time": "2026-03-21T14:00:00",
+        },
+    )
+    assert response.status_code == 200, response.text
+    assert response.json()["shift_hours"] == 8.5
+    assert service.state is not None and service.state.config.duracion_min == 510
+    assert client.post("/decide", json=order()).status_code == 200
+
+
 def test_mismo_id_con_otro_payload_se_rechaza(api):
     client, _ = api
     assert client.post("/decide", json=order(base_pay_mxn=500)).status_code == 200

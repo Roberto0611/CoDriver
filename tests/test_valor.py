@@ -46,8 +46,9 @@ def test_turno_largo_cobra_el_tiempo_desde_el_inicio():
     tabla = valor.para_turno(480)
     assert valor.precio_del_tiempo(480, 30, tabla) > 0
     assert valor.para_turno(120) == valor.cargar()
+    assert max(valor.para_turno(510)) == 510
     with pytest.raises(ValueError, match="cubre"):
-        valor.para_turno(481)
+        valor.para_turno(511)
 
 
 def test_duracion_fuera_de_cubetas_tiene_cero_y_extremo():
