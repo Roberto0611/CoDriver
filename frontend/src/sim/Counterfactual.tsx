@@ -1,5 +1,7 @@
-// El reporte contrafactual al final del replay: renglones extra bajo el "Final Summary".
-// Los datos salen de re-simular el turno (data/export_contrafactual.py), no de adivinar.
+// El reporte contrafactual al final del turno: renglones extra bajo el "Final Summary".
+// Los datos salen de re-simular el turno, no de adivinar: en /sim los graba
+// data/export_contrafactual.py, en /live los calcula GET /live/counterfactual/{id} con los
+// shocks de la sesión. `Counterfactual` carga el grabado; `CounterfactualReport` solo pinta.
 // Los saltos por reglas duras solo se cuentan: no tienen precio porque no se venden.
 // Vehículo lleno va en su propio renglón: es un límite físico, no seguridad.
 
@@ -24,13 +26,12 @@ interface Props {
 interface ReportProps {
   datos: Contrafactual
   horaInicio: number
-  /** The recorded replay can use the familiar title; live benchmarks must say what they are. */
+  /** El título cambia en /live para nombrar el seed del turno que se re-simuló. */
   titulo?: string
-  /** A live run may show a recorded reference rather than a calculation of that fresh run. */
   nota?: string
 }
 
-/** Shared report body for a recorded replay and the live shift's recorded reference. */
+/** Solo pinta: lo usan el replay grabado de /sim y el cálculo de la sesión en /live. */
 export function CounterfactualReport({
   datos,
   horaInicio,

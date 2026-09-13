@@ -1,9 +1,16 @@
 import { describe, it, expect } from 'vitest'
 
 import type { Decision } from '../contract'
+import type { Contrafactual } from './contrafactual'
 import { horaDeRegreso } from './countersCopy'
 import type { LiveAgent, LiveShock, LiveSnapshot } from './live'
-import { applySnapshot, countersOf, firstDecisionFrom, initLiveState } from './liveAccum'
+import {
+  applySnapshot,
+  countersOf,
+  firstDecisionFrom,
+  initLiveState,
+  withCounterfactual,
+} from './liveAccum'
 import type { Frame, Tramo } from './turno'
 
 // ── Fábricas ─────────────────────────────────────────────────────────────
@@ -259,5 +266,53 @@ describe('countersOf', () => {
     const c = countersOf(ultimo.nuez)
     expect(c).toMatchObject({ ganado: 96.35, entregas: 3 })
     expect(Math.abs(s.nuez.frames.at(-1)!.ganado - c.ganado)).toBeLessThanOrEqual(0.05)
+  })
+})
+
+describe('withCounterfactual', () => {
+  const reporte = (seed = 2005): Contrafactual => ({
+    seed,
+    policy: 'nuez',
+    actual: { earned_mxn: 250.4, deliveries: 6, offers: 90, late: false },
+    skipped_total: 80,
+    money_skips: {
+      count: 1,
+      evaluated: 1,
+      infeasible: 0,
+      would_earn_less: 1,
+      would_earn_more: 0,
+      no_change: 0,
+      late_runs: 0,
+      cancelled_runs: 0,
+      avg_delta_mxn: -12.3,
+      max_gain_mxn: null,
+      max_loss_mxn: -12.3,
+    },
+    safety_skips: { heat_rule: 3 },
+    capacity_skips: 2,
+    top: [],
+    note: '',
+  })
+  const terminada = () =>
+    applySnapshot(initLiveState(snap(0)), snap(120, { status: 'ended', event_log: 'x.jsonl' }))
+
+  it('una sesión arranca sin contrafactual y lo recibe al terminar', () => {
+    expect(initLiveState(snap(0)).counterfactual).toBeNull()
+    const s = withCounterfactual(terminada(), 'live-2005-ab12', reporte())
+    expect(s.counterfactual).toEqual(reporte())
+  })
+
+  it('no pega el reporte de otra sesión, de otro seed ni de una que sigue corriendo', () => {
+    const fin = terminada()
+    expect(withCounterfactual(fin, 'live-2005-zz99', reporte())).toBe(fin)
+    expect(withCounterfactual(fin, 'live-2005-ab12', reporte(2006))).toBe(fin)
+    const corriendo = initLiveState(snap(40))
+    expect(withCounterfactual(corriendo, 'live-2005-ab12', reporte())).toBe(corriendo)
+  })
+
+  it('un snapshot que llega después no lo borra', () => {
+    let s = withCounterfactual(terminada(), 'live-2005-ab12', reporte())
+    s = applySnapshot(s, snap(120, { status: 'ended' }))
+    expect(s.counterfactual?.seed).toBe(2005)
   })
 })

@@ -9,12 +9,20 @@ el protocolo HTTP que ve el juez habla en ingles (shock_type/zone/road/duration_
 order_id/slip_min). Este
 archivo es el unico lugar donde se traducen, igual que courier_api.py hace con
 el protocolo Courier.
+
+El contrafactual (`GET /live/counterfactual/{id}`) va aparte de `/live/end` y se
+calcula la primera vez que se pide. Re-simula el turno una vez por salto por dinero:
+120 min tarda ~0.1-0.5 s, pero 480 min tarda ~3.5 s, y meterlo en `/live/end` haria
+que el boton End se quedara colgado todo ese rato. Se calcula sin el candado del
+registro (los shocks y el cfg de una sesion terminada ya no cambian) y se guarda en
+la sesion, asi que pedirlo dos veces no re-simula dos veces.
 """
 
 import os
 import secrets
+from dataclasses import dataclass, field
 from pathlib import Path
-from threading import RLock
+from threading import Lock, RLock
 from typing import Any, Literal
 
 from fastapi import APIRouter, HTTPException
@@ -30,12 +38,22 @@ from backendruta.live_demo import (
     SesionTerminada,
 )
 from backendruta.live_geometry import Geometria, linea_recta
+from contrafactual import reporte
 from contrato import ConfigTurno, Vehiculo
 from valor import para_turno
 
 MAX_SESIONES = 8
 # El minuto en que se ensayo el cierre de Constitucion con SEED_ENSAYADO.
 MINUTO_CIERRE_ENSAYADO = 30
+
+
+@dataclass
+class Contrafactual:
+    """El reporte de una sesion terminada. Su candado es solo del calculo: dos pedidos
+    al mismo tiempo esperan al primero en vez de re-simular el turno dos veces."""
+
+    lock: Lock = field(default_factory=Lock)
+    reporte: dict[str, Any] | None = None
 
 
 class LiveRegistry:
@@ -47,6 +65,7 @@ class LiveRegistry:
         self.geometria = geometria
         self._lock = RLock()
         self._sesiones: dict[str, LiveDemoSession] = {}
+        self._contrafactuales: dict[str, Contrafactual] = {}
 
     def usar_grafo(self, grafo: Any) -> None:
         """`main.py` lo llama una vez con el grafo (o None) recien cargado."""
@@ -57,7 +76,9 @@ class LiveRegistry:
     def crear(self, cfg: ConfigTurno) -> LiveDemoSession:
         with self._lock:
             while len(self._sesiones) >= MAX_SESIONES:
-                self._sesiones.pop(next(iter(self._sesiones)))  # el mas viejo por insercion
+                viejo = next(iter(self._sesiones))  # el mas viejo por insercion
+                self._sesiones.pop(viejo)
+                self._contrafactuales.pop(viejo, None)
             session_id = f"live-{cfg.seed}-{secrets.token_hex(3)}"
             sesion = LiveDemoSession(
                 session_id,
@@ -74,6 +95,10 @@ class LiveRegistry:
             if sesion is None:
                 raise KeyError(session_id)
             return sesion
+
+    def contrafactual(self, session_id: str) -> Contrafactual:
+        """El lugar del reporte de esa sesion. Llamarlo con el candado del registro tomado."""
+        return self._contrafactuales.setdefault(session_id, Contrafactual())
 
     @property
     def lock(self) -> RLock:
@@ -199,3 +224,23 @@ def end(request: SessionRequest) -> dict[str, Any]:
             return sesion.end()
         except SesionTerminada as exc:
             raise HTTPException(status_code=409, detail=str(exc)) from exc
+
+
+@router.get("/counterfactual/{session_id}")
+def counterfactual(session_id: str) -> dict[str, Any]:
+    """El contrafactual de Nuez sobre el turno en vivo, con los shocks que se metieron.
+    Mismo esquema que los `contrafactual_<seed>.json` del replay grabado."""
+    with registry.lock:
+        sesion = _sesion(session_id)
+        if sesion.status == "running":
+            raise HTTPException(
+                status_code=409,
+                detail=f"la sesion {session_id} sigue corriendo: termina el turno primero",
+            )
+        calculo = registry.contrafactual(session_id)
+        # Terminada ya no acepta ticks ni shocks: esto no cambia al soltar el candado.
+        cfg, disrupciones = sesion.cfg, tuple(sesion.shocks)
+    with calculo.lock:
+        if calculo.reporte is None:
+            calculo.reporte = reporte(cfg, disrupciones=disrupciones)
+        return calculo.reporte

@@ -7,6 +7,7 @@
 // funcionaría hoy por casualidad.
 
 import type { ConfigTurno, Decision, Vehiculo } from '../contract'
+import type { Contrafactual } from './contrafactual'
 import type { AgentKey, LiveAgent, LiveOffer, LiveShock, LiveSnapshot } from './live'
 import type { Contadores } from './sim'
 import type { Frame, TurnoData, TurnoMeta } from './turno'
@@ -24,6 +25,9 @@ export interface LiveState {
   shocks: LiveShockSeen[]
   /** Todas las ofertas que aparecieron, para medir qué hizo un surge. */
   offers: LiveOffer[]
+  /** El contrafactual de la sesión terminada; null mientras no llega (o si falló).
+   *  Opcional para que un LiveState armado a mano (los tests del banner) siga valiendo. */
+  counterfactual?: Contrafactual | null
 }
 
 /** Lo que el snapshot no trae pero el config sí pide. */
@@ -80,7 +84,14 @@ export function initLiveState(snap: LiveSnapshot, extra: LiveConfigExtra = {}): 
     }
   }
   return applySnapshot(
-    { snapshot: snap, greedy: armar('greedy'), nuez: armar('nuez'), shocks: [], offers: [] },
+    {
+      snapshot: snap,
+      greedy: armar('greedy'),
+      nuez: armar('nuez'),
+      shocks: [],
+      offers: [],
+      counterfactual: null,
+    },
     snap
   )
 }
@@ -132,7 +143,22 @@ export function applySnapshot(prev: LiveState, snap: LiveSnapshot): LiveState {
     nuez,
     shocks: nuevos.length ? [...prev.shocks, ...nuevos] : prev.shocks,
     offers,
+    counterfactual: prev.counterfactual,
   }
+}
+
+/**
+ * Pega el contrafactual que se pidió al terminar. Solo si es de ESTA sesión, ya terminada y
+ * del mismo seed: la respuesta de una sesión soltada que llega tarde no se pinta en otra.
+ */
+export function withCounterfactual(
+  state: LiveState,
+  sessionId: string,
+  rep: Contrafactual
+): LiveState {
+  const s = state.snapshot
+  if (s.session_id !== sessionId || s.status === 'running' || rep.seed !== s.seed) return state
+  return { ...state, counterfactual: rep }
 }
 
 /** La primera decisión en un minuto ≥ `minute`: la reacción al shock. */

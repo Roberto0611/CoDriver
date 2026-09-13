@@ -1,7 +1,7 @@
 import { afterEach, describe, it, expect, vi } from 'vitest'
 
 import { API_URL } from './api'
-import { DEMO_SHOCKS, LiveApiError, shockLive, tickLive } from './live'
+import { DEMO_SHOCKS, LiveApiError, getCounterfactual, shockLive, tickLive } from './live'
 
 function respuesta(status: number, body: unknown): Response {
   return new Response(JSON.stringify(body), {
@@ -87,5 +87,25 @@ describe('cliente live', () => {
     const e = await error(tickLive('live-1'))
     expect(e.status).toBe(0)
     expect(e.message).toBe(`Can't reach the live backend at ${API_URL}`)
+  })
+
+  it('pide el contrafactual de la sesión por GET', async () => {
+    const reporte = { seed: 2005, money_skips: {}, safety_skips: {}, capacity_skips: 0, top: [] }
+    const fetchMock = vi.fn(async () => respuesta(200, reporte))
+    vi.stubGlobal('fetch', fetchMock)
+    expect(await getCounterfactual('live-2005-ab12')).toEqual(reporte)
+    expect(fetchMock).toHaveBeenCalledWith(
+      `${API_URL}/live/counterfactual/live-2005-ab12`,
+      expect.objectContaining({ method: 'GET' })
+    )
+  })
+
+  it('un contrafactual con otra forma truena en vez de pintarse a medias', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => respuesta(200, { seed: 2005 }))
+    )
+    const e = await error(getCounterfactual('live-2005-ab12'))
+    expect(e.message).toMatch(/counterfactual/i)
   })
 })

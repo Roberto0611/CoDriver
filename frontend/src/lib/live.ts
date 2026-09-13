@@ -5,6 +5,7 @@
 
 import type { Vehiculo } from '../contract'
 import { API_URL } from './api'
+import { esContrafactual, type Contrafactual } from './contrafactual'
 import type { Frame, Tramo, TurnoMeta } from './turno'
 
 export type AgentKey = 'greedy' | 'nuez'
@@ -200,6 +201,18 @@ export function shockLive(
 
 export function endLive(sessionId: string): Promise<LiveSnapshot> {
   return pedir('/live/end', { session_id: sessionId })
+}
+
+/**
+ * El contrafactual de Nuez sobre una sesión ya terminada (409 si sigue corriendo). El
+ * backend re-simula el turno con los mismos shocks; en uno de 8 h tarda unos segundos.
+ */
+export async function getCounterfactual(sessionId: string): Promise<Contrafactual> {
+  const datos = await pedir<unknown>(`/live/counterfactual/${encodeURIComponent(sessionId)}`)
+  if (!esContrafactual(datos)) {
+    throw new LiveApiError('The live backend sent a counterfactual in an unexpected shape', 200)
+  }
+  return datos
 }
 
 export function getZones(): Promise<LiveZone[]> {

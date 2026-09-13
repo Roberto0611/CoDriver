@@ -10,6 +10,11 @@ Un salto a la vez. Por cada pedido que Nuez salto POR DINERO (`reservation_wage`
 se corre el turno otra vez con Nuez identica, salvo que ese pedido, en ese
 momento, lo acepta. delta = ganado(forzado) - ganado(real).
 
+Con `disrupciones` (los shocks que el juez metio en /live) las corridas llevan los
+mismos shocks en los mismos minutos. Inyectar a media jornada da la misma historia
+que declararlos desde el inicio (ver reloj.py), asi que el "real" es justo el turno
+que se vio en pantalla. Sin ellas es el turno grabado de siempre.
+
 Dos cosas que este reporte NO hace, a proposito:
   1. No simula los saltos por restriccion dura. No se venden, asi que no tienen
      precio que reportar: se cuentan y ya. La capacidad va aparte de la seguridad:
@@ -28,6 +33,7 @@ from typing import Any, get_args
 from contrato import ConfigTurno, Decision, EstadoRepartidor, Oferta, Restriccion
 from estrategia import BASE
 from nuez import politica_nuez
+from shocks import Shock
 from sim import Parada, Politica, Resultado, simular
 
 DINERO = "reservation_wage"
@@ -63,18 +69,20 @@ def forzar(objetivo: str, politica: Politica = politica_nuez) -> Politica:
     return forzada
 
 
-def con_pedido(cfg: ConfigTurno, objetivo: str) -> Resultado:
+def con_pedido(cfg: ConfigTurno, objetivo: str, disrupciones: tuple[Shock, ...] = ()) -> Resultado:
     """El mismo turno, con Nuez aceptando `objetivo` si la seguridad lo deja."""
-    return simular(cfg, forzar(objetivo))
+    return simular(cfg, forzar(objetivo), disrupciones)
 
 
 def _decision_de(res: Resultado, oferta_id: str) -> Decision:
     return next(d for d in res.decisiones if d.oferta_id == oferta_id)
 
 
-def reporte(cfg: ConfigTurno, top: int = TOP) -> dict[str, Any]:
+def reporte(
+    cfg: ConfigTurno, top: int = TOP, disrupciones: tuple[Shock, ...] = ()
+) -> dict[str, Any]:
     """Resumen JSON-serializable del turno de Nuez y de sus saltos por dinero."""
-    real = simular(cfg, politica_nuez)
+    real = simular(cfg, politica_nuez, disrupciones)
     saltos = [d for d in real.decisiones if d.accion == "saltar"]
 
     duras_cuenta: Counter[str] = Counter()
@@ -87,7 +95,7 @@ def reporte(cfg: ConfigTurno, top: int = TOP) -> dict[str, Any]:
             duras_cuenta[d.restriccion] += 1
             continue
 
-        forzado = con_pedido(cfg, d.oferta_id)
+        forzado = con_pedido(cfg, d.oferta_id, disrupciones)
         if _decision_de(forzado, d.oferta_id).accion != "aceptar":
             # Una restriccion dura lo bloqueo al forzarlo: se cuenta aparte, sin precio.
             infactibles += 1
