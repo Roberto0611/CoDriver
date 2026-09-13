@@ -135,33 +135,42 @@ export function LiveControls(p: ControlsProps) {
       </div>
 
       <div className="live-actions">
-        <button
-          className="live-btn is-closure"
-          disabled={!shockListo}
-          onClick={() => p.onShock('closure')}
-        >
-          {Icon.closure}
-          {p.pending === 'closure' ? 'Closing…' : 'Close Constitución'}
-        </button>
-        <button
-          className="live-btn is-surge"
-          disabled={!shockListo}
-          onClick={() => p.onShock('surge')}
-        >
-          {Icon.speed}
-          {p.pending === 'surge' ? 'Triggering…' : 'Trigger surge'}
-        </button>
-        {/* Solo icono, como la voz: con "Restaurant +15 min" (o "Late +15") la píldora se
-            mete bajo el logo a 1280×800. El nombre va en aria-label y el detalle en title. */}
-        <button
-          className="live-btn is-delay is-icon"
-          disabled={!shockListo}
-          title={p.pending === 'delay' ? 'Delaying…' : RETRASO_TITULO}
-          aria-label={p.pending === 'delay' ? 'Delaying…' : RETRASO_NOMBRE}
-          onClick={() => p.onShock('delay')}
-        >
-          {Icon.clock}
-        </button>
+        {/* Los tres shocks vivían como botones sueltos y no cabían a 1280x800;
+            ahora son un solo dropdown por hover, como un menú de vidrio de menú. */}
+        <div className="live-events">
+          <button className="live-btn" disabled={!shockListo}>
+            {Icon.clock}
+            Events
+            {Icon.chevron}
+          </button>
+          <div className="live-events-menu">
+            <button
+              className="live-events-item is-closure"
+              disabled={!shockListo}
+              onClick={() => p.onShock('closure')}
+            >
+              {Icon.closure}
+              {p.pending === 'closure' ? 'Closing…' : 'Close Constitución'}
+            </button>
+            <button
+              className="live-events-item is-surge"
+              disabled={!shockListo}
+              onClick={() => p.onShock('surge')}
+            >
+              {Icon.speed}
+              {p.pending === 'surge' ? 'Triggering…' : 'Trigger surge'}
+            </button>
+            <button
+              className="live-events-item is-delay"
+              disabled={!shockListo}
+              title={p.pending === 'delay' ? 'Delaying…' : RETRASO_TITULO}
+              onClick={() => p.onShock('delay')}
+            >
+              {Icon.clock}
+              {p.pending === 'delay' ? 'Delaying…' : RETRASO_NOMBRE}
+            </button>
+          </div>
+        </div>
         {terminado ? (
           <button className="live-btn" onClick={p.onNewShift}>
             Start new shift

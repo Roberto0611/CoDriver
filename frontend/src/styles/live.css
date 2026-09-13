@@ -107,13 +107,6 @@
   height: 14px;
 }
 
-/* Botón de solo icono: redondo, del alto de los demás. */
-.live-btn.is-icon {
-  width: 38px;
-  padding: 0;
-  justify-content: center;
-}
-
 .live-btn:hover {
   border-color: var(--hairline-strong);
   color: var(--ink);
@@ -136,32 +129,102 @@
   transform: none;
 }
 
-.live-btn.is-closure svg {
+/* ─── Dropdown de eventos ───
+   Los tres shocks (cierre, surge, restaurante atrasado) vivían como botones
+   sueltos y no cabían en la píldora a 1280x800; ahora son un menú que se abre
+   al pasar el cursor sobre "Events" (o con foco de teclado, para no perderlo
+   con mouse-only). El botón vive dentro de .live-actions así que hereda su
+   alto de 38px como los demás. */
+.live-events {
+  position: relative;
+}
+
+.live-events-menu {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  margin-top: 8px;
+  z-index: 30;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 220px;
+  padding: 6px;
+  background: var(--glass);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid var(--hairline);
+  border-radius: var(--r-md);
+  box-shadow: var(--shadow-float);
+  /* Oculto por defecto pero presente en el layout (no display:none) para que
+     la transición de opacidad/traslado no se salte y el foco de teclado siga
+     pudiendo llegar a los botones vía Tab incluso antes del hover. */
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(-4px);
+  transition:
+    opacity 150ms var(--ease),
+    transform 150ms var(--ease),
+    visibility 150ms;
+}
+
+.live-events:hover .live-events-menu,
+.live-events:focus-within .live-events-menu {
+  opacity: 1;
+  visibility: visible;
+  transform: translateY(0);
+}
+
+.live-events-item {
+  height: 36px;
+  padding: 0 10px;
+  border-radius: var(--r-sm);
+  border: none;
+  background: transparent;
+  color: var(--ink-2);
+  font-size: 12px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  white-space: nowrap;
+  cursor: pointer;
+  text-align: left;
+  transition: background 150ms var(--ease);
+}
+
+.live-events-item svg {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+}
+
+.live-events-item:hover {
+  background: var(--surface-high);
+}
+
+.live-events-item:focus-visible {
+  outline: 2px solid var(--plum);
+  outline-offset: -2px;
+}
+
+.live-events-item:disabled {
+  color: var(--ink-4);
+  cursor: not-allowed;
+}
+
+.live-events-item.is-closure svg {
   color: var(--closure-red);
 }
 
 /* Surge y restaurante atrasado son urgencia (ámbar); se distinguen por icono y texto. */
-.live-btn.is-surge,
-.live-btn.is-delay {
-  border-color: var(--amber);
-  color: var(--amber-ink);
-}
-
-.live-btn.is-surge svg,
-.live-btn.is-delay svg {
+.live-events-item.is-surge svg,
+.live-events-item.is-delay svg {
   color: var(--amber);
 }
 
-.live-btn.is-surge:hover,
-.live-btn.is-delay:hover {
-  background: var(--amber-tint);
-}
-
-.live-btn:disabled svg,
-.live-btn.is-surge:disabled,
-.live-btn.is-delay:disabled {
+.live-events-item:disabled svg {
   color: var(--ink-4);
-  border-color: var(--surface-high);
 }
 
 /* ─── Panel: formulario de inicio ─── */
