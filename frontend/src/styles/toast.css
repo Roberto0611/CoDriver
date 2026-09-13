@@ -34,6 +34,7 @@
 }
 
 .decision-toast-icon {
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -41,6 +42,28 @@
   width: 36px;
   height: 36px;
   border-radius: 50%;
+  overflow: hidden;
+}
+
+/* La mascota de Navie (.navie-stage, 260x251.6px fijo) mide la animación de cada
+   modo con su propio `transform` (bounce, sway, etc). Para no pisarlo, el
+   centrado y el escalado a 36px viven en dos envoltorios aparte: el "frame"
+   ancla el origen de escala en el centro del círculo, y "center" desplaza la
+   mascota sin tamaño reducido antes de que el frame la achique. */
+.decision-toast-navie-frame {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: scale(0.14);
+  transform-origin: 0 0;
+  pointer-events: none;
+}
+
+.decision-toast-navie-center {
+  position: absolute;
+  top: 0;
+  left: 0;
+  transform: translate(-50%, -50%);
 }
 
 /* El color dice qué pasó: rosa = seguridad, esmeralda = dinero. */

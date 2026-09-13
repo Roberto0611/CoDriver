@@ -7,6 +7,7 @@
 
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { Icon } from '../ui/icons'
+import { NavieCompass, type CompassMode } from '../navie'
 
 const VISIBLE_MS = 3000
 const SALIDA_MS = 520 // igual que toast-pop-out en toast.css
@@ -20,8 +21,8 @@ const SOBREPASO: Keyframe[] = [
 ]
 
 const VARIANTES = {
-  blocked: { titulo: 'Offer blocked', icono: Icon.shield },
-  accepted: { titulo: 'Order accepted', icono: Icon.accept },
+  blocked: { titulo: 'Offer blocked', navieMode: 'error' as CompassMode },
+  accepted: { titulo: 'Order accepted', navieMode: 'happy' as CompassMode },
 } as const
 
 interface Aviso {
@@ -45,7 +46,7 @@ export function DecisionToast({ variant, texto, decisionKey }: Props) {
   const [saliendo, setSaliendo] = useState(false)
   const [ultimaKey, setUltimaKey] = useState<string | null>(null)
   const tarjeta = useRef<HTMLDivElement>(null)
-  const { titulo, icono } = VARIANTES[variant]
+  const { titulo, navieMode } = VARIANTES[variant]
 
   // Ajuste de estado durante el render (patrón de React) cuando llega otra decisión.
   if (decisionKey !== ultimaKey) {
@@ -94,7 +95,13 @@ export function DecisionToast({ variant, texto, decisionKey }: Props) {
           ref={tarjeta}
           className={`decision-toast is-${variant} ${saliendo ? 'is-leaving' : ''}`}
         >
-          <span className="decision-toast-icon">{icono}</span>
+          <div className="decision-toast-icon">
+            <div className="decision-toast-navie-frame">
+              <div className="decision-toast-navie-center">
+                <NavieCompass mode={navieMode} />
+              </div>
+            </div>
+          </div>
           <div className="decision-toast-body">
             <span className="caps">{titulo}</span>
             <span className="decision-toast-label">{aviso.texto}</span>
