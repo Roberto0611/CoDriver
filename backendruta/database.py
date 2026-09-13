@@ -3,11 +3,14 @@ import logging
 import os
 from datetime import datetime
 from pathlib import Path
+from queue import Empty, Full, Queue
+from threading import Lock, Thread
+from time import monotonic, sleep
 from typing import Any
 
 from dotenv import load_dotenv
 from sqlalchemy import create_engine, text
-from sqlalchemy.engine import Engine
+from sqlalchemy.engine import URL, Engine
 
 # Cargar variables de entorno desde .env en la raíz del proyecto
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -29,6 +32,13 @@ _connection_attempted: bool = False
 _MEMORY_TRAFFIC: dict[str, list[dict[str, Any]]] = {}
 _MEMORY_INCIDENTS: list[dict[str, Any]] = []
 
+# Las decisiones viajan por una cola: /decide solo mete un diccionario en memoria
+# y nunca espera a Postgres. El hilo de abajo puede tardar, reintentar o caerse sin
+# gastar el presupuesto de 50 ms de la ruta rapida.
+_DECISION_QUEUE: Queue[dict[str, Any]] = Queue(maxsize=10_000)
+_DECISION_THREAD: Thread | None = None
+_DECISION_THREAD_LOCK = Lock()
+
 
 def get_engine(force_retry: bool = False) -> Engine | None:
     global _engine, _db_connected, _connection_attempted
@@ -41,14 +51,23 @@ def get_engine(force_retry: bool = False) -> Engine | None:
     _connection_attempted = True
     try:
         # Timeout corto (1s) para no congelar la app si no hay servidor Postgres levantado
-        _engine = create_engine(
-            DATABASE_URL, pool_pre_ping=True, connect_args={"connect_timeout": 1}
-        )
+        engine_url: str | URL = DATABASE_URL
+        if os.getenv("PGHOST") and not os.getenv("TIGERDATA_DATABASE_URL"):
+            engine_url = URL.create(
+                "postgresql+psycopg2",
+                username=os.getenv("PGUSER"),
+                password=os.getenv("PGPASSWORD"),
+                host=os.getenv("PGHOST"),
+                port=int(os.getenv("PGPORT", "5432")),
+                database=os.getenv("PGDATABASE"),
+                query={"sslmode": os.getenv("PGSSLMODE", "require")},
+            )
+        _engine = create_engine(engine_url, pool_pre_ping=True, connect_args={"connect_timeout": 1})
         with _engine.connect() as conn:
             conn.execute(text("SELECT 1"))
         _db_connected = True
         logger.info(
-            f"Conectado exitosamente a TigerData/PostgreSQL en {DATABASE_URL.split('@')[-1]}"
+            f"Conectado exitosamente a TigerData/PostgreSQL en {str(engine_url).split('@')[-1]}"
         )
     except Exception as e:
         logger.warning(
@@ -146,6 +165,42 @@ def init_db() -> bool:
             """)
             )
 
+            # 4. Bitacora auditable del motor. El JSONB conserva todo el evento
+            # oficial (incluyendo inputs y alternativas) sin inventar un segundo
+            # contrato que se pueda desalinear del JSONL de replay.
+            conn.execute(
+                text("""
+                CREATE TABLE IF NOT EXISTS decisiones_courier (
+                    id BIGSERIAL NOT NULL,
+                    sim_time TIMESTAMPTZ NOT NULL,
+                    log_path TEXT NOT NULL,
+                    order_id TEXT NOT NULL,
+                    decision TEXT NOT NULL,
+                    binding_constraint TEXT,
+                    payload JSONB NOT NULL,
+                    PRIMARY KEY (sim_time, id)
+                );
+            """)
+            )
+
+            if has_timescale:
+                try:
+                    conn.execute(
+                        text(
+                            "SELECT create_hypertable("
+                            "'decisiones_courier', 'sim_time', if_not_exists => TRUE);"
+                        )
+                    )
+                except Exception as e:
+                    logger.debug(f"Hipertabla de decisiones ya existente o no requerida: {e}")
+
+            conn.execute(
+                text("""
+                CREATE INDEX IF NOT EXISTS idx_decisiones_courier_order
+                ON decisiones_courier (log_path, order_id, sim_time DESC);
+            """)
+            )
+
         logger.info("Esquema de base de datos TigerData inicializado correctamente.")
         return True
     except Exception as e:
@@ -231,6 +286,117 @@ def save_incident(incident: dict[str, Any]) -> None:
                 )
         except Exception as e:
             logger.error(f"Error al guardar incidente en TigerData: {e}")
+
+
+def enqueue_decision(event: dict[str, Any], log_path: Path) -> None:
+    """Encola una decision para TigerData sin bloquear la ruta rapida.
+
+    El JSONL se escribe antes de llegar aqui y sigue siendo la fuente para replay.
+    Solo los eventos ``decision`` van a la serie de tiempo; posiciones y ofertas no
+    duplican la bitacora porque ya estan anidados en el contexto de la decision.
+    """
+    if event.get("event") != "decision":
+        return
+    record = _decision_record(event, log_path)
+    try:
+        _DECISION_QUEUE.put_nowait(record)
+    except Full:
+        logger.error("Cola de decisiones TigerData llena; el JSONL local conserva el evento.")
+        return
+    _start_decision_worker()
+
+
+def get_decision(log_path: Path, order_id: str) -> dict[str, Any] | None:
+    """Lee una explicacion persistida; se usa fuera de la ventana de decision."""
+    engine = get_engine()
+    if not engine or not is_connected():
+        return None
+    try:
+        with engine.connect() as conn:
+            row = conn.execute(
+                text("""
+                    SELECT payload
+                    FROM decisiones_courier
+                    WHERE log_path = :log_path AND order_id = :order_id
+                    ORDER BY sim_time DESC
+                    LIMIT 1
+                """),
+                {"log_path": str(log_path), "order_id": order_id},
+            ).scalar_one_or_none()
+    except Exception as exc:
+        logger.warning(f"Error consultando decision en TigerData: {exc}")
+        return None
+    if isinstance(row, str):
+        return json.loads(row)
+    return row if isinstance(row, dict) else None
+
+
+def flush_decisions(timeout_s: float = 1.0) -> bool:
+    """Da al escritor de fondo una oportunidad acotada de vaciar la cola al cerrar."""
+    deadline = monotonic() + timeout_s
+    while _DECISION_QUEUE.unfinished_tasks and monotonic() < deadline:
+        sleep(0.01)
+    return _DECISION_QUEUE.unfinished_tasks == 0
+
+
+def _decision_record(event: dict[str, Any], log_path: Path) -> dict[str, Any]:
+    """Extrae las columnas indexables y conserva el evento oficial completo."""
+    return {
+        "sim_time": event["sim_time"],
+        "log_path": str(log_path),
+        "order_id": event["order_id"],
+        "decision": event["decision"],
+        "binding_constraint": event.get("binding_constraint"),
+        "payload": json.dumps(event, ensure_ascii=False, default=str),
+    }
+
+
+def _start_decision_worker() -> None:
+    global _DECISION_THREAD
+    with _DECISION_THREAD_LOCK:
+        if _DECISION_THREAD is not None and _DECISION_THREAD.is_alive():
+            return
+        _DECISION_THREAD = Thread(target=_write_decisions, name="tigerdata-decisions", daemon=True)
+        _DECISION_THREAD.start()
+
+
+def _write_decisions() -> None:
+    """Escritor en segundo plano; una falla de DB nunca propaga a /decide."""
+    while True:
+        try:
+            first = _DECISION_QUEUE.get(timeout=0.2)
+        except Empty:
+            return
+        batch = [first]
+        while len(batch) < 100:
+            try:
+                batch.append(_DECISION_QUEUE.get_nowait())
+            except Empty:
+                break
+        try:
+            _save_decision_batch(batch)
+        finally:
+            for _ in batch:
+                _DECISION_QUEUE.task_done()
+
+
+def _save_decision_batch(records: list[dict[str, Any]]) -> None:
+    engine = get_engine()
+    if not engine or not is_connected():
+        return
+    try:
+        with engine.begin() as conn:
+            conn.execute(
+                text("""
+                    INSERT INTO decisiones_courier
+                        (sim_time, log_path, order_id, decision, binding_constraint, payload)
+                    VALUES
+                        (:sim_time, :log_path, :order_id, :decision, :binding_constraint, :payload)
+                """),
+                records,
+            )
+    except Exception as exc:
+        logger.error(f"Error al guardar decisiones en TigerData: {exc}")
 
 
 def get_traffic_at_time(hora_str: str) -> list[dict[str, Any]]:

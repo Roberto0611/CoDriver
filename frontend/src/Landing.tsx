@@ -1,4 +1,4 @@
-﻿import { Link } from 'react-router-dom'
+import { Link } from 'react-router-dom'
 import PixelCanvasBackground from './PixelCanvasBackground'
 import NavieBackgroundPanel from './NavieBackgroundPanel'
 import { NavieCompass } from './navie/NavieCompass'
@@ -103,326 +103,365 @@ export default function LandingPage() {
           </div>
         </header>
 
-        {/* â”€â”€ Hero Section (con USA Map Canvas de fondo y Grid Style) â”€â”€ */}
+        {/* ── Hero Section (con USA Map Canvas de fondo y Grid Style) ── */}
         <section
           style={{
-          position: 'relative',
-          width: '100%',
-          height: 'clamp(600px, 80vh, 800px)',
-          minHeight: '600px',
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          justifyContent: 'flex-start',
-          paddingTop: 'clamp(70px, 15vh, 120px)',
-          paddingLeft: '20px',
-          paddingRight: '20px',
-          textAlign: 'center',
-          overflow: 'hidden',
-          boxSizing: 'border-box',
-          backgroundColor: 'var(--ink)',
-          backgroundImage:
-            'linear-gradient(to right, rgba(255, 255, 255, 0.05) 1px, transparent 1px), linear-gradient(to bottom, rgba(255, 255, 255, 0.05) 1px, transparent 1px)',
-          backgroundSize: '24px 24px',
-          borderBottom: '1px solid var(--hairline)',
-        }}
-      >
-        {/* Fondo interactivo de Video (.mp4) con PixelCanvas */}
-        <PixelCanvasBackground
-          src='/tec-fondo-compact-ezgif.com-gif-to-mp4-converter.mp4'
-          pixelSize={8}
-          overlayOpacity={0}
-          style={{
-            position: 'absolute',
-            top: 0,
-            left: 0,
-            width: '100%',
-            height: '100%',
-            zIndex: 0,
-          }}
-        />
-
-        {/* Contenido del Hero sobre el mapa */}
-        <div
-          style={{
             position: 'relative',
-            zIndex: 1,
+            width: '100%',
+            height: 'clamp(600px, 80vh, 800px)',
+            minHeight: '600px',
             display: 'flex',
             flexDirection: 'column',
             alignItems: 'center',
-            maxWidth: '900px',
-            width: '100%',
+            justifyContent: 'flex-start',
+            paddingTop: 'clamp(70px, 15vh, 120px)',
+            paddingLeft: '20px',
+            paddingRight: '20px',
+            textAlign: 'center',
+            overflow: 'hidden',
+            boxSizing: 'border-box',
+            backgroundColor: 'var(--ink)',
+            backgroundImage:
+              'linear-gradient(to right, rgba(255, 255, 255, 0.05) 1px, transparent 1px), linear-gradient(to bottom, rgba(255, 255, 255, 0.05) 1px, transparent 1px)',
+            backgroundSize: '24px 24px',
+            borderBottom: '1px solid var(--hairline)',
           }}
         >
-          {/* â”€â”€ Main Highlighted Title â”€â”€ */}
-          <h1
+          {/* Fondo interactivo de Video (.mp4) con PixelCanvas */}
+          <PixelCanvasBackground
+            src='/tec-fondo-compact-ezgif.com-gif-to-mp4-converter.mp4'
+            pixelSize={8}
+            overlayOpacity={0}
             style={{
-              margin: 0,
-              padding: 0,
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              width: '100%',
+              height: '100%',
+              zIndex: 0,
+            }}
+          />
+
+          {/* Contenido del Hero sobre el mapa */}
+          <div
+            style={{
+              position: 'relative',
+              zIndex: 1,
               display: 'flex',
               flexDirection: 'column',
               alignItems: 'center',
-              gap: '6px',
+              maxWidth: '900px',
+              width: '100%',
             }}
           >
-            <span
+            {/* ── Main Highlighted Title ── */}
+            <h1
               style={{
-                backgroundColor: 'var(--plum)',
-                color: '#ffffff',
-                padding: '4px 16px',
-                fontSize: 'clamp(2rem, 4.6vw, 3.4rem)',
-                fontWeight: 800,
-                letterSpacing: '-0.03em',
-                lineHeight: 1.18,
-                display: 'inline-block',
-                borderRadius: '3px',
-                boxShadow: 'none',
-              }}
-            >
-              Navie decides what to accept and what to reject between classes.
-            </span>
-          </h1>
-
-          {/* â”€â”€ Subtitle â”€â”€ */}
-          <p
-            style={{
-              color: 'var(--ink)',
-              fontSize: 'clamp(0.85rem, 1.5vw, 1.2rem)',
-              fontWeight: 600,
-              maxWidth: '560px',
-              marginTop: '26px',
-              marginBottom: '26px',
-              lineHeight: 1.4,
-              letterSpacing: '-0.01em',
-              backgroundColor: 'var(--card)',
-            }}
-          >
-            A delivery copilot for students: calculates opportunity cost, checks if you can make it back to class, and explains every decision out loud.
-          </p>
-
-          {/* â”€â”€ CTA Buttons â”€â”€ */}
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: '12px',
-              flexWrap: 'wrap',
-            }}
-          >
-            <Link
-              to="/map"
-              style={{
-                backgroundColor: 'var(--card)',
-                color: 'var(--ink)',
-                borderRadius: '9999px',
-                padding: '10px 22px',
-                fontSize: '0.95rem',
-                fontWeight: 700,
-                textDecoration: 'none',
-                display: 'inline-flex',
+                margin: 0,
+                padding: 0,
+                display: 'flex',
+                flexDirection: 'column',
                 alignItems: 'center',
                 gap: '6px',
-                transition: 'transform 0.15s ease, opacity 0.15s ease',
-                boxShadow: 'none',
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.transform = 'translateY(-1px)';
-                e.currentTarget.style.opacity = '0.92';
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.transform = 'translateY(0)';
-                e.currentTarget.style.opacity = '1';
               }}
             >
-              Explore the demo ›
-            </Link>
-          </div>
-        </div>
-      </section>
-
-      {/* â”€â”€ SecciÃ³n de Contenido Grid y Columna de 2 â”€â”€ */}
-      <section
-        style={{
-          width: '100%',
-          maxWidth: '1200px',
-          margin: '0 auto',
-          padding: '54px 20px 80px 20px',
-          boxSizing: 'border-box',
-        }}
-      >
-        {/* Encabezado de la secciÃ³n de hallazgos */}
-        <div style={{ marginBottom: '32px', textAlign: 'left' }}>
-          <h2
-            style={{
-              fontSize: 'clamp(1.8rem, 3.2vw, 2.4rem)',
-              fontWeight: 800,
-              color: 'var(--ink)',
-              letterSpacing: '-0.03em',
-              lineHeight: 1.2,
-              margin: '0 0 10px 0',
-            }}
-          >
-            Navie optimizes every order <span style={{ color: 'var(--plum)' }}>without missing the window.</span>
-          </h2>
-          <p
-            style={{
-              fontSize: '1.05rem',
-              color: 'var(--ink-2)',
-              margin: 0,
-              lineHeight: 1.5,
-              maxWidth: '680px',
-            }}
-          >
-            The agent compares payout, real-time traffic, risk, return to anchor, and opportunity cost to decide in milliseconds what's worth accepting.
-          </p>
-        </div>
-
-        {/* Grid de 2 Columnas (Pixel Canvas con fondo claro + BotÃ³n interactivo al lado) */}
-        <div
-          style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))',
-            gap: '24px',
-            alignItems: 'stretch',
-          }}
-        >
-          {/* Columna 1: fondo animado + Navie, igual que en el playground */}
-          <NavieBackgroundPanel mode="happy" minHeight={360} />
-
-          {/* Columna 2: Tarjeta al lado con el BotÃ³n y estilo Grid */}
-          <div
-            style={{
-              borderRadius: '16px',
-              backgroundColor: 'var(--card)',
-              backgroundImage:
-                'linear-gradient(to right, var(--surface-low) 1px, transparent 1px), linear-gradient(to bottom, var(--surface-low) 1px, transparent 1px)',
-              backgroundSize: '24px 24px',
-              border: '1px solid var(--hairline)',
-              boxShadow: 'none',
-              padding: 'clamp(28px, 4vw, 36px)',
-              display: 'flex',
-              flexDirection: 'column',
-              justifyContent: 'space-between',
-              alignItems: 'flex-start',
-              textAlign: 'left',
-              gap: '20px',
-              boxSizing: 'border-box',
-              position: 'relative',
-            }}
-          >
-           
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-
-
-              <h3
+              <span
                 style={{
-                  fontSize: 'clamp(1.3rem, 2.2vw, 1.7rem)',
+                  backgroundColor: 'var(--plum)',
+                  color: '#ffffff',
+                  padding: '4px 16px',
+                  fontSize: 'clamp(2rem, 4.6vw, 3.4rem)',
                   fontWeight: 800,
-                  color: 'var(--ink)',
-                  lineHeight: 1.25,
-                  margin: 0,
-                  letterSpacing: '-0.02em',
+                  letterSpacing: '-0.03em',
+                  lineHeight: 1.18,
+                  display: 'inline-block',
+                  borderRadius: '3px',
+                  boxShadow: 'none',
                 }}
               >
-                The shift is played minute by minute.
-              </h3>
+                Navie decide qué aceptar y qué rechazar entre clases.
+              </span>
+            </h1>
 
-              <p
-                style={{
-                  fontSize: '0.95rem',
-                  color: 'var(--ink-2)',
-                  lineHeight: 1.55,
-                  margin: 0,
-                }}
-              >
-                Navie doesn't accept everything that comes in: it evaluates if the order pays more than the value of that time, if you can return to your anchor, and if the route fits the shift constraints.
-              </p>
+            {/* ── Subtitle ── */}
+            <p
+              style={{
+                color: 'var(--ink)',
+                fontSize: 'clamp(0.85rem, 1.5vw, 1.2rem)',
+                fontWeight: 600,
+                maxWidth: '560px',
+                marginTop: '26px',
+                marginBottom: '26px',
+                lineHeight: 1.4,
+                letterSpacing: '-0.01em',
+                backgroundColor: 'var(--card)',
+              }}
+            >
+              Un copiloto de entrega para estudiantes: calcula el costo de oportunidad, revisa si puedes volver a clase y explica cada decisión en voz alta.
+            </p>
 
-              {/* Puntos tÃ©cnicos de grid */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '6px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.88rem', color: 'var(--ink-2)', fontWeight: 600 }}>
-                  <span style={{ color: 'var(--emerald)', fontWeight: 800 }}>✓</span>
-                  Opportunity cost per remaining minute
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.88rem', color: 'var(--ink-2)', fontWeight: 600 }}>
-                  <span style={{ color: 'var(--emerald)', fontWeight: 800 }}>✓</span>
-                  Feasible return to anchor and safety constraints
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.88rem', color: 'var(--ink-2)', fontWeight: 600 }}>
-                  <span style={{ color: 'var(--emerald)', fontWeight: 800 }}>✓</span>
-                  Batching and routing to extract more value from the same shift
-                </div>
-              </div>
-            </div>
-
-            {/* El botÃ³n de acciÃ³n */}
-            <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', width: '100%', marginTop: '8px' }}>
+            {/* ── CTA Buttons ── */}
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '12px',
+                flexWrap: 'wrap',
+              }}
+            >
               <Link
                 to="/map"
                 style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: '10px',
-                  padding: '12px 26px',
-                  backgroundColor: 'var(--ink)',
-                  color: '#ffffff',
+                  backgroundColor: 'var(--card)',
+                  color: 'var(--ink)',
+                  borderRadius: '9999px',
+                  padding: '10px 22px',
                   fontSize: '0.95rem',
                   fontWeight: 700,
-                  borderRadius: '8px',
                   textDecoration: 'none',
-                  boxShadow: 'none',
-                  transition: 'all 0.15s ease',
-                  border: '1px solid var(--ink)',
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.backgroundColor = 'var(--plum)';
-                  e.currentTarget.style.borderColor = 'var(--plum)';
-                  e.currentTarget.style.transform = 'translateY(-1px)';
-                  e.currentTarget.style.boxShadow = 'none';
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.backgroundColor = 'var(--ink)';
-                  e.currentTarget.style.borderColor = 'var(--ink)';
-                  e.currentTarget.style.transform = 'translateY(0)';
-                  e.currentTarget.style.boxShadow = 'none';
-                }}
-              >
-                See Navie in action
-              </Link>
-
-              <Link
-                to="/map"
-                style={{
                   display: 'inline-flex',
                   alignItems: 'center',
-                  justifyContent: 'center',
-                  padding: '12px 20px',
-                  backgroundColor: 'var(--surface-low)',
-                  color: 'var(--ink)',
-                  fontSize: '0.95rem',
-                  fontWeight: 600,
-                  borderRadius: '8px',
-                  textDecoration: 'none',
-                  border: '1px solid var(--hairline)',
-                  transition: 'all 0.15s ease',
+                  gap: '6px',
+                  transition: 'transform 0.15s ease, opacity 0.15s ease',
+                  boxShadow: 'none',
                 }}
                 onMouseEnter={(e) => {
-                  e.currentTarget.style.backgroundColor = 'var(--surface)';
+                  e.currentTarget.style.transform = 'translateY(-1px)'
+                  e.currentTarget.style.opacity = '0.92'
                 }}
                 onMouseLeave={(e) => {
-                  e.currentTarget.style.backgroundColor = 'var(--surface-low)';
+                  e.currentTarget.style.transform = 'translateY(0)'
+                  e.currentTarget.style.opacity = '1'
                 }}
               >
-                 Explore the map ›
+                Explora el demo ›
               </Link>
             </div>
           </div>
-        </div>
-      </section>
+        </section>
+
+
+        {/* ── Sección de Contenido Grid y Columna de 2 ── */}
+        <section
+          style={{
+            width: '100%',
+            maxWidth: '1200px',
+            margin: '0 auto',
+            padding: '54px 20px 80px 20px',
+            boxSizing: 'border-box',
+          }}
+        >
+          {/* Encabezado de la sección de hallazgos */}
+          <div style={{ marginBottom: '32px', textAlign: 'left' }}>
+            <h2
+              style={{
+                fontSize: 'clamp(1.8rem, 3.2vw, 2.4rem)',
+                fontWeight: 800,
+                color: 'var(--ink)',
+                letterSpacing: '-0.03em',
+                lineHeight: 1.2,
+                margin: '0 0 10px 0',
+              }}
+            >
+              Navie optimiza cada pedido{' '}
+              <span style={{ color: 'var(--plum)' }}>sin perder la ventana.</span>.
+            </h2>
+            <p
+              style={{
+                fontSize: '1.05rem',
+                color: 'var(--ink-2)',
+                margin: 0,
+                lineHeight: 1.5,
+                maxWidth: '680px',
+              }}
+            >
+              El agente compara pago, tiempo real, riesgo, regreso al ancla y costo de oportunidad
+              para decidir en milisegundos qué vale la pena aceptar.
+            </p>
+          </div>
+
+          {/* Grid de 2 Columnas (Pixel Canvas con fondo claro + Botón interactivo al lado) */}
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))',
+              gap: '24px',
+              alignItems: 'stretch',
+            }}
+          >
+            {/* Columna 1: fondo animado + Navie, igual que en el playground */}
+            <NavieBackgroundPanel mode="happy" minHeight={360} />
+
+            {/* Columna 2: Tarjeta al lado con el Botón y estilo Grid */}
+            <div
+              style={{
+                borderRadius: '16px',
+                backgroundColor: 'var(--card)',
+                backgroundImage:
+                  'linear-gradient(to right, var(--surface-low) 1px, transparent 1px), linear-gradient(to bottom, var(--surface-low) 1px, transparent 1px)',
+                backgroundSize: '24px 24px',
+                border: '1px solid var(--hairline)',
+                boxShadow: 'none',
+                padding: 'clamp(28px, 4vw, 36px)',
+                display: 'flex',
+                flexDirection: 'column',
+                justifyContent: 'space-between',
+                alignItems: 'flex-start',
+                textAlign: 'left',
+                gap: '20px',
+                boxSizing: 'border-box',
+                position: 'relative',
+              }}
+            >
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                <h3
+                  style={{
+                    fontSize: 'clamp(1.3rem, 2.2vw, 1.7rem)',
+                    fontWeight: 800,
+                    color: 'var(--ink)',
+                    lineHeight: 1.25,
+                    margin: 0,
+                    letterSpacing: '-0.02em',
+                  }}
+                >
+                  El turno se juega minuto a minuto.
+                </h3>
+
+                <p
+                  style={{
+                    fontSize: '0.95rem',
+                    color: 'var(--ink-2)',
+                    lineHeight: 1.55,
+                    margin: 0,
+                  }}
+                >
+                  Navie no acepta todo lo que llega: evalúa si el pedido paga más que el valor de
+                  ese tiempo, si puedes regresar a tu ancla y si la ruta encaja con las
+                  restricciones del turno.
+                </p>
+
+                {/* Puntos técnicos de grid */}
+                <div
+                  style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '6px' }}
+                >
+                  <div
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                      fontSize: '0.88rem',
+                      color: 'var(--ink-2)',
+                      fontWeight: 600,
+                    }}
+                  >
+                    <span style={{ color: 'var(--emerald)', fontWeight: 800 }}>✓</span>
+                    Costo de oportunidad por minuto restante
+                  </div>
+                  <div
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                      fontSize: '0.88rem',
+                      color: 'var(--ink-2)',
+                      fontWeight: 600,
+                    }}
+                  >
+                    <span style={{ color: 'var(--emerald)', fontWeight: 800 }}>✓</span>
+                    Regreso factible al ancla y restricciones de seguridad
+                  </div>
+                  <div
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                      fontSize: '0.88rem',
+                      color: 'var(--ink-2)',
+                      fontWeight: 600,
+                    }}
+                  >
+                    <span style={{ color: 'var(--emerald)', fontWeight: 800 }}>✓</span>
+                    Batching y ruteo para sacar más valor del mismo turno
+                  </div>
+                </div>
+              </div>
+
+              {/* El botón de acción */}
+              <div
+                style={{
+                  display: 'flex',
+                  gap: '12px',
+                  flexWrap: 'wrap',
+                  width: '100%',
+                  marginTop: '8px',
+                }}
+              >
+                <Link
+                  to="/map"
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '10px',
+                    padding: '12px 26px',
+                    backgroundColor: 'var(--ink)',
+                    color: '#ffffff',
+                    fontSize: '0.95rem',
+                    fontWeight: 700,
+                    borderRadius: '8px',
+                    textDecoration: 'none',
+                    boxShadow: 'none',
+                    transition: 'all 0.15s ease',
+                    border: '1px solid var(--ink)',
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.backgroundColor = 'var(--plum)'
+                    e.currentTarget.style.borderColor = 'var(--plum)'
+                    e.currentTarget.style.transform = 'translateY(-1px)'
+                    e.currentTarget.style.boxShadow = 'none'
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.backgroundColor = 'var(--ink)'
+                    e.currentTarget.style.borderColor = 'var(--ink)'
+                    e.currentTarget.style.transform = 'translateY(0)'
+                    e.currentTarget.style.boxShadow = 'none'
+                  }}
+                >
+                  Ver a Navie en acción
+                </Link>
+
+                <Link
+                  to="/map"
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    padding: '12px 20px',
+                    backgroundColor: 'var(--surface-low)',
+                    color: 'var(--ink)',
+                    fontSize: '0.95rem',
+                    fontWeight: 600,
+                    borderRadius: '8px',
+                    textDecoration: 'none',
+                    border: '1px solid var(--hairline)',
+                    transition: 'all 0.15s ease',
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.backgroundColor = 'var(--surface)'
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.backgroundColor = 'var(--surface-low)'
+                  }}
+                >
+                  Explorar el mapa ›
+                </Link>
+              </div>
+            </div>
+          </div>
+        </section>
       </div>
     </div>
-  );
+  )
 }
 

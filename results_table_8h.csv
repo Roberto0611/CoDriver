@@ -1,0 +1,11 @@
+# Results criterion, Courier. Generated; do not hand-edit.
+# TUNEO: 0-1999 (tabla de valor).
+# REPORTE: 2000-2049 (50 turnos, holdout).
+# Config: 480 min, 14:00, moto, ancla Tec, margen 10 min.
+policy,mean_earnings_mxn,median_earnings_mxn,mean_mxn_per_hr,accept_rate_pct,orders_completed,deadhead_pct_of_km,deadline_misses,safety_violations
+AcceptAll,660.33,654.95,82.54,3.71,14.18,52.90,1,0
+HighestPay,756.08,741.74,94.51,1.94,7.44,50.19,0,0
+NearestFirst,401.55,435.64,50.19,2.16,8.26,43.62,0,0
+GreedyRate,805.40,821.31,100.68,2.91,11.14,46.94,0,0
+OurAgent,1106.56,1100.90,138.32,5.30,20.30,26.69,0,0
+Oracle,1122.28,1102.24,140.29,5.24,20.08,28.71,0,0

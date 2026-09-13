@@ -115,4 +115,18 @@ export const Icon = {
       <circle cx="12" cy="7" r="4" />
     </svg>
   ),
+  voice: (
+    <svg viewBox="0 0 24 24" {...stroke}>
+      <path d="M11 5L6 9H3v6h3l5 4V5z" />
+      <path d="M15.5 8.5a5 5 0 0 1 0 7" />
+      <path d="M18.5 5.5a9 9 0 0 1 0 13" />
+    </svg>
+  ),
+  voiceOff: (
+    <svg viewBox="0 0 24 24" {...stroke}>
+      <path d="M11 5L6 9H3v6h3l5 4V5z" />
+      <path d="M22 9l-6 6" />
+      <path d="M16 9l6 6" />
+    </svg>
+  ),
 }

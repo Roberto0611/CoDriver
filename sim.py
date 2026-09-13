@@ -80,6 +80,11 @@ class Resultado:
     tramos: list[tuple[float, float, int, int]] = field(default_factory=list)
     cobros: list[tuple[int, float]] = field(default_factory=list)  # (minuto, pesos netos)
     cancelados: int = 0  # pedidos soltados porque una disrupcion los volvio infactibles
+    # Distancia recorrida con y sin pedidos ya recogidos. La segunda es el
+    # deadhead que pide la tabla de Results; ir al pickup y volver al ancla sin
+    # carga cuentan, moverse con al menos un pedido en la mochila no.
+    km_con_carga: float = 0.0
+    km_sin_carga: float = 0.0
 
 
 # --- A3: generador de ofertas ------------------------------------------------
@@ -236,6 +241,17 @@ def simular(
     regreso_en: float = 0.0  # arranca en el ancla, asi que a los 0 minutos ya esta
     listo_en: dict[str, int] = {}  # cuando esta listo cada pedido en el restaurante
     aceptadas: dict[str, Oferta] = {}
+    carga_en_mochila: set[str] = set()
+
+    def registrar_tramo(
+        salida: float, llegada: float, origen: int, destino: int, *, con_carga: bool
+    ) -> None:
+        """Registra un tramo y sus km segun la carga al momento de salir."""
+        res.tramos.append((salida, llegada, origen, destino))
+        if con_carga:
+            res.km_con_carga += rutas.km(origen, destino)
+        else:
+            res.km_sin_carga += rutas.km(origen, destino)
 
     for t in range(cfg.duracion_min):
         hora = (cfg.hora_inicio + t // 60) % 24
@@ -269,7 +285,7 @@ def simular(
             res.cancelados += 1
             if ruta and ruta[0] != primera:
                 t_llegada = t + viaje(pos, ruta[0].punto, t)
-                res.tramos.append((t, t_llegada, pos, ruta[0].punto))
+                registrar_tramo(t, t_llegada, pos, ruta[0].punto, con_carga=bool(carga_en_mochila))
 
         estado = EstadoRepartidor(
             t=t,
@@ -296,7 +312,9 @@ def simular(
                 nueva_ruta = [ruta[0]] + [p for p in nueva_ruta if p != ruta[0]]
             if not ruta and nueva_ruta:
                 t_llegada = t + viaje(pos, nueva_ruta[0].punto, t)
-                res.tramos.append((t, t_llegada, pos, nueva_ruta[0].punto))
+                registrar_tramo(
+                    t, t_llegada, pos, nueva_ruta[0].punto, con_carga=bool(carga_en_mochila)
+                )
             ruta = nueva_ruta
             aceptadas[o.id] = o
             listo_en[o.id] = o.t_aparece + o.t_prep + activos.retraso(o.id)
@@ -317,6 +335,9 @@ def simular(
             if pos == ancla:
                 regreso_en = t_llegada  # el minuto exacto, no el entero del reloj
 
+            if parada.tipo == "pickup" and parada.oferta_id:
+                carga_en_mochila.add(parada.oferta_id)
+
             if parada.tipo == "dropoff" and parada.oferta_id:
                 o = aceptadas[parada.oferta_id]
                 dist = rutas.km(indice_de(o.pickup), indice_de(o.dropoff))
@@ -328,13 +349,20 @@ def simular(
                 res.cobros.append((t, round(cobro, 2)))
                 res.ganado += cobro
                 res.entregas += 1
+                carga_en_mochila.remove(parada.oferta_id)
 
             if ruta:
                 t_llegada = libre_en + viaje(pos, ruta[0].punto, libre_en)
                 # La salida es el momento REAL en que quedo libre, no el minuto
                 # entero del reloj: si no, el front anima la moto mas lenta de lo
                 # que va y el tramo no cuadra con el mapa.
-                res.tramos.append((libre_en, t_llegada, pos, ruta[0].punto))
+                registrar_tramo(
+                    libre_en,
+                    t_llegada,
+                    pos,
+                    ruta[0].punto,
+                    con_carga=bool(carga_en_mochila),
+                )
 
         # Regresar al ancla es obligacion de cualquier politica: si ya no queda
         # tiempo mas que para volver, el simulador encamina de regreso.
@@ -347,7 +375,7 @@ def simular(
             if t + 1 + viaje(pos, ancla, t + 1) > cfg.duracion_min - cfg.margen_min:
                 ruta = [Parada("ancla", ancla)]
                 t_llegada = t + regreso
-                res.tramos.append((t, t_llegada, pos, ancla))
+                registrar_tramo(t, t_llegada, pos, ancla, con_carga=bool(carga_en_mochila))
 
         # Restricciones 2 y 3: el contador de minutos continuos. Parar 20 minutos
         # lo resetea, y como la politica rechaza todo mientras el limite este
@@ -362,6 +390,8 @@ def simular(
                 manejando = 0
 
     res.ganado = round(res.ganado, 2)
+    res.km_con_carga = round(res.km_con_carga, 3)
+    res.km_sin_carga = round(res.km_sin_carga, 3)
     res.regreso_en = regreso_en if pos == ancla and not ruta else None
     limite = cfg.duracion_min - cfg.margen_min
     res.llego_tarde = res.regreso_en is None or res.regreso_en > limite
