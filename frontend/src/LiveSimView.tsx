@@ -31,7 +31,7 @@ import { LiveControls, LiveStartForm, type LivePending, type LivePhase } from '.
 import { ShockBanner } from './sim/ShockBanner'
 import { useSimMap } from './sim/useSimMap'
 import { Icon } from './ui/icons'
-import { phrasesToSay } from './voice/liveNarration'
+import { handOff, initialNarration, phrasesToSay } from './voice/liveNarration'
 import { callar, onFuente, say, unlock, type FuenteVoz } from './voice/nuez'
 import './styles/live.css'
 
@@ -43,7 +43,7 @@ const semillaNueva = () => 2000 + Math.floor(Math.random() * 98000)
 const mensaje = (e: unknown) => (e instanceof Error ? e.message : String(e))
 const narracionNueva = () => ({
   ultimoShock: null as number | null,
-  narrado: null as number | null,
+  estado: initialNarration(),
   callada: false,
   /** La última frase encolada mientras no termine; null si Nuez está en silencio. */
   hablando: null as Promise<void> | null,
@@ -87,7 +87,7 @@ export default function LiveSimView() {
   const colaRef = useRef<Promise<unknown>>(Promise.resolve())
   const resaltados = useRef<{ endsAt: number; cleanup: () => void }[]>([])
   // Voz: el tick decide qué decir leyendo refs. `ultimoShock` es el starts_at_min más
-  // reciente visto en la sesión; `narrado` el del shock cuya reacción ya se dijo;
+  // reciente visto en la sesión; `estado` lo que ya se narró (liveNarration);
   // `callada` si la sesión se terminó a mano; `hablando` si Nuez no ha terminado.
   const vozRef = useRef(true)
   const narracion = useRef(narracionNueva())
@@ -139,23 +139,23 @@ export default function LiveSimView() {
     )
   }
 
-  // Las decisiones nuevas llegan en los frames del tick. Con la voz apagada se sigue
-  // llevando la cuenta: al encenderla no se dice tarde la reacción a un shock viejo.
+  // Las decisiones nuevas llegan en los frames del tick; qué decir y qué entregar lo
+  // deciden phrasesToSay y handOff (voice/liveNarration.ts). Con la voz apagada se sigue
+  // llevando la cuenta del shock: al encenderla no se dice tarde una reacción vieja.
   const narrar = (snap: LiveSnapshot) => {
     const n = narracion.current
     const decisiones = snap.nuez.frames.flatMap((f) => f.decisiones)
-    const { phrases, narratedShock } = phrasesToSay(decisiones, n.ultimoShock, n.narrado)
-    const reaccion = narratedShock !== n.narrado
-    n.narrado = narratedShock
-    if (!vozRef.current || n.callada || !phrases.length) return
-    // Como en /sim (VozToggle): si Nuez sigue hablando se omite en vez de amontonar. Hay
-    // turnos con un bloqueo por seguridad casi cada minuto y cada frase dura varios
-    // minutos simulados; en cola, la reacción al shock sonaría con el turno ya terminado.
-    // Por eso la reacción no espera: corta lo que suena.
-    if (reaccion) callar()
-    else if (n.hablando) return
+    const r = phrasesToSay(decisiones, n.ultimoShock, n.estado)
+    n.estado = r.state
+    // Un tick que ya venía en camino cuando se pausó no habla: la pausa calla a Nuez.
+    const puedeHablar = vozRef.current && !n.callada && phaseRef.current === 'running'
+    if (!puedeHablar || !r.phrases.length) return
+    const entrega = handOff(r.phrases, n.hablando !== null, n.estado)
+    n.estado = entrega.state
+    if (!entrega.say.length) return
+    if (entrega.interrupt) callar()
     let ultima = Promise.resolve()
-    for (const p of phrases) ultima = say(p)
+    for (const texto of entrega.say) ultima = say(texto, { lang: 'es-MX' })
     const esta = ultima
     n.hablando = esta
     void esta.then(() => {
@@ -323,6 +323,7 @@ export default function LiveSimView() {
     else if (phase === 'running') {
       detenerTimer()
       cambiarFase('paused')
+      callarVoz() // en pausa Nuez calla; al reanudar no se repite nada
     } else if (phase === 'paused') reanudar()
     else if (phase === 'error') reintentar()
   }
