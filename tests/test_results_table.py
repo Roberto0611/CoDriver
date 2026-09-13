@@ -74,6 +74,16 @@ def test_el_encabezado_describe_la_config_completa(tmp_path):
     assert "# Reporting seeds (REPORTE): 2000-2019, n=20 held-out shifts." in lineas
 
 
+def test_el_encabezado_dice_limites_del_vehiculo_y_regla_de_fin_de_turno(tmp_path):
+    # El simulador exige regresar al ancla; /decide no. La tabla dice cual midio.
+    lineas = encabezado(tmp_path, turnos=50, duracion=120, hora_inicio=14, vehiculo="moto")
+
+    assert (
+        "# Limits (moto): 20 kg, 20 L, 3 orders. Shift end: deliver and be back at anchor Tec"
+        " by shift end minus margin." in lineas
+    )
+
+
 def test_el_encabezado_no_vende_al_oracle_como_optimo_teorico(tmp_path):
     # oracle.resolver se queda con lo mejor entre su busqueda en haz y las cinco
     # politicas online: es el mejor plan offline que conocemos, no una cota probada.
