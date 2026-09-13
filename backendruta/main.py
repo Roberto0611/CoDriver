@@ -17,7 +17,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(BASE_DIR))
 
 import contrato  # noqa: E402
-from backendruta import analytics, courier_api, database, seed_traffic, voice  # noqa: E402
+from backendruta import analytics, courier_api, database, live_api, seed_traffic, voice  # noqa: E402
 from data.export_geojson import route_to_geojson  # noqa: E402
 from mundo import ZONAS  # noqa: E402
 
@@ -29,6 +29,7 @@ app.include_router(voice.router)
 # El protocolo que prueban los jueces. tests/test_main_app.py falla si se pierde en un merge.
 app.include_router(courier_api.router)
 app.include_router(analytics.router)
+app.include_router(live_api.router)
 
 
 class IncidenteInput(BaseModel):
@@ -59,6 +60,8 @@ try:
 except Exception as e:
     print(f"Error al cargar el grafo: {e}")
     G = None
+
+live_api.registry.usar_grafo(G)  # G puede ser None: los tramos caen a linea recta
 
 
 @app.on_event("startup")
