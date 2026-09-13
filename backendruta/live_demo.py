@@ -45,8 +45,26 @@ El snapshot (lo espeja `frontend/src/lib/live.ts`, los nombres son contrato):
 llena. `snapshot()`, `shock()` y `end()` los mandan vacios. `geometry` trae nada mas
 las claves que ese agente no ha mandado, asi cada lado del front puede guardar su
 propio mapa de geometria como en el replay grabado.
+
+El JSONL (uno por sesion, para los dos agentes) usa los eventos y nombres del
+protocolo Courier y pasa `courier/validate_format (2).py` tal cual:
+
+    shift_start          una vez, con mode/session_id/margin_min de extra
+    order_offered        una vez por oferta: es la misma para los dos
+    shock                una vez, en el minuto en que se inyecto
+    decision             por agente ("agent"), razon oficial en ingles + reason_es
+    position_update      por agente, en cada parada a la que llega; las cancelaciones
+                         viajan como `cancelled_count` en la siguiente
+    earnings_update      por agente, en el minuto en que cobra una entrega
+    shift_end            por agente, una sola vez aunque se cierre por tick y luego end()
+
+`sim_time` sale del minuto simulado (ver `live_log.py`), asi que el mismo seed con
+los mismos shocks da el mismo archivo. Lo unico que cambia entre corridas es
+`session_id` y `latency_ms`, que mide de verdad cuanto tardo el `paso()` del agente.
+Los dicts se arman en `live_log.py`; aqui solo se decide cuando va cada uno.
 """
 
+import time
 from dataclasses import asdict
 from functools import partial
 from pathlib import Path
@@ -55,7 +73,7 @@ from typing import Any, Literal
 import rutas
 import shocks
 import valor
-from backendruta import zonas
+from backendruta import live_log, zonas
 from backendruta.event_log import EventLog
 from backendruta.live_geometry import Geometria, linea_recta
 from contrato import ConfigTurno, Decision, Oferta
@@ -120,29 +138,19 @@ class LiveDemoSession:
         }
         # Hasta donde ya se reporto cada lista del Resultado. Los Turnos solo crecen
         # sus listas, asi que lo nuevo de un minuto es todo lo que esta despues del cursor.
+        # `cancelados` es el que ya salio en un position_update, no el del motor.
         self._cursor = {
-            a: {"decisiones": 0, "tramos": 0, "cobros": 0, "trayecto": 0} for a in AGENTES
+            a: {"decisiones": 0, "tramos": 0, "cobros": 0, "trayecto": 0, "cancelados": 0}
+            for a in AGENTES
         }
         self._ganado_frames = dict.fromkeys(AGENTES, 0.0)  # el `ganado` de los frames
         self._claves: dict[str, set[str]] = {a: set() for a in AGENTES}
         self._ultima: dict[str, dict[str, Any] | None] = dict.fromkeys(AGENTES)
         self._resultado: dict[str, dict[str, Any] | None] = dict.fromkeys(AGENTES)
 
-        ancla = rutas.indice_mas_cercano(cfg.ancla.lat, cfg.ancla.lon)
+        self.ancla = rutas.indice_mas_cercano(cfg.ancla.lat, cfg.ancla.lon)
         self.log = EventLog(log_path)
-        self.log.start(
-            {
-                "event": "shift_start",
-                "mode": "live",
-                "session_id": session_id,
-                "seed": cfg.seed,
-                "duration_min": cfg.duracion_min,
-                "start_hour": cfg.hora_inicio,
-                "vehicle": cfg.vehiculo,
-                "anchor_zone": zonas.ID_POR_NOMBRE[rutas.ZONA_DE[ancla]],
-                "margin_min": cfg.margen_min,
-            }
-        )
+        self.log.start(live_log.shift_start(session_id, cfg, self.ancla))
 
     @property
     def minute(self) -> int:
@@ -226,21 +234,7 @@ class LiveDemoSession:
             turno.inyectar(s)
         self.shocks.append(s)
 
-        self.log.append(
-            {
-                "event": "shock",
-                "minute": s.t,
-                "shock_type": s.tipo,
-                "zone": zona,
-                "zone_name": s.zona,
-                "road": s.calle,
-                "duration_min": s.duracion_min,
-                "multiplier": s.multiplicador,
-                "ends_at_min": s.t + s.duracion_min,
-                "order_id": s.oferta_id,
-                "slip_min": s.retraso_min if s.tipo == "delay" else None,
-            }
-        )
+        self.log.append(live_log.shock(s, self.cfg, zona))
         return {"shock": self._shock(s), "snapshot": self.snapshot()}
 
     def end(self) -> dict[str, Any]:
@@ -289,14 +283,19 @@ class LiveDemoSession:
     def _minuto(self, frames: dict[str, list[dict[str, Any]]] | None) -> list[dict[str, Any]]:
         """Corre el minuto actual en los dos agentes. Devuelve las ofertas que aparecieron."""
         t = self.minute
-        ofertas = [self._oferta(o) for o in self.por_minuto.get(t, [])]
-        for o in ofertas:
-            self.log.append({"event": "offer", **o})
+        ofertas = []
+        for o in self.por_minuto.get(t, []):
+            factor = self._factor_pago(o)
+            ofertas.append(self._oferta(o, factor))
+            self.log.append(live_log.order_offered(o, self.cfg, self.ancla, factor))
 
         for a, turno in self.turnos.items():
             res, cur = turno.res, self._cursor[a]
-            cancelados = res.cancelados
+            # Todo el paso() y no solo la politica: es una cota superior honesta de lo
+            # que tardo cada decision de este minuto, y no obliga a meter reloj al motor.
+            inicio = time.perf_counter()
             turno.paso()
+            latencia_ms = (time.perf_counter() - inicio) * 1000
 
             decs = res.decisiones[cur["decisiones"] :]
             cobros = res.cobros[cur["cobros"] :]
@@ -305,34 +304,23 @@ class LiveDemoSession:
             cur["trayecto"] = len(res.trayecto)
 
             for d in decs:
-                ultima = self._ultima[a] = _decision(d)
-                self.log.append({"event": "decision", "agent": a, **ultima})
+                self._ultima[a] = _decision(d)
+                self.log.append(live_log.decision(a, d, self.cfg, latencia_ms))
+
+            posiciones = live_log.position_updates(
+                a, self.cfg, llegadas, turno.ruta, res.cancelados - cur["cancelados"]
+            )
+            for evento in posiciones:
+                self.log.append(evento)
+            if posiciones:
+                cur["cancelados"] = res.cancelados
 
             # Suma y no dict(cobros): dos entregas en el mismo punto caen en el mismo
             # minuto, y el contador tiene que subir por las dos.
             cobro = sum(pesos for _, pesos in cobros)
             self._ganado_frames[a] += cobro
             if cobro:
-                self.log.append(
-                    {
-                        "event": "earnings_update",
-                        "agent": a,
-                        "minute": t,
-                        "cobro": round(cobro, 2),
-                        "earnings_mxn": round(res.ganado, 2),
-                        "deliveries": res.entregas,
-                    }
-                )
-            if res.cancelados > cancelados:
-                self.log.append(
-                    {
-                        "event": "order_cancelled",
-                        "agent": a,
-                        "minute": t,
-                        "count": res.cancelados - cancelados,
-                        "cancelled": res.cancelados,
-                    }
-                )
+                self.log.append(live_log.earnings_update(a, self.cfg, t, cobro, res))
 
             if frames is not None:
                 llegada = llegadas[-1] if llegadas else None  # la ultima gana, como en a_frames
@@ -365,17 +353,19 @@ class LiveDemoSession:
                 "cancelados": res.cancelados,
                 "ofertas_totales": len(res.ofertas),
             }
-        self.log.append(
-            {"event": "shift_end", "minute": self.minute, "status": status, **self._resultado}
-        )
+            # _cerrar corre una sola vez: end() sobre `finished` ya no pasa por aqui.
+            self.log.append(live_log.shift_end(a, self.cfg, self.minute, res, status))
 
     # --- armar el snapshot -----------------------------------------------------
 
-    def _oferta(self, o: Oferta) -> dict[str, Any]:
-        pickup, dropoff = indice_de(o.pickup), indice_de(o.dropoff)
+    def _factor_pago(self, o: Oferta) -> float:
         # La misma formula con la que el motor paga al entregar: el surge se cotiza
         # con los shocks vigentes cuando aparece el ping.
-        factor = shocks.en(o.t_aparece, tuple(self.shocks)).factor_pago(rutas.ZONA_DE[pickup])
+        zona = rutas.ZONA_DE[indice_de(o.pickup)]
+        return shocks.en(o.t_aparece, tuple(self.shocks)).factor_pago(zona)
+
+    def _oferta(self, o: Oferta, factor: float) -> dict[str, Any]:
+        pickup, dropoff = indice_de(o.pickup), indice_de(o.dropoff)
         return {
             "order_id": o.id,
             "minute": o.t_aparece,

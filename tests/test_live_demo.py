@@ -1,8 +1,10 @@
 """El demo en vivo: el mismo motor, dos agentes, un solo stream de ofertas."""
 
+import importlib.util
 import json
 from dataclasses import asdict
 from functools import partial
+from pathlib import Path
 
 import pytest
 
@@ -105,19 +107,84 @@ def test_surge_sube_el_pago_de_las_ofertas_de_esa_zona(tmp_path):
     assert all(surge[k] == pytest.approx(base[k] * 1.8, abs=0.2) for k in base)
 
 
+def eventos_de(s):
+    return [json.loads(linea) for linea in s.log.path.read_text(encoding="utf-8").splitlines()]
+
+
+def validador():
+    """El validador oficial tal cual lo mando Infosys. El nombre trae espacios y
+    parentesis, asi que no se puede importar como modulo normal."""
+    ruta = Path(__file__).resolve().parents[1] / "courier" / "validate_format (2).py"
+    spec = importlib.util.spec_from_file_location("validate_format", ruta)
+    assert spec is not None and spec.loader is not None
+    modulo = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(modulo)
+    return modulo
+
+
 def test_el_shock_queda_en_el_jsonl(tmp_path):
     s = sesion(tmp_path)
     correr(s, 30)
     s.shock("closure", 40, zona=0, calle="Constitución")
     correr(s, 31)
     s.end()
-    eventos = [json.loads(linea) for linea in s.log.path.read_text(encoding="utf-8").splitlines()]
+    eventos = eventos_de(s)
     tipos = [e["event"] for e in eventos]
     assert tipos[0] == "shift_start" and tipos[-1] == "shift_end"
     i = tipos.index("shock")
-    assert eventos[i]["minute"] == 30 and eventos[i]["zone"] == 0
+    assert eventos[i]["zone"] == 0 and eventos[i]["sim_time"] == "2026-03-21T14:30:00"
+    assert eventos[i]["shock_type"] == "closure" and eventos[i]["road"] == "Constitución"
     despues = [e for e in eventos[i:] if e["event"] == "decision"]
     assert {e["agent"] for e in despues} == {"greedy", "nuez"}
+    assert {e["agent"] for e in eventos if e["event"] == "shift_end"} == {"greedy", "nuez"}
+
+
+def test_el_jsonl_en_vivo_pasa_el_validador_oficial(tmp_path):
+    s = sesion(tmp_path)
+    correr(s, 30)
+    s.shock("closure", 40, zona=0, calle="Constitución")
+    correr(s, 50)
+    s.shock("surge", 30, zona=4, multiplicador=1.8)
+    correr(s, 120)  # tick llega al final: finished
+    s.end()  # y end() sobre finished no puede volver a escribir shift_end
+
+    errs, counts = validador().check_event_log(str(s.log.path))
+    assert errs == []
+    for tipo in ("order_offered", "decision", "shock", "shift_end", "position_update"):
+        assert counts.get(tipo), f"falta {tipo} en {counts}"
+    assert counts["shift_start"] == 1 and counts["shock"] == 2 and counts["shift_end"] == 2
+    assert counts["decision"] == 2 * counts["order_offered"], "cada oferta la deciden los dos"
+
+
+def test_la_razon_en_ingles_de_greedy_no_inventa_costo_de_oportunidad(tmp_path):
+    """Greedy decide con un umbral fijo de $/min; la razon oficial no puede hablar de
+    un costo de oportunidad que nunca calculo. La de Nuez si lo nombra."""
+    s = sesion(tmp_path)
+    s.end()
+    decs = [e for e in eventos_de(s) if e["event"] == "decision"]
+    greedy = [e["reason"] for e in decs if e["agent"] == "greedy"]
+    nuez = [e["reason"] for e in decs if e["agent"] == "nuez"]
+    assert greedy and not any("opportunity cost" in r for r in greedy)
+    assert any("per-minute threshold" in r for r in greedy)
+    assert any("opportunity cost" in r for r in nuez)
+
+
+def test_mismo_seed_mismo_shock_mismo_jsonl(tmp_path):
+    """Replay: fuera de session_id y latency_ms, el log no depende del reloj de pared."""
+
+    def lineas(name):
+        s = sesion(tmp_path, name=name)
+        correr(s, 30)
+        s.shock("closure", 40, zona=0, calle="Constitución")
+        s.end()
+        eventos = eventos_de(s)
+        for e in eventos:
+            e.pop("session_id", None)
+            e.pop("latency_ms", None)
+        return eventos
+
+    a, b = lineas("a"), lineas("b")
+    assert len(a) > 100 and a == b
 
 
 def test_sesiones_nuevas_no_heredan_nada(tmp_path):

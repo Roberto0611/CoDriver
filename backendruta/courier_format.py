@@ -81,6 +81,17 @@ def english_reason(decision: Decision) -> str:
     pay = terms.get("pago_neto", 0)
     cost = terms.get("precio_tiempo", 0)
     minutes = terms.get("minutos", 0)
+    if "precio_tiempo" not in terms:
+        # El baseline Greedy del demo en vivo no calcula costo de oportunidad, solo
+        # un umbral fijo de $/min. Decir "above the MXN 0.0 opportunity cost" seria
+        # inventarle una cuenta que no hizo. Nuez siempre trae precio_tiempo.
+        rate = terms.get("por_minuto", pay / max(minutes, 1))
+        verdict = "under" if decision.accion == "saltar" else "above"
+        return (
+            f"{'Skip' if decision.accion == 'saltar' else 'Accept'}: MXN {pay:.1f} net for "
+            f"{minutes:.0f} minutes is MXN {rate:.2f} per minute, {verdict} the fixed "
+            f"per-minute threshold."
+        )
     # Con decimales: redondeado a pesos, "MXN 26 is below MXN 26" suena a error.
     if decision.accion == "saltar" and pay >= cost:
         return (
