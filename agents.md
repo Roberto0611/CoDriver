@@ -37,10 +37,12 @@ rebasados — ver "Dos métricas, no una".
 ```
 AcceptAll     $180        GreedyRate    $206
 HighestPay    $133        OurAgent      $265
-NearestFirst  $128        Oracle        $281   ← solver offline con el turno completo
+NearestFirst  $128        Oracle        $281   ← mejor plan offline conocido, con el turno completo
 ```
 
-**94% del óptimo teórico.** Ese número se dice en voz alta.
+**Nuez captura el 94.5% del Oracle.** Así se dice, y no "del óptimo teórico": `oracle.resolver` se
+queda con lo mejor entre su búsqueda en haz y las cinco políticas online (OurAgent incluida), así
+que es el mejor plan offline que conocemos, no una cota demostrada.
 
 **El asterisco, y hay que decirlo en el pitch:** la trayectoria fue −1.0% → +1.8% (tráfico
 direccional) → +9.0% (batching) → +11.1% (descuento de tiempo parado) → +29% → **+33.5%**. Los
@@ -57,7 +59,7 @@ corrección se aplicó idéntica a las dos políticas, así que la comparación 
 | **1b** | Conformidad con el spec de Infosys | ✅ los 8 puntos: seeds disjuntos, 5 restricciones, 8 h, `/decide` + JSONL, 5 baselines + Oracle, `explain_decision`, modo degradado, shocks |
 | **2** | Hacerlo visible — replay y pantalla partida | 🟡 el front ya reproduce el turno, con contadores, panel de decisión y distribución. Faltan el botón del shock y no tirar la `razon` |
 | **3** | Hacerlo hablar — Gemini + ElevenLabs | 🟡 Gemini ✅ (capa de estrategia). ElevenLabs construido pero **desconectado del turno** |
-| **4** | Entregables y ensayo | 🔴 la tabla de resultados está **en blanco** y el demo **no se ha ensayado** |
+| **4** | Entregables y ensayo | 🟡 la tabla de resultados ya está llena: `results_table.csv` (120 min) y `results_table_8h.csv` (480 min), generadas por `scripts/results_table.py` con TUNEO, REPORTE, n y config en el encabezado. El demo **no se ha ensayado** |
 
 ---
 
@@ -178,7 +180,7 @@ por cuánto duele no tenerlo.
 
 | # | Qué | Dónde | Por qué duele |
 |---|---|---|---|
-| **A** 🔴 | **Llenar `results_table_template.csv`** | script nuevo + `sim.py` | El spec dice *"fill this in and put it on one slide"*. Es LA diapositiva de Results y está vacía |
+| **A** ✅ | **Llenar `results_table_template.csv`** | `scripts/results_table.py` | Hecho: `results_table.csv` y `results_table_8h.csv`. Ver abajo |
 | **B** 🔴 | **Conectar la voz al turno** | `SimView.tsx` + `voice/nuez.ts` | Las dos piezas existen y **no se conocen**: el turno corre en silencio. Es la tesis del proyecto |
 | **C** 🔴 | **Botón del shock en el front** | `frontend/src/` | El brief exige una disrupción en vivo y hoy no se puede disparar desde la pantalla |
 | **D** 🔴 | **Ensayar el demo** | nadie, cero código | *"A constraint never demonstrated triggering scores low — rehearse at least two"* |
@@ -187,15 +189,11 @@ por cuánto duele no tenerlo.
 
 #### A — La tabla de resultados
 
-`courier/results_table_template.csv` sigue siendo la plantilla en blanco. Pide ocho columnas por
-agente y tenemos los seis renglones (AcceptAll … Oracle). Faltan tres métricas:
-
-- `mean_mxn_per_hr` — se deriva de lo que ya hay
-- `accept_rate_pct` — se deriva de `res.decisiones`
-- `deadhead_pct_of_km` — **no existe**. Qué fracción de los km son sin pedido encima. Hay que
-  medirlo en `sim.py`, separando km con carga de km vacíos
-
-Lo demás sale de `comparar.py --rivales`. **Nombrar los dos conjuntos de seeds en la diapositiva**
+**Ya está.** `python scripts/results_table.py` escribe `results_table.csv` (120 min) y, con
+`--duracion 480 --salida results_table_8h.csv`, la de 8 h: las nueve columnas de la plantilla, los
+seis renglones, 50 turnos de REPORTE 2000–2049. `deadhead_pct_of_km` sale de `km_con_carga` y
+`km_sin_carga` del simulador. El encabezado nombra TUNEO, REPORTE, n y la config, y describe al
+Oracle como mejor plan offline conocido. **Nombrar los dos conjuntos de seeds en la diapositiva**
 o Results se topa en 3.
 
 #### B — La voz
@@ -549,15 +547,18 @@ para pedidos en vuelo, y que lo que ya viene en vuelo sigue sumando tiempo.
 > Dado un flujo de ofertas de entrega, tráfico y un turno limitado, ¿puede un agente de IA
 > ganar lo máximo para un repartidor, como lo haría un conductor experimentado?
 
-**Criterios de evaluación (solo dos):**
+**Criterios de evaluación: cuatro**, con el mismo peso, de 1 a 5 cada uno, 20 en total
+(`courier/README (1).md`):
 
 | Criterio | Qué miden |
 |---|---|
 | **Results** | En un turno fresco que no vimos, cuánto gana el agente vs un baseline simple |
-| **Judgment** | ¿Toma decisiones seguras y sensatas bajo surge/tráfico, y puede explicárselas a un juez? |
+| **Judgment** | ¿Toma decisiones seguras y sensatas bajo surge/tráfico, y las explica? |
+| **Feasibility** | ¿Le serviría a un repartidor real en los pocos segundos que tiene para decidir? |
+| **Clarity** | ¿Se puede seguir el rastro de las decisiones? |
 
-**Lectura estratégica:** la mitad del puntaje no es el algoritmo, es que el agente
-**sepa defender su decisión**. Casi todos los equipos van a construir un optimizador y una
+**Lectura estratégica:** Results es un cuarto del puntaje; los otros tres cuartos no son el
+número, son que el agente **sepa defender su decisión** a tiempo y con rastro. Casi todos los equipos van a construir un optimizador y una
 gráfica. Gana el que construya un optimizador **que hable**.
 
 Entregable pedido explícitamente por el reto: código funcionando + demo en vivo donde
