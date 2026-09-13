@@ -21,6 +21,7 @@ import valor
 from backendruta import courier_format, explain, strategy, zonas
 from backendruta import database as db
 from backendruta.courier_models import (
+    MAX_TURNO_MIN,
     DecideRequest,
     DecideResponse,
     ShiftStartRequest,
@@ -64,8 +65,11 @@ class CourierService:
             duration = round(request.shift_hours * 60)
             end_time = request.shift_end_time or request.sim_time + timedelta(minutes=duration)
             actual_duration = round((end_time - request.sim_time).total_seconds() / 60)
-            if actual_duration <= 0 or actual_duration > 480:
-                raise HTTPException(status_code=422, detail="el turno debe durar entre 1 y 480 min")
+            if actual_duration <= 0 or actual_duration > MAX_TURNO_MIN:
+                raise HTTPException(
+                    status_code=422,
+                    detail=f"el turno debe durar entre 1 y {MAX_TURNO_MIN} min",
+                )
             config = ConfigTurno(
                 duracion_min=actual_duration,
                 ancla=zonas.punto(request.start_location_zone),
@@ -222,9 +226,10 @@ class CourierService:
             else start + timedelta(hours=8)
         )
         duration = round((end - start).total_seconds() / 60)
-        if not 0 < duration <= 480:
+        if not 0 < duration <= MAX_TURNO_MIN:
             raise HTTPException(
-                status_code=422, detail="el turno inferido debe durar entre 1 y 480 min"
+                status_code=422,
+                detail=f"el turno inferido debe durar entre 1 y {MAX_TURNO_MIN} min",
             )
         self.start(
             ShiftStartRequest(
@@ -261,8 +266,10 @@ class CourierService:
         if overrides.shift_end_time is not None:
             self.state.end_time = overrides.shift_end_time
             duration = round((self.state.end_time - self.state.start_time).total_seconds() / 60)
-            if not 0 < duration <= 480:
-                raise ValueError("shift_end_time deja un turno fuera del rango de 1 a 480 min")
+            if not 0 < duration <= MAX_TURNO_MIN:
+                raise ValueError(
+                    f"shift_end_time deja un turno fuera del rango de 1 a {MAX_TURNO_MIN} min"
+                )
             self.state.config = replace(self.state.config, duracion_min=duration)
         if overrides.continuous_riding_min is not None:
             self.state.continuous_riding_min = round(overrides.continuous_riding_min)

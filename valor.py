@@ -20,6 +20,7 @@ from contrato import Vehiculo
 
 ARCHIVO = Path(__file__).parent / "V.json"
 ARCHIVO_LARGO = ARCHIVO.with_name("V_480.json")
+ARCHIVO_510 = ARCHIVO.with_name("V_510.json")
 CUBETA = 10  # minutos por cubeta
 
 
@@ -82,7 +83,7 @@ def cargar(archivo: Path = ARCHIVO) -> dict[int, float]:
 
 
 def para_turno(duracion: int, archivo: Path | None = None) -> dict[int, float]:
-    """Conserva la calibracion corta; usa la de 8 h para ventanas mayores.
+    """Conserva la calibracion corta; usa una tabla que cubra todo el turno.
 
     Son estimaciones agregadas (moto, inicio 14 h), no tablas por hora/zona.
     Para otra calibracion se puede pasar una tabla construida offline.
@@ -90,7 +91,12 @@ def para_turno(duracion: int, archivo: Path | None = None) -> dict[int, float]:
     if duracion <= 0:
         raise ValueError("la duracion debe ser positiva")
     if archivo is None:
-        archivo = ARCHIVO if duracion <= max(cargar()) else ARCHIVO_LARGO
+        if duracion <= max(cargar()):
+            archivo = ARCHIVO
+        elif duracion <= max(cargar(ARCHIVO_LARGO)):
+            archivo = ARCHIVO_LARGO
+        else:
+            archivo = ARCHIVO_510
     tabla = cargar(archivo)
     if max(tabla) < duracion:
         raise ValueError(
@@ -136,6 +142,8 @@ def main():
     nombre = f"V_{args.duracion}_{args.hora_inicio}_{args.vehiculo}.json"
     if (args.duracion, args.hora_inicio, args.vehiculo) == (480, 14, "moto"):
         nombre = ARCHIVO_LARGO.name
+    if (args.duracion, args.hora_inicio, args.vehiculo) == (510, 14, "moto"):
+        nombre = ARCHIVO_510.name
     archivo = args.salida or (ARCHIVO if historica else ARCHIVO.with_name(nombre))
     datos = {
         "calibracion": {

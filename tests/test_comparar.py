@@ -70,3 +70,14 @@ def test_cli_rechaza_tabla_corta_para_ocho_horas():
     )
     assert resultado.returncode == 2
     assert "la tabla cubre 120 min" in resultado.stderr
+
+
+def test_cli_de_510_minutos_reporta_la_tabla_que_realmente_uso():
+    resultado = subprocess.run(
+        [sys.executable, "comparar.py", "1", "--duracion", "510"],
+        cwd=RAIZ,
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    assert "tabla: V_510.json" in resultado.stdout

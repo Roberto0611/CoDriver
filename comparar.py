@@ -124,7 +124,15 @@ def main():
     print(f"{args.n_turnos} turnos frescos, seeds de REPORTE {reporte[0]}-{reporte[-1]}")
     print(f"duracion: {args.duracion} min; inicio: {args.hora_inicio}:00; {args.vehiculo}")
     print(f"disrupciones: {'SI' if args.shocks else 'no'}")
-    print(f"tabla: {args.tabla or ('V.json' if max(tabla) == 120 else 'V_480.json')}")
+    if args.tabla:
+        nombre_tabla = args.tabla
+    elif args.duracion <= max(valor.cargar()):
+        nombre_tabla = valor.ARCHIVO.name
+    elif args.duracion <= max(valor.cargar(valor.ARCHIVO_LARGO)):
+        nombre_tabla = valor.ARCHIVO_LARGO.name
+    else:
+        nombre_tabla = valor.ARCHIVO_510.name
+    print(f"tabla: {nombre_tabla}")
     print(f"la tabla de valor se tuneo en {seeds.TUNEO.start}-{seeds.TUNEO.stop - 1}, disjuntos\n")
     print(f"  {'':<18} {'greedy':>10} {'NUEZ':>10}")
     print(f"  {'ganancia media':<18} ${statistics.mean(gre):>9.0f} ${statistics.mean(nue):>9.0f}")
