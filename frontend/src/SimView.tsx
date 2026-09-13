@@ -9,24 +9,23 @@ import maplibreWorkerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?url'
 import { Icon } from './ui/icons'
 import { baseStyle, MTY_CENTER, MTY_ZOOM } from './map/style'
 import { createRoadLoader } from './map/roads'
+import { addTrailLayers } from './map/trails'
+import { actualizarLlegadas } from './map/arrivals'
+import { dispararShock, type ShockType } from './map/shocks'
 
 import { cargarTurnosPorSeed, cargarIndiceTurnos, cargarPuntos } from './lib/loader'
 import { posicionEnMinuto, minutosAHora, contadoresEnT, estelaHastaT } from './lib/sim'
-import { esSeguridad, etiquetaRestriccion } from './lib/decision-text'
-import { API_URL } from './lib/api'
 import type { TurnoData, TurnoIndex } from './lib/turno'
 import { Counters } from './sim/Counters'
 import { Decisions } from './sim/Decisions'
 import { Distribution } from './sim/Distribution'
+import { DecisionToasts } from './sim/DecisionToasts'
+import { VozToggle } from './voice/VozToggle'
 
 maplibregl.setWorkerUrl(maplibreWorkerUrl)
 
 const SPEEDS = [1, 2, 4] as const
 const MS_PER_STEP_BASE = 500 // 1 min simulado cada 0.5s a velocidad ×1
-
-// Colores de las estelas (constantes de mapa, MapLibre no lee CSS vars)
-const GREEDY_TRAIL = '#F59E0B' // ámbar
-const NUEZ_TRAIL = '#4F46E5' // índigo
 
 export default function SimView() {
   const mapContainer = useRef<HTMLDivElement>(null)
@@ -45,27 +44,8 @@ export default function SimView() {
   const [isPlaying, setIsPlaying] = useState(false)
   const [speedIdx, setSpeedIdx] = useState(0)
   const [maxT, setMaxT] = useState(120)
-  const [activeShockBanner, setActiveShockBanner] = useState<string | null>(null)
 
-  const handleShock = async (type: 'closure' | 'rain') => {
-    try {
-      const payload = type === 'closure' 
-        ? {"shock_type": "closure", "zone": 2, "duration_min": 40, "road": "Constitución"}
-        : {"shock_type": "rain", "duration_min": 45};
-        
-      await fetch(`${API_URL}/shock`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      });
-      
-      const bannerText = type === 'closure' ? 'Cierre en Constitución · 40 min' : 'Lluvia intensa · 45 min';
-      setActiveShockBanner(bannerText);
-      setTimeout(() => setActiveShockBanner(null), 10000);
-    } catch (e) {
-      console.error('Error triggering shock:', e);
-    }
-  }
+  const handleShock = (type: ShockType) => dispararShock(mapRef.current, type)
 
   // Cargar índice y puntos al montar
   useEffect(() => {
@@ -124,52 +104,7 @@ export default function SimView() {
           }, 300)
         })
 
-        // Fuentes para estelas
-        map.addSource('trail-greedy', {
-          type: 'geojson',
-          data: { type: 'FeatureCollection', features: [] },
-        })
-        map.addSource('trail-nuez', {
-          type: 'geojson',
-          data: { type: 'FeatureCollection', features: [] },
-        })
-
-        map.addLayer({
-          id: 'trail-greedy-line',
-          type: 'line',
-          source: 'trail-greedy',
-          paint: {
-            'line-color': GREEDY_TRAIL,
-            'line-width': 3,
-            'line-opacity': 0.5,
-            'line-offset': -2,
-          },
-          layout: { 'line-cap': 'round', 'line-join': 'round' },
-        })
-        map.addLayer({
-          id: 'trail-nuez-casing',
-          type: 'line',
-          source: 'trail-nuez',
-          paint: {
-            'line-color': '#FFFFFF',
-            'line-width': 5,
-            'line-opacity': 0.6,
-            'line-offset': 2,
-          },
-          layout: { 'line-cap': 'round', 'line-join': 'round' },
-        })
-        map.addLayer({
-          id: 'trail-nuez-line',
-          type: 'line',
-          source: 'trail-nuez',
-          paint: {
-            'line-color': NUEZ_TRAIL,
-            'line-width': 3,
-            'line-opacity': 0.8,
-            'line-offset': 2,
-          },
-          layout: { 'line-cap': 'round', 'line-join': 'round' },
-        })
+        addTrailLayers(map)
       } catch (err) {
         console.error('Error cargando datos del grafo:', err)
       }
@@ -218,70 +153,11 @@ export default function SimView() {
       ;(map.getSource('trail-nuez') as maplibregl.GeoJSONSource).setData(trailN)
     }
 
-    // Render arrival markers
-    if (puntos) {
-      const activeKeys = new Set<string>()
-
-      const processArrivals = (agentName: 'greedy' | 'nuez', frames: typeof greedy.frames) => {
-        // 1. Llegadas recientes (animación de pulso)
-        for (let i = Math.max(0, t - 4); i <= t; i++) {
-          const frame = frames[i]
-          if (frame?.llegada) {
-            const key = `${agentName}-${i}`
-            activeKeys.add(key)
-            if (!arrivalMarkers.current[key]) {
-              const pt = puntos.features[frame.llegada.punto]
-              if (pt && pt.geometry.type === 'Point') {
-                const el = document.createElement('div')
-                // El elemento raíz no debe tener transformaciones CSS, MapLibre lo controla.
-                const svgContent = frame.llegada.tipo === 'pickup' 
-                  ? `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2"/><path d="M7 2v20"/><path d="M21 15V2v0a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3Zm0 0v7"/></svg>`
-                  : `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>`
-                
-                el.innerHTML = `<div class="marker-arrival is-${agentName}">${svgContent}</div>`
-                const marker = new maplibregl.Marker({ element: el })
-                  .setLngLat(pt.geometry.coordinates as [number, number])
-                  .addTo(mapRef.current!)
-                arrivalMarkers.current[key] = marker
-              }
-            }
-          }
-        }
-
-        // 2. Siguiente destino (marcador estático punteado)
-        const nextFrame = frames.slice(t + 1).find(f => f.llegada)
-        if (nextFrame && nextFrame.llegada) {
-          const targetKey = `${agentName}-target-${nextFrame.llegada.punto}`
-          activeKeys.add(targetKey)
-          if (!arrivalMarkers.current[targetKey]) {
-            const pt = puntos.features[nextFrame.llegada.punto]
-            if (pt && pt.geometry.type === 'Point') {
-              const el = document.createElement('div')
-              const svgContent = nextFrame.llegada.tipo === 'pickup' 
-                ? `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2"/><path d="M7 2v20"/><path d="M21 15V2v0a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3Zm0 0v7"/></svg>`
-                : `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>`
-              
-              el.innerHTML = `<div class="marker-target is-${agentName}">${svgContent}</div>`
-              const marker = new maplibregl.Marker({ element: el })
-                .setLngLat(pt.geometry.coordinates as [number, number])
-                .addTo(mapRef.current!)
-              arrivalMarkers.current[targetKey] = marker
-            }
-          }
-        }
-      }
-
-      processArrivals('greedy', greedy.frames)
-      processArrivals('nuez', nuez.frames)
-
-      // Cleanup old markers
-      for (const [key, marker] of Object.entries(arrivalMarkers.current)) {
-        if (!activeKeys.has(key)) {
-          marker.remove()
-          delete arrivalMarkers.current[key]
-        }
-      }
-    }
+    // Marcadores de llegada y siguiente destino
+    actualizarLlegadas(map, arrivalMarkers.current, puntos, t, {
+      greedy: greedy.frames,
+      nuez: nuez.frames,
+    })
   }, [t, greedy, nuez, puntos])
 
   // Auto-play
@@ -322,10 +198,6 @@ export default function SimView() {
     : { ganado: 0, entregas: 0, saltadas: 0 }
   const terminado = t >= maxT - 1
 
-  // Buscar si Nuez acaba de rechazar por seguridad
-  const frameNuez = nuez?.frames[t]
-  const recentSafetyDecision = frameNuez?.decisiones.find(d => d.restriccion && esSeguridad(d.restriccion))
-
   return (
     <div className="app">
       {/* Mapa */}
@@ -338,8 +210,30 @@ export default function SimView() {
       </div>
 
       {/* Logo y Badge Gemini */}
-      <div className="logo-container" style={{ position: 'absolute', top: 16, right: 16, zIndex: 10, display: 'flex', alignItems: 'center', gap: 12 }}>
-        <div className="gemini-badge" style={{ backgroundColor: '#10b981', color: 'white', padding: '4px 10px', borderRadius: 99, fontSize: '0.75rem', fontWeight: 700, boxShadow: '0 2px 5px rgba(0,0,0,0.2)' }}>
+      <div
+        className="logo-container"
+        style={{
+          position: 'absolute',
+          top: 16,
+          right: 16,
+          zIndex: 10,
+          display: 'flex',
+          alignItems: 'center',
+          gap: 12,
+        }}
+      >
+        <div
+          className="gemini-badge"
+          style={{
+            backgroundColor: '#10b981',
+            color: 'white',
+            padding: '4px 10px',
+            borderRadius: 99,
+            fontSize: '0.75rem',
+            fontWeight: 700,
+            boxShadow: '0 2px 5px rgba(0,0,0,0.2)',
+          }}
+        >
           Gemini: activo
         </div>
         <div className="logo" role="img" aria-label="Nuez" style={{ position: 'static' }}>
@@ -347,34 +241,8 @@ export default function SimView() {
         </div>
       </div>
 
-      {/* Banner de Restricción */}
-      {recentSafetyDecision && recentSafetyDecision.restriccion && (
-        <div className="restriction-banner" style={{
-          position: 'absolute', top: '80px', left: '50%', transform: 'translateX(-50%)',
-          backgroundColor: '#f43f5e', color: 'white', padding: '10px 24px', borderRadius: 8,
-          fontWeight: 700, fontSize: '1.05rem', zIndex: 20,
-          display: 'flex', alignItems: 'center', gap: '8px',
-          boxShadow: '0 8px 16px rgba(244, 63, 94, 0.4)',
-          animation: 'pulse 1.5s infinite'
-        }}>
-          {Icon.shield} {etiquetaRestriccion(recentSafetyDecision.restriccion).toUpperCase()} REJECTED
-        </div>
-      )}
-
-      {/* Banner de Shocks (Disrupciones) */}
-      {activeShockBanner && (
-        <div style={{
-          position: 'absolute', top: '130px', left: '50%', transform: 'translateX(-50%)',
-          backgroundColor: '#0f172a', color: 'white', padding: '10px 24px', borderRadius: 8,
-          fontWeight: 700, fontSize: '1.05rem', zIndex: 20,
-          display: 'flex', alignItems: 'center', gap: '8px',
-          boxShadow: '0 8px 16px rgba(0, 0, 0, 0.4)',
-          border: '2px solid #38bdf8',
-          animation: 'pulse 2s infinite'
-        }}>
-          ⚠️ {activeShockBanner.toUpperCase()}
-        </div>
-      )}
+      {/* Avisos de decisión: aceptado arriba, bloqueado por seguridad abajo */}
+      <DecisionToasts frame={nuez?.frames[t]} seed={seed} t={t} />
 
       {/* Timeline */}
       <div className="timeline-panel">
@@ -431,19 +299,54 @@ export default function SimView() {
               {s}x
             </button>
           ))}
+          {nuez && (
+            <VozToggle
+              frames={nuez.frames}
+              t={t}
+              isPlaying={isPlaying}
+              vehiculo={nuez.config.vehiculo}
+            />
+          )}
         </div>
 
         {/* Shocks (Disrupciones) */}
-        <div className="shock-controls" style={{ display: 'flex', gap: '8px', marginLeft: '16px', borderLeft: '1px solid #e2e8f0', paddingLeft: '16px' }}>
-          <button 
+        <div
+          className="shock-controls"
+          style={{
+            display: 'flex',
+            gap: '8px',
+            marginLeft: '16px',
+            borderLeft: '1px solid #e2e8f0',
+            paddingLeft: '16px',
+          }}
+        >
+          <button
             onClick={() => handleShock('closure')}
-            style={{ padding: '6px 12px', fontSize: '0.8rem', fontWeight: 600, backgroundColor: '#fef3c7', color: '#b45309', border: '1px solid #fde68a', borderRadius: '6px', cursor: 'pointer' }}
+            style={{
+              padding: '6px 12px',
+              fontSize: '0.8rem',
+              fontWeight: 600,
+              backgroundColor: '#fef3c7',
+              color: '#b45309',
+              border: '1px solid #fde68a',
+              borderRadius: '6px',
+              cursor: 'pointer',
+            }}
           >
             🚧 Cerrar Constitución
           </button>
-          <button 
+          <button
             onClick={() => handleShock('rain')}
-            style={{ padding: '6px 12px', fontSize: '0.8rem', fontWeight: 600, backgroundColor: '#e0f2fe', color: '#0369a1', border: '1px solid #bae6fd', borderRadius: '6px', cursor: 'pointer' }}
+            style={{
+              padding: '6px 12px',
+              fontSize: '0.8rem',
+              fontWeight: 600,
+              backgroundColor: '#e0f2fe',
+              color: '#0369a1',
+              border: '1px solid #bae6fd',
+              borderRadius: '6px',
+              cursor: 'pointer',
+            }}
           >
             🌧 Empezar Lluvia
           </button>
@@ -453,8 +356,13 @@ export default function SimView() {
       {/* Panel izquierdo */}
       <div className="overlay-panel">
         {/* Nota de Gemini */}
-        <div className="glass-card gemini-note" style={{ marginBottom: 12, padding: '10px 16px', borderLeft: '4px solid #4F46E5' }}>
-          <div style={{ fontSize: '0.75rem', fontWeight: 700, color: '#4F46E5', marginBottom: 4 }}>STRATEGY NOTE (GEMINI)</div>
+        <div
+          className="glass-card gemini-note"
+          style={{ marginBottom: 12, padding: '10px 16px', borderLeft: '4px solid #4F46E5' }}
+        >
+          <div style={{ fontSize: '0.75rem', fontWeight: 700, color: '#4F46E5', marginBottom: 4 }}>
+            STRATEGY NOTE (GEMINI)
+          </div>
           <div style={{ fontSize: '0.85rem', color: '#334155', fontStyle: 'italic' }}>
             {/* VACIO - Esperando backend en vivo para la nota de Gemini */}
           </div>
@@ -487,9 +395,7 @@ export default function SimView() {
         )}
 
         {/* Distribución */}
-        {indice && (
-          <Distribution />
-        )}
+        {indice && <Distribution />}
 
         {/* Contadores */}
         {greedy && nuez && (

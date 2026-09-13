@@ -26,6 +26,7 @@ app = FastAPI(
     description="API para el simulador y motor del repartidor Nuez",
 )
 app.include_router(voice.router)
+# El protocolo que prueban los jueces. tests/test_main_app.py falla si se pierde en un merge.
 app.include_router(courier_api.router)
 app.include_router(analytics.router)
 
