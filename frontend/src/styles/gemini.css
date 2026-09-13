@@ -1,0 +1,84 @@
+/* ═══════════════════════════════════════════════════════
+   Gemini — badge junto al logo y tarjeta de nota
+   El badge tiene tres estados y cada color conserva su único
+   significado: esmeralda = turno vivo con Gemini contestando,
+   ámbar = urgencia (el modelo se cayó), tinta apagada = nada vivo.
+   ═══════════════════════════════════════════════════════ */
+
+/* ─── Badge ───
+   Isla sobre el mapa, pero chica: blanco, hairline, radio de chip.
+   El estado lo cargan el punto y el color del texto, no un relleno chillón. */
+.gemini-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 32px;
+  padding: 0 12px;
+  border: 1px solid var(--hairline);
+  border-radius: var(--r-sm);
+  background: var(--card);
+  color: var(--ink-3);
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1;
+  white-space: nowrap;
+  transition:
+    color 150ms var(--ease),
+    border-color 150ms var(--ease),
+    background-color 150ms var(--ease);
+}
+
+.gemini-badge-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--ink-4);
+  flex-shrink: 0;
+}
+
+.gemini-badge.is-active {
+  color: var(--emerald-ink);
+}
+
+.gemini-badge.is-active .gemini-badge-dot {
+  background: var(--emerald);
+}
+
+/* El momento del demo: le quitan la llave y el badge se pone ámbar sin frenar el turno. */
+.gemini-badge.is-degraded {
+  border-color: var(--amber);
+  color: var(--amber-ink);
+}
+
+.gemini-badge.is-degraded .gemini-badge-dot {
+  background: var(--amber);
+}
+
+/* ─── Tarjeta de nota ─── */
+.glass-card.gemini-note {
+  padding: 12px 16px;
+}
+
+.gemini-note-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.gemini-note-stale {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--amber-ink);
+}
+
+.gemini-note-text {
+  font-size: 13px;
+  line-height: 18px;
+  color: var(--ink);
+}
+
+.gemini-note-text.is-empty {
+  color: var(--ink-3);
+}

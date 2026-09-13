@@ -1,5 +1,5 @@
 // Botón de voz de la barra de tiempo. Mientras está encendido y el turno corre, Nuez dice
-// en voz alta sus aceptaciones y sus rechazos por seguridad (ver frases.ts).
+// en voz alta sus aceptaciones y sus rechazos por reglas duras (ver frases.ts).
 //
 // El click es a la vez el gesto que desbloquea el audio del navegador y el momento de
 // calentar la cache con las frases de este turno: ensayado una vez con red, el demo suena

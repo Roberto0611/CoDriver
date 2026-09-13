@@ -4,6 +4,7 @@ import {
   textoDecisionDetalle,
   etiquetaRestriccion,
   esSeguridad,
+  tipoRestriccion,
 } from './decision-text'
 import type { Decision } from '../contract'
 
@@ -22,6 +23,21 @@ describe('esSeguridad', () => {
 
   it('heat_rule sí es seguridad', () => {
     expect(esSeguridad('heat_rule')).toBe(true)
+  })
+
+  it('vehicle_capacity no es seguridad (es un límite físico)', () => {
+    expect(esSeguridad('vehicle_capacity')).toBe(false)
+  })
+})
+
+describe('tipoRestriccion', () => {
+  it('separa seguridad, capacidad y dinero', () => {
+    expect(tipoRestriccion('flagged_zone_night')).toBe('safety')
+    expect(tipoRestriccion('mandatory_break')).toBe('safety')
+    expect(tipoRestriccion('heat_rule')).toBe('safety')
+    expect(tipoRestriccion('shift_end_infeasible')).toBe('safety')
+    expect(tipoRestriccion('vehicle_capacity')).toBe('capacity')
+    expect(tipoRestriccion('reservation_wage')).toBe('money')
   })
 })
 
@@ -67,6 +83,18 @@ describe('textoDecisionCorto', () => {
     const txt = textoDecisionCorto(d)
     expect(txt).toContain('Skip')
     expect(txt).toContain('Flagged zone')
+  })
+
+  it('vehículo lleno sigue nombrando la restricción, aunque no sea seguridad', () => {
+    const d: Decision = {
+      t: 5,
+      oferta_id: 'o2',
+      accion: 'saltar',
+      terminos: { pago_neto: 38, minutos: 25 },
+      razon: '',
+      restriccion: 'vehicle_capacity',
+    }
+    expect(textoDecisionCorto(d)).toBe('Skip: No capacity')
   })
 
   it('saltar por dinero muestra pago', () => {

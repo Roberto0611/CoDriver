@@ -86,6 +86,13 @@ export const Icon = {
       <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
     </svg>
   ),
+  box: (
+    <svg viewBox="0 0 24 24" {...stroke}>
+      <path d="M21 8l-9-5-9 5v8l9 5 9-5z" />
+      <path d="M3 8l9 5 9-5" />
+      <path d="M12 13v8" />
+    </svg>
+  ),
   skip: (
     <svg viewBox="0 0 24 24" {...stroke}>
       <path d="M18 6L6 18" />

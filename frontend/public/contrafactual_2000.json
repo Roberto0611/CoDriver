@@ -1,0 +1,58 @@
+{
+  "seed": 2000,
+  "policy": "nuez",
+  "actual": {
+    "earned_mxn": 309.5,
+    "deliveries": 7,
+    "offers": 96,
+    "late": false
+  },
+  "skipped_total": 89,
+  "money_skips": {
+    "count": 2,
+    "evaluated": 2,
+    "infeasible": 0,
+    "would_earn_less": 2,
+    "would_earn_more": 0,
+    "no_change": 0,
+    "late_runs": 0,
+    "cancelled_runs": 0,
+    "avg_delta_mxn": -32.26,
+    "max_gain_mxn": null,
+    "max_loss_mxn": -41.85
+  },
+  "safety_skips": {
+    "flagged_zone_night": 0,
+    "mandatory_break": 0,
+    "heat_rule": 23,
+    "shift_end_infeasible": 23
+  },
+  "capacity_skips": 41,
+  "top": [
+    {
+      "order_id": "o_033",
+      "minute": 48,
+      "net_pay_mxn": 42.3,
+      "minutes": 22.3,
+      "time_value_mxn": 64.2,
+      "delta_mxn": -41.85,
+      "forced_earned_mxn": 267.65,
+      "forced_deliveries": 6,
+      "late": false,
+      "cancelled": 0
+    },
+    {
+      "order_id": "o_035",
+      "minute": 51,
+      "net_pay_mxn": 29.3,
+      "minutes": 28.1,
+      "time_value_mxn": 39.5,
+      "delta_mxn": -22.66,
+      "forced_earned_mxn": 286.84,
+      "forced_deliveries": 7,
+      "late": false,
+      "cancelled": 0
+    }
+  ],
+  "note": "Each skipped order is re-simulated on its own. Deltas are not additive."
+}

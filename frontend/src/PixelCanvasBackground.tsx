@@ -17,18 +17,13 @@ export interface PixelCanvasBackgroundProps {
 }
 
 // ── Configuraciones por defecto exportadas desde FrontHelp ──────────────────
-const DEFAULT_VIDEO_SRC = '/tec-fondo-compact-ezgif.com-gif-to-mp4-converter.mp4';
-const DEFAULT_PIXEL_SIZE = 3;
-const DEFAULT_SHAPE_MODE = 'circles';
-const DEFAULT_COLOR_MODE = 'full';
-const DEFAULT_PALETTE = [
-  "#FF4500",
-  "#0000CD",
-  "#00C800",
-  "#FFD700"
-];
-const DEFAULT_CONTRAST = 60;
-const DEFAULT_LIGHTNESS = 100;
+const DEFAULT_VIDEO_SRC = '/tec-fondo-compact-ezgif.com-gif-to-mp4-converter.mp4'
+const DEFAULT_PIXEL_SIZE = 3
+const DEFAULT_SHAPE_MODE = 'circles'
+const DEFAULT_COLOR_MODE = 'full'
+const DEFAULT_PALETTE = ['#FF4500', '#0000CD', '#00C800', '#FFD700']
+const DEFAULT_CONTRAST = 60
+const DEFAULT_LIGHTNESS = 100
 
 const hexToRgb = (hex: string) => {
   const clean = hex.replace('#', '')
@@ -89,26 +84,28 @@ export const PixelCanvasBackground: React.FC<PixelCanvasBackgroundProps> = ({
     let isReady = false
 
     if (isVideo) {
-      videoEl = document.createElement('video');
-      videoEl.src = src;
-      videoEl.crossOrigin = 'anonymous';
-      videoEl.loop = true;
-      videoEl.muted = true;
-      videoEl.defaultMuted = true;
-      videoEl.playsInline = true;
-      videoEl.autoplay = true;
-      
+      videoEl = document.createElement('video')
+      videoEl.src = src
+      videoEl.crossOrigin = 'anonymous'
+      videoEl.loop = true
+      videoEl.muted = true
+      videoEl.defaultMuted = true
+      videoEl.playsInline = true
+      videoEl.autoplay = true
+
       // FIX: Engañar al navegador para que no congele el video por ser "invisible"
-      videoEl.style.position = 'absolute';
-      videoEl.style.width = '1px';
-      videoEl.style.height = '1px';
-      videoEl.style.opacity = '0.01';
-      videoEl.style.pointerEvents = 'none';
-      document.body.appendChild(videoEl);
-      
-      videoEl.onloadeddata = () => { isReady = true; };
-      videoEl.play().catch(() => {});
-      mediaRef.current = videoEl;
+      videoEl.style.position = 'absolute'
+      videoEl.style.width = '1px'
+      videoEl.style.height = '1px'
+      videoEl.style.opacity = '0.01'
+      videoEl.style.pointerEvents = 'none'
+      document.body.appendChild(videoEl)
+
+      videoEl.onloadeddata = () => {
+        isReady = true
+      }
+      videoEl.play().catch(() => {})
+      mediaRef.current = videoEl
     } else {
       imageEl = new Image()
       imageEl.crossOrigin = 'anonymous'
@@ -131,13 +128,13 @@ export const PixelCanvasBackground: React.FC<PixelCanvasBackgroundProps> = ({
     const paletteRgb = palette.map(hexToRgb)
 
     const updateDimensions = () => {
-      if (!canvas) return;
+      if (!canvas) return
       // El canvas ya debería estar estirado al 100% de su contenedor por CSS
       // o usamos el parentElement para saber el tamaño real que debe ocupar
-      const parent = canvas.parentElement;
-      const w = parent ? parent.clientWidth : window.innerWidth;
-      const h = parent ? parent.clientHeight : window.innerHeight;
-      const dpr = Math.min(window.devicePixelRatio || 1, 2);
+      const parent = canvas.parentElement
+      const w = parent ? parent.clientWidth : window.innerWidth
+      const h = parent ? parent.clientHeight : window.innerHeight
+      const dpr = Math.min(window.devicePixelRatio || 1, 2)
 
       canvas.width = Math.floor(w * dpr)
       canvas.height = Math.floor(h * dpr)
@@ -151,13 +148,13 @@ export const PixelCanvasBackground: React.FC<PixelCanvasBackgroundProps> = ({
     window.addEventListener('resize', updateDimensions)
 
     const handleMouseMove = (e: MouseEvent) => {
-      if (!canvasRef.current) return;
-      const rect = canvasRef.current.getBoundingClientRect();
-      mousePosRef.current = { 
-        x: e.clientX - rect.left, 
-        y: e.clientY - rect.top 
-      };
-    };
+      if (!canvasRef.current) return
+      const rect = canvasRef.current.getBoundingClientRect()
+      mousePosRef.current = {
+        x: e.clientX - rect.left,
+        y: e.clientY - rect.top,
+      }
+    }
     const handleMouseLeave = () => {
       mousePosRef.current = { x: -1000, y: -1000 }
     }
@@ -209,9 +206,9 @@ export const PixelCanvasBackground: React.FC<PixelCanvasBackgroundProps> = ({
         ctx.save()
         ctx.scale(dpr, dpr)
 
-        const radius = pixelSize / 2;
-        const mouse = mousePosRef.current;
-        const mouseInfluenceDist = 40;
+        const radius = pixelSize / 2
+        const mouse = mousePosRef.current
+        const mouseInfluenceDist = 40
 
         for (let y = 0; y < h; y += pixelSize) {
           for (let x = 0; x < w; x += pixelSize) {
@@ -225,13 +222,13 @@ export const PixelCanvasBackground: React.FC<PixelCanvasBackgroundProps> = ({
 
             if (a === 0) continue
 
-            let currentR = r;
-            let currentG = g;
-            let currentB = b;
+            let currentR = r
+            let currentG = g
+            let currentB = b
 
             if (colorMode === 'greyscale') {
-              const grey = Math.round(0.299 * r + 0.587 * g + 0.114 * b);
-              currentR = currentG = currentB = grey;
+              const grey = Math.round(0.299 * r + 0.587 * g + 0.114 * b)
+              currentR = currentG = currentB = grey
             } else if (colorMode === 'palette') {
               let bestIdx = 0
               let bestDist = Infinity
@@ -242,35 +239,35 @@ export const PixelCanvasBackground: React.FC<PixelCanvasBackgroundProps> = ({
                   bestIdx = p
                 }
               }
-              const palColor = paletteRgb[bestIdx];
-              currentR = palColor.r;
-              currentG = palColor.g;
-              currentB = palColor.b;
+              const palColor = paletteRgb[bestIdx]
+              currentR = palColor.r
+              currentG = palColor.g
+              currentB = palColor.b
             }
 
-            let scaleFactor = 0.9;
-            let skipDraw = false;
+            let scaleFactor = 0.9
+            let skipDraw = false
             if (interactive && mouse.x > 0) {
               const distToMouse = Math.hypot(x + radius - mouse.x, y + radius - mouse.y)
               if (distToMouse < mouseInfluenceDist) {
-                const infl = 1 - distToMouse / mouseInfluenceDist;
-                scaleFactor = 0.9 + infl * 0.45;
-                
+                const infl = 1 - distToMouse / mouseInfluenceDist
+                scaleFactor = 0.9 + infl * 0.45
+
                 // Efecto de distorsión: 50% se vuelven café, 50% mantienen su color original
-                if (Math.random() > 0.5) { 
+                if (Math.random() > 0.5) {
                   // Color cafecito/plum (#684959)
-                  currentR = 104;
-                  currentG = 73;
-                  currentB = 89;
+                  currentR = 104
+                  currentG = 73
+                  currentB = 89
                 }
               }
             }
 
-            if (skipDraw) continue;
+            if (skipDraw) continue
 
-            const fill = `rgba(${currentR},${currentG},${currentB},${a / 255})`;
-            ctx.fillStyle = fill;
-            const currentRadius = radius * scaleFactor;
+            const fill = `rgba(${currentR},${currentG},${currentB},${a / 255})`
+            ctx.fillStyle = fill
+            const currentRadius = radius * scaleFactor
 
             if (shapeMode === 'circles') {
               ctx.beginPath()

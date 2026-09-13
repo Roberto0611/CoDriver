@@ -18,7 +18,9 @@ from mundo import HORA_NOCHE
 
 # Lo que el protocolo exige en la respuesta; el resto de campos es contexto extra.
 REQUIRED = ("order_id", "decision", "reason", "inputs", "alternatives_considered")
-SAFETY = {
+# Las restricciones duras: se revisan antes que el dinero. La capacidad es dura pero
+# NO es seguridad (un vehiculo lleno es un limite fisico), y la frase lo dice asi.
+HARD = {
     "flagged_zone_night",
     "mandatory_break",
     "heat_rule",
@@ -104,7 +106,7 @@ def alternatives(
             }
         ]
 
-    if constraint not in SAFETY:
+    if constraint not in HARD:
         # Con ventaja entre 0 y el minimo, "MXN 0 below" confunde: se dice que no alcanza.
         min_edge = inputs.get("strategy", {}).get("min_edge_mxn", 0)
         gap = f"MXN {-edge:.1f} below" if edge < 0 else f"only MXN {edge:.1f} above"
@@ -120,13 +122,18 @@ def alternatives(
 
     pay_verdict = "ACCEPT" if edge > 0 else "SKIP"
     detail = _constraint_detail(constraint, inputs)
+    rule = (
+        "vehicle capacity is a physical limit, checked first, and"
+        if constraint == "vehicle_capacity"
+        else "safety constraints are checked first and"
+    )
     return [
         {"option": "ACCEPT", "rejected_because": f"Blocked by {constraint}: {detail}"},
         {
             "option": "Decide on pay alone",
             "rejected_because": (
-                f"Pay math alone says {pay_verdict} (edge MXN {edge:.0f}), but safety "
-                "constraints are checked first and cannot be bought with money."
+                f"Pay math alone says {pay_verdict} (edge MXN {edge:.0f}), but {rule} "
+                "cannot be bought with money."
             ),
         },
     ]

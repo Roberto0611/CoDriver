@@ -270,6 +270,12 @@
   color: var(--amber-ink);
 }
 
+/* Vehículo lleno: límite físico, no seguridad ni urgencia. Neutro. */
+.decision-chip.is-capacity {
+  background: var(--surface-high);
+  color: var(--ink-2);
+}
+
 .decision-detail {
   font-size: 12px;
   color: var(--ink-3);
@@ -476,4 +482,3 @@
   background: var(--surface-high);
   color: var(--ink-2);
 }
-

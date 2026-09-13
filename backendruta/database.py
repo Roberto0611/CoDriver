@@ -95,10 +95,12 @@ def init_db() -> bool:
 
     try:
         with engine.begin() as conn:
-            # 1. Intentar activar la extensión TimescaleDB
+            # 1. Intentar activar la extensión TimescaleDB. Lo opcional va en SAVEPOINT: en
+            # Postgres una orden que falla aborta la transacción y tumbaba las tablas de abajo.
             has_timescale = False
             try:
-                conn.execute(text("CREATE EXTENSION IF NOT EXISTS timescaledb CASCADE;"))
+                with conn.begin_nested():
+                    conn.execute(text("CREATE EXTENSION IF NOT EXISTS timescaledb CASCADE;"))
                 has_timescale = True
                 logger.info("Extensión TimescaleDB detectada y activa.")
             except Exception as e:
@@ -120,18 +122,6 @@ def init_db() -> bool:
                 );
             """)
             )
-
-            # Si TimescaleDB está presente, convertirla a hypertable
-            if has_timescale:
-                try:
-                    conn.execute(
-                        text(
-                            "SELECT create_hypertable("
-                            "'trafico_calles', 'tiempo', if_not_exists => TRUE);"
-                        )
-                    )
-                except Exception as e:
-                    logger.debug(f"Hipertabla ya existente o no requerida: {e}")
 
             # Índices para consultas instantáneas por minuto
             conn.execute(
@@ -183,16 +173,24 @@ def init_db() -> bool:
             """)
             )
 
-            if has_timescale:
+            # Con TimescaleDB, las dos series de tiempo se vuelven hypertables. Cada una en
+            # su SAVEPOINT: si una no se puede convertir, el resto del esquema sigue.
+            for tabla, columna in (
+                ("trafico_calles", "tiempo"),
+                ("decisiones_courier", "sim_time"),
+            ):
+                if not has_timescale:
+                    break
                 try:
-                    conn.execute(
-                        text(
-                            "SELECT create_hypertable("
-                            "'decisiones_courier', 'sim_time', if_not_exists => TRUE);"
+                    with conn.begin_nested():
+                        conn.execute(
+                            text(
+                                f"SELECT create_hypertable('{tabla}', '{columna}', "
+                                "if_not_exists => TRUE);"
+                            )
                         )
-                    )
                 except Exception as e:
-                    logger.debug(f"Hipertabla de decisiones ya existente o no requerida: {e}")
+                    logger.debug(f"Hipertabla {tabla} ya existente o no requerida: {e}")
 
             conn.execute(
                 text("""
