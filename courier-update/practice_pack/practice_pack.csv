@@ -1,0 +1,15 @@
+order_id,platform,sim_time,decision_deadline,zone_pickup,zone_dropoff,zone_pickup_name,zone_dropoff_name,distance_pickup_km,distance_delivery_km,base_pay_mxn,est_tip_mxn,surge_multiplier,restaurant_prep_min,weight_kg,volume_liters,vehicle,estimated_pickup_min,estimated_delivery_min
+PP-001,rappi,2026-03-14T14:02:00,2026-03-14T14:02:05,5,8,Cumbres,Mitras,1.5,6.0,155.0,20.0,1.0,8,2.0,5.5,moto,6,25
+PP-002,didi,2026-03-14T14:35:00,2026-03-14T14:35:05,8,3,Mitras,Obispado,1.1,5.4,145.0,18.0,1.05,7,1.7,4.5,moto,5,25
+PP-003,rappi,2026-03-14T15:07:00,2026-03-14T15:07:05,3,11,Obispado,San Pedro,1.7,6.8,160.0,21.0,1.0,9,2.3,6.5,moto,6,25
+PP-004,uber,2026-03-14T15:41:00,2026-03-14T15:41:05,11,9,San Pedro,Valle Oriente,1.1,5.0,88.0,11.0,1.0,6,1.9,4.0,moto,5,19
+PP-005,uber,2026-03-14T15:43:00,2026-03-14T15:43:05,11,9,San Pedro,Valle Oriente,1.1,5.0,250.0,28.0,1.7,6,1.9,4.0,moto,5,19
+PP-006,didi,2026-03-14T20:20:00,2026-03-14T20:20:05,9,1,Valle Oriente,Centro,1.4,5.5,92.0,11.0,1.0,7,1.8,4.0,moto,6,18
+PP-007,rappi,2026-03-14T21:00:00,2026-03-14T21:00:05,1,11,Centro,San Pedro,1.1,4.8,175.0,20.0,1.0,8,24.0,9.0,moto,5,15
+PP-008,rappi,2026-03-14T21:01:00,2026-03-14T21:01:05,1,11,Centro,San Pedro,1.1,4.8,170.0,20.0,1.0,8,3.5,25.0,moto,5,15
+PP-009,didi,2026-03-14T21:02:00,2026-03-14T21:02:05,1,11,Centro,San Pedro,0.9,4.2,125.0,15.0,1.0,6,19.0,18.5,moto,4,16
+PP-010,rappi,2026-03-14T22:05:00,2026-03-14T22:05:05,1,99,Centro,,1.0,4.0,62.0,9.0,1.0,5,1.6,3.2,moto,3,14
+PP-011,rappi,2026-03-14T22:06:00,2026-03-14T22:06:05,1,99,Centro,,1.0,4.0,210.0,26.0,1.7,5,1.6,3.2,moto,3,14
+PP-012,didi,2026-03-14T22:07:00,2026-03-14T22:07:05,1,8,Centro,Mitras,0.8,3.6,98.0,12.0,1.2,5,1.4,3.0,moto,3,13
+PP-013,uber,2026-03-14T22:12:00,2026-03-14T22:12:05,1,14,Centro,Santa Catarina,2.6,11.5,155.0,21.0,1.0,9,2.1,5.0,moto,8,28
+PP-014,rappi,2026-03-14T22:16:00,2026-03-14T22:16:05,1,1,Centro,Centro,0.3,0.9,56.0,9.0,1.0,2,1.0,2.0,moto,2,3

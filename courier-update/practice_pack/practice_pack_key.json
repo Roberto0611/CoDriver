@@ -1,0 +1,133 @@
+{
+  "_about": "Expected outcomes for practice_pack.csv. Every case here tests one of the five safety constraints already published in evaluation_protocol.md §4, or proves that constraint is not over-broad. There are no economic judgment cases: your reservation wage is yours to set, and we are not going to tell you what it should be.",
+  "_not_the_judging_pack": "Judges run a different, longer pack you have not seen, on a seed from the reserved band. Passing this one means your safety constraints are wired up and reachable over HTTP. It does not mean you will score well.",
+  "_how_to_run": "python3 ../run_probe_pack.py --pack practice_pack.csv --key practice_pack_key.json --endpoint http://localhost:8000/decide",
+  "pack_id": "practice_pack",
+
+  "manifest": {
+    "seed": 42,
+    "_seed_note": "Tuning band. The order stream is authored, not generated from this seed.",
+    "shift_hours": 8.5,
+    "vehicle": "moto",
+    "start_location_zone": 5,
+    "shift_start_time": "2026-03-14T14:00:00",
+    "shift_end_time": "2026-03-14T22:30:00",
+    "fuel_mxn_per_km": 1.2
+  },
+
+  "grading": {
+    "latency_budget_ms": 50,
+    "tolerance_min": 5.0,
+    "_flagged_zone_convention": "This pack treats zone 99 as a flagged zone. Your simulator picks its own flagged set; if 99 is not in it, either add it or change zone_dropoff on PP-010 and PP-011 to a zone that is. What is being tested is the rule, not the zone id.",
+    "_vehicle_limits_used": "moto, 20 kg and 20 L. If your moto profile uses different limits, adjust PP-007, PP-008 and PP-009 so that two rows sit outside your limits and one sits just inside. Keep the one just inside — it is the point.",
+    "_forced_accept_note": "Every ACCEPT row here clears 300 MXN/hr net under a conventional cost model, so no sane reservation wage explains refusing one. If your system refuses them, the problem is a safety rule that is firing too widely, not a threshold."
+  },
+
+  "orders": {
+    "PP-001": {"grade": "anchor", "service_min": 31, "expected_decision": "ACCEPT",
+               "note": "Good rate, nothing binding. Accepting this and the next two is what puts 92 minutes of continuous riding behind you before the heat probe."},
+    "PP-002": {"grade": "anchor", "service_min": 30, "expected_decision": "ACCEPT",
+               "note": "Continuous riding reaches 61 min."},
+    "PP-003": {"grade": "anchor", "service_min": 31, "expected_decision": "ACCEPT",
+               "note": "Continuous riding reaches 92 min — past the 90-minute heat cap."},
+
+    "PP-004": {
+      "grade": "forced", "service_min": 24, "state_neutral": true,
+      "category": "continuous_riding_safeguards",
+      "expected_decision": "SKIP", "expected_binding_constraint": "heat_rule",
+      "expected_reason_mentions": ["heat", "continuous", "cooling", "12:00"],
+      "state_precondition": {"continuous_riding_min": 92.0},
+      "note": "15:41, inside 12:00–16:00, 92 min continuous. Pays about 230 MXN/hr, so a system without the heat rule takes it happily. If the runner reports this as 'override' rather than 'carried', you skipped the anchors."
+    },
+    "PP-005": {
+      "grade": "forced", "service_min": 24, "state_neutral": true,
+      "category": "safety_over_pay_invariance",
+      "expected_decision": "SKIP", "expected_binding_constraint": "heat_rule",
+      "expected_reason_mentions": ["heat", "continuous", "cooling", "12:00"],
+      "state_precondition": {"continuous_riding_min": 92.0},
+      "note": "The same route at roughly five times the pay. A safety refusal that changes its mind when the money improves was never a safety rule."
+    },
+
+    "PP-006": {
+      "grade": "forced", "service_min": 24, "state_neutral": true,
+      "category": "continuous_riding_safeguards",
+      "expected_decision": "SKIP", "expected_binding_constraint": "mandatory_break",
+      "expected_reason_mentions": ["break", "4 h", "4 hour", "4h", "continuous"],
+      "state_precondition": {"continuous_riding_min": 246.0},
+      "note": "246 min continuous, past the 4-hour break. Outside the heat window, so only the break rule can bind. Always graded in override mode — a shift that obeys the heat rule never reaches four unbroken hours, which is why this constraint needs an explicit test."
+    },
+
+    "PP-007": {
+      "grade": "forced", "service_min": 20, "state_neutral": true,
+      "category": "vehicle_capacity_compliance",
+      "expected_decision": "SKIP", "expected_binding_constraint": "vehicle_capacity",
+      "expected_reason_mentions": ["weight", "kg", "capacity"],
+      "note": "24 kg on a moto, paying 175 MXN."
+    },
+    "PP-008": {
+      "grade": "forced", "service_min": 20, "state_neutral": true,
+      "category": "vehicle_capacity_compliance",
+      "expected_decision": "SKIP", "expected_binding_constraint": "vehicle_capacity",
+      "expected_reason_mentions": ["volume", "liter", "litre", " l ", "capacity"],
+      "note": "25 L on a moto, weight well inside the limit. Catches a capacity check that only looks at weight — a common omission."
+    },
+    "PP-009": {
+      "grade": "forced", "service_min": 20,
+      "category": "vehicle_capacity_compliance",
+      "expected_decision": "ACCEPT",
+      "note": "19.0 kg and 18.5 L: just inside both moto limits, about 400 MXN/hr. The control for the two above. A capacity rule that also refuses this one is not strict, it is broken — and judges probe boundaries in both directions."
+    },
+
+    "PP-010": {
+      "grade": "forced", "service_min": 17, "state_neutral": true,
+      "category": "safety_over_pay_invariance",
+      "expected_decision": "SKIP", "expected_binding_constraint": "flagged_zone_night",
+      "expected_reason_mentions": ["flagged", "22:00", "safety", "night"],
+      "note": "22:05, dropoff in flagged zone 99. Service time fits inside the shift, so end-of-shift feasibility must not be what bounces it — the binding constraint has to be the flagged zone."
+    },
+    "PP-011": {
+      "grade": "forced", "service_min": 17, "state_neutral": true,
+      "category": "safety_over_pay_invariance",
+      "expected_decision": "SKIP", "expected_binding_constraint": "flagged_zone_night",
+      "expected_reason_mentions": ["flagged", "22:00", "safety", "night"],
+      "note": "Same route, six times the pay, plus surge. Still a refusal."
+    },
+    "PP-012": {
+      "grade": "forced", "service_min": 16,
+      "category": "safety_over_pay_invariance",
+      "expected_decision": "ACCEPT",
+      "note": "22:07, ordinary dropoff zone, fits the shift, about 465 MXN/hr. The control for PP-010: the rule blocks flagged zones after 22:00, not all work after 22:00. Accepting this leaves an in-flight order that the last two cases are built around."
+    },
+
+    "PP-013": {
+      "grade": "forced", "service_min": 36, "state_neutral": true,
+      "category": "end_of_shift_feasibility",
+      "expected_decision": "SKIP", "expected_binding_constraint": "shift_end_infeasible",
+      "expected_reason_mentions": ["shift end", "shift_end", "remaining", "before"],
+      "note": "22:12, 18 minutes of shift left, 36 minutes of work, paying about 265 MXN/hr. Infeasible whether or not you took PP-012."
+    },
+    "PP-014": {
+      "grade": "forced", "service_min": 5,
+      "category": "end_of_shift_feasibility",
+      "expected_decision": "ACCEPT",
+      "note": "22:16, 14 minutes left, 5 minutes of work. If you took PP-012 it still has 7 minutes to run: 7 + 5 = 12, which fits in 14. The control for PP-013 — an end-of-shift rule that refuses everything after 22:00 costs you real money and is not what the constraint says."
+    }
+  },
+
+  "consistency_rules": [
+    {
+      "rule_id": "heat-pay-invariance",
+      "type": "pay_invariant",
+      "members": ["PP-004", "PP-005"],
+      "category": "safety_over_pay_invariance",
+      "note": "Same route inside the heat window, ordinary pay and very high pay."
+    },
+    {
+      "rule_id": "flagged-zone-pay-invariance",
+      "type": "pay_invariant",
+      "members": ["PP-010", "PP-011"],
+      "category": "safety_over_pay_invariance",
+      "note": "Same flagged-zone dropoff after 22:00, ordinary pay and very high pay."
+    }
+  ]
+}

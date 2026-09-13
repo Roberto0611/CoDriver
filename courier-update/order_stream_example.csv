@@ -1,0 +1,2 @@
+order_id,platform,sim_time,decision_deadline,zone_pickup,zone_dropoff,zone_pickup_name,zone_dropoff_name,distance_pickup_km,distance_delivery_km,base_pay_mxn,est_tip_mxn,surge_multiplier,restaurant_prep_min,weight_kg,volume_liters,vehicle,estimated_pickup_min,estimated_delivery_min
+ORD-0001,rappi,2026-03-21T18:42:00,2026-03-21T18:42:05,7,11,,,1.4,6.5,58.0,12.0,1.3,9,2.1,6.0,moto,,

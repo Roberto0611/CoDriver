@@ -2,8 +2,8 @@
 
 ## Qué mide
 
-`GET /shift/status` ahora incluye `gemini_usage` y cada intento queda como evento
-`model_usage` en el JSONL del turno.
+`GET /shift/status` ahora incluye `gemini_usage`. Se mantiene fuera del JSONL oficial:
+ese archivo solo admite los tipos de evento definidos por el contrato Courier.
 
 ```json
 {
