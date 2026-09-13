@@ -38,6 +38,19 @@ export function fraseVoz(d: Decision, vehiculo: Vehiculo): string | null {
   return DURAS[d.restriccion](vehiculo)
 }
 
+/**
+ * La narración live también dice la reacción a un shock por dinero. El motor conserva
+ * su `razon` en español para auditoría, así que la voz nunca la debe leer directamente:
+ * esta variante arma una explicación breve y siempre inglesa desde datos deterministas.
+ */
+export function fraseVozEnVivo(d: Decision, vehiculo: Vehiculo): string {
+  const frase = fraseVoz(d, vehiculo)
+  if (frase) return frase
+  const pago = Math.round(d.terminos.pago_neto ?? 0)
+  const mins = Math.round(d.terminos.minutos ?? 0)
+  return `Skip. ${pago} pesos for ${mins} minutes is below the expected return.`
+}
+
 export interface Dicha {
   frase: string
   t: number

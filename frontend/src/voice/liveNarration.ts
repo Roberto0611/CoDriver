@@ -1,6 +1,6 @@
 // Qué dice Nuez en voz alta en el turno en vivo. A diferencia del replay (frases.ts), aquí
-// no se sabe de antemano qué va a pasar: no hay prefetch y se dice la `razon` tal cual,
-// en español, con la voz de ElevenLabs configurada para eso.
+// no se sabe de antemano qué va a pasar: no hay prefetch. La `razon` del motor se
+// conserva en español para auditoría, pero la voz arma una frase inglesa desde la decisión.
 //
 // Se dicen dos cosas:
 // - la reacción de Nuez a un shock, una vez por shock, aunque sea un aceptar o un salto por
@@ -19,9 +19,9 @@
 // normales se sueltan y las otras dos interrumpen; si lo que suena es una reacción, solo otra
 // reacción la corta. Solo cuenta como dicho lo que de verdad se entregó a say() (handOff).
 
-import type { Decision, Restriccion } from '../contract'
+import type { Decision, Restriccion, Vehiculo } from '../contract'
 import { tipoRestriccion } from '../lib/decision-text'
-import { SILENCIO_REPETIDA_MIN } from './frases'
+import { fraseVozEnVivo, SILENCIO_REPETIDA_MIN } from './frases'
 
 /** Regla dura: todo salto que no es por dinero. La capacidad no es seguridad, pero se dice. */
 const esDura = (r: Restriccion | null): r is Restriccion =>
@@ -67,6 +67,10 @@ export const initialNarration = (): NarrationState => ({
   constraintsSaid: [],
 })
 
+// La bitácora conserva `text` en español para que las reglas de repetición y auditoría no
+// cambien. Solo estas frases creadas por el narrador obtienen su versión inglesa para TTS.
+const textoHablado = new WeakMap<NarrationPhrase, string>()
+
 /**
  * La frase con los números cambiados por #. No se usa la restricción sola: la capacidad de la
  * moto y el límite de kg comparten `vehicle_capacity` y dicen cosas distintas.
@@ -83,7 +87,8 @@ const nivel = (p: NarrationPhrase) => (p.reaction ? 2 : p.priority ? 1 : 0)
 export function phrasesToSay(
   newDecisions: Decision[],
   lastShock: number | ShockRef | null,
-  state: NarrationState
+  state: NarrationState,
+  vehiculo: Vehiculo = 'moto'
 ): { phrases: NarrationPhrase[]; state: NarrationState } {
   const shock: ShockRef | null =
     typeof lastShock === 'number' ? { minute: lastShock, orderId: null } : lastShock
@@ -122,14 +127,16 @@ export function phrasesToSay(
       !restriccionesDelTick.has(d.restriccion)
     frasesDelTick.add(key)
     if (d.restriccion) restriccionesDelTick.add(d.restriccion)
-    candidatas.push({
+    const frase: NarrationPhrase = {
       text,
       key,
       t: d.t,
       restriccion: d.restriccion,
       priority: reaccion || nueva,
       reaction: reaccion,
-    })
+    }
+    textoHablado.set(frase, fraseVozEnVivo(d, vehiculo))
+    candidatas.push(frase)
   })
 
   // Sort estable: por nivel, empates en el orden de las decisiones.
@@ -163,7 +170,7 @@ export function handOff(
     if (esDura(r) && !constraintsSaid.includes(r)) constraintsSaid.push(r)
   }
   return {
-    say: entregadas.map((p) => p.text),
+    say: entregadas.map((p) => textoHablado.get(p) ?? p.text),
     interrupt: speaking,
     reaction: entregadas[0].reaction,
     state: { ...state, lastSaid, constraintsSaid },
