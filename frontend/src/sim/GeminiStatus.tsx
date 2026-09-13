@@ -13,6 +13,7 @@ import {
   TIMEOUT_MS,
   type GeminiView,
 } from '../lib/gemini-status'
+import { NavieCompass } from '../navie/NavieCompass'
 import '../styles/gemini.css'
 
 let vista: GeminiView = GEMINI_IDLE
@@ -72,7 +73,7 @@ function suscribir(avisar: () => void) {
   }
 }
 
-function useGemini(): GeminiView {
+export function useGemini(): GeminiView {
   return useSyncExternalStore(
     suscribir,
     () => vista,
@@ -87,10 +88,43 @@ export function GeminiBadge() {
 /** Presentación reutilizable: /live entrega su propio estado de Gemini en cada snapshot. */
 export function GeminiBadgeView({ view }: { view: GeminiView }) {
   const { state, label } = view
+  const mode = state === 'active' ? 'wink' : 'searching'
+
   return (
-    <div className={`gemini-badge is-${state}`} role="status" aria-live="polite">
+    <div
+      className={`speed-btn gemini-badge is-${state} ${state === 'active' ? 'is-active' : ''}`}
+      role="status"
+      aria-live="polite"
+      style={{
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: '8px',
+        height: '32px',
+        padding: '0 12px 0 6px',
+        cursor: 'default',
+        userSelect: 'none',
+      }}
+    >
+      <div
+        style={{
+          width: '24px',
+          height: '24px',
+          borderRadius: '50%',
+          background: 'var(--plum)',
+          position: 'relative',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          overflow: 'hidden',
+          flexShrink: 0,
+        }}
+      >
+        <div style={{ transform: 'scale(0.15)', transformOrigin: 'center center', position: 'absolute' }}>
+          <NavieCompass mode={mode} />
+        </div>
+      </div>
       <span className="gemini-badge-dot" aria-hidden="true" />
-      {label}
+      <span>{label}</span>
     </div>
   )
 }

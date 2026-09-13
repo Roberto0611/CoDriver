@@ -17,7 +17,6 @@ import { Icon } from '../ui/icons'
 import type { FuenteVoz } from '../voice/nuez'
 import { GeminiBadgeView } from './GeminiStatus'
 import { ModeSwitch } from './ModeSwitch'
-import { NavieCompass } from '../navie/NavieCompass'
 
 export type LivePhase = 'idle' | 'starting' | 'running' | 'paused' | 'finished' | 'error'
 export type LivePending = DemoShockKind | 'end' | null
@@ -76,11 +75,6 @@ export function LiveControls(p: ControlsProps) {
     <div className="timeline-panel">
       <div style={{ display: 'flex', alignItems: 'center', gap: '12px', paddingRight: '12px', borderRight: '1px solid var(--hairline)' }}>
         <GeminiBadgeView view={p.gemini} />
-        <div style={{ width: '38px', height: '38px', borderRadius: '50%', background: 'var(--plum)', position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
-          <div style={{ transform: 'scale(0.22)', transformOrigin: 'center center', position: 'absolute' }}>
-            <NavieCompass mode="idle" />
-          </div>
-        </div>
       </div>
 
       <div className="timeline-controls">

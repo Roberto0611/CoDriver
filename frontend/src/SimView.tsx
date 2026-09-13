@@ -6,7 +6,6 @@ import { useEffect, useState } from 'react'
 
 
 import { Icon } from './ui/icons'
-import { NavieCompass } from './navie/NavieCompass'
 import { cargarTurnosPorSeed, cargarIndiceTurnos, cargarPuntos } from './lib/loader'
 import { minutosAHora, contadoresEnT } from './lib/sim'
 import type { TurnoData, TurnoIndex } from './lib/turno'
@@ -19,11 +18,13 @@ import { DecisionHistory } from './sim/DecisionHistory'
 import { ModeSwitch } from './sim/ModeSwitch'
 import { useSimMap } from './sim/useSimMap'
 import { VozToggle } from './voice/VozToggle'
+import { useGemini, GeminiBadgeView } from './sim/GeminiStatus'
 
 const SPEEDS = [1, 2, 4] as const
 const MS_PER_STEP_BASE = 500 // 1 min simulado cada 0.5s a velocidad ×1
 
 export default function SimView() {
+  const gemini = useGemini()
   const [loading, setLoading] = useState(true)
   const [indice, setIndice] = useState<TurnoIndex | null>(null)
   const [seed, setSeed] = useState<number | null>(null)
@@ -129,11 +130,7 @@ export default function SimView() {
       {/* Timeline */}
       <div className="timeline-panel">
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px', paddingRight: '12px', borderRight: '1px solid var(--hairline)' }}>
-          <div style={{ width: '38px', height: '38px', borderRadius: '50%', background: 'var(--plum)', position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
-            <div style={{ transform: 'scale(0.22)', transformOrigin: 'center center', position: 'absolute' }}>
-              <NavieCompass mode="idle" />
-            </div>
-          </div>
+          <GeminiBadgeView view={gemini} />
         </div>
 
         <div className="timeline-controls">
