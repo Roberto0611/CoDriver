@@ -68,6 +68,8 @@ export function initLiveState(snap: LiveSnapshot, extra: LiveConfigExtra = {}): 
       vehiculo: extra.vehiculo ?? 'moto',
       seed: snap.seed,
       hora_inicio: snap.start_hour,
+      // /live/start no lo expone: el turno en vivo usa el default del motor y regresa al ancla.
+      regresar_al_ancla: true,
     }
     return {
       meta: metaEnVivo(politica, snap, 0),
