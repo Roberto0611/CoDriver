@@ -1,4 +1,4 @@
-"""El demo en vivo: Greedy y Nuez en el mismo turno, minuto a minuto.
+"""El demo en vivo: Nuez, Greedy y tres baselines en el mismo turno, minuto a minuto.
 
     s = LiveDemoSession("live-2005-ab12", cfg, Path("logs/live-2005-ab12.jsonl"))
     s.tick()                                   # corre un minuto, devuelve el snapshot
@@ -44,7 +44,9 @@ El snapshot (lo espeja `frontend/src/lib/live.ts`, los nombres son contrato):
 `frames`, `new_legs`, `geometry` y `offers_this_tick` son deltas: solo `tick()` los
 llena. `snapshot()`, `shock()` y `end()` los mandan vacios. `geometry` trae nada mas
 las claves que ese agente no ha mandado, asi cada lado del front puede guardar su
-propio mapa de geometria como en el replay grabado.
+propio mapa de geometria como en el replay grabado. Los tres baselines adicionales
+van compactos bajo `benchmarks`: cuentan en la carrera, pero no agregan tres rutas
+ilegibles al mapa ni contaminan la bitacora oficial de Nuez contra Greedy.
 
 El JSONL (uno por sesion, para los dos agentes) usa los eventos y nombres del
 protocolo Courier y pasa `courier/validate_format (2).py` tal cual:
@@ -78,6 +80,7 @@ from backendruta.event_log import EventLog
 from backendruta.live_geometry import Geometria, linea_recta
 from backendruta.live_nuez import NuezEnVivo, contexto_modelo
 from backendruta.strategy import CapaEstrategia
+from baselines import politica_accept_all, politica_highest_pay, politica_nearest_first
 from contrato import ConfigTurno, Decision, Oferta
 from reloj import Turno
 from sim import generar_ofertas, indice_de, politica_greedy
@@ -90,7 +93,12 @@ DEMO_DELAY = {"slip_min": 15}
 # aceptarlo a saltarlo por shift_end_infeasible. Sin el cierre no cambia: el ensayo es con los dos.
 MINUTO_DELAY_ENSAYADO = 56
 
+# Los dos que el juez ve con ruta, decisiones y JSONL. Preservar este log de dos
+# agentes hace que el demo siga siendo exactamente la comparación pedida por el spec.
 AGENTES = ("greedy", "nuez")
+# Corren el mismo mundo, pero solo alimentan el marcador compacto del front.
+BENCHMARKS = ("accept_all", "highest_pay", "nearest_first")
+TODOS_LOS_AGENTES = (*AGENTES, *BENCHMARKS)
 Tramo = tuple[float, float, int, int]  # (salida, llegada, desde, hasta), como Resultado.tramos
 TIPOS = {"closure", "surge", "rain", "delay"}
 CON_ZONA = {"closure", "surge"}
@@ -147,6 +155,9 @@ class LiveDemoSession:
         self.turnos = {
             "greedy": Turno(cfg, politica_greedy, ofertas=self.ofertas),
             "nuez": Turno(cfg, self.nuez, ofertas=self.ofertas),
+            "accept_all": Turno(cfg, politica_accept_all, ofertas=self.ofertas),
+            "highest_pay": Turno(cfg, politica_highest_pay, ofertas=self.ofertas),
+            "nearest_first": Turno(cfg, politica_nearest_first, ofertas=self.ofertas),
         }
         self.estrategia.contexto = partial(contexto_modelo, self.turnos["nuez"])
         # Hasta donde ya se reporto cada lista del Resultado. Los Turnos solo crecen
@@ -308,6 +319,12 @@ class LiveDemoSession:
             self.log.append(live_log.order_offered(o, self.cfg, self.ancla, factor))
 
         for a, turno in self.turnos.items():
+            # Los tres benchmarks se corren de verdad contra las mismas ofertas y shocks,
+            # pero no se registran como si fueran parte del duelo auditado Nuez/Greedy.
+            # Eso tambien deja el JSONL oficial pequeño y fácil de explicar.
+            if a not in AGENTES:
+                turno.paso()
+                continue
             res, cur = turno.res, self._cursor[a]
             # Todo el paso() y no solo la politica: es una cota superior honesta de lo
             # que tardo cada decision de este minuto, y no obliga a meter reloj al motor.
@@ -363,6 +380,8 @@ class LiveDemoSession:
         self.estrategia.detener()
         for a, turno in self.turnos.items():
             res = turno.cerrar()
+            if a not in AGENTES:
+                continue
             # El mismo `meta` que graba data/export_turno.py: el front lo pinta igual.
             self._resultado[a] = {
                 "politica": a,
@@ -443,6 +462,7 @@ class LiveDemoSession:
             "active_shocks": [self._shock(s) for s in vigentes],
             "offers_this_tick": ofertas,
             **{a: self._agente(a, frames[a], *pendientes[a]) for a in AGENTES},
+            "benchmarks": {a: self._benchmark(a) for a in BENCHMARKS},
         }
 
     def _tramos_nuevos(self, a: str) -> tuple[list[Tramo], dict[str, Any]]:
@@ -481,4 +501,18 @@ class LiveDemoSession:
             ],
             "geometry": geometria,
             "result": self._resultado[a],
+        }
+
+    def _benchmark(self, a: str) -> dict[str, Any]:
+        """El estado mínimo de un rival adicional para el marcador del demo.
+
+        No se mandan frames/rutas: el objetivo es hacer visible que Nuez supera a
+        varias heurísticas, no pedirle al espectador seguir cinco motos a la vez.
+        """
+        res = self.turnos[a].res
+        return {
+            "earnings_mxn": round(res.ganado, 2),
+            "deliveries": res.entregas,
+            "skipped": res.rechazos,
+            "cancelled": res.cancelados,
         }

@@ -336,6 +336,98 @@
   user-select: all;
 }
 
+/* ─── Carrera de benchmarks ─── */
+.live-benchmark-race {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--surface-high);
+}
+
+.live-benchmark-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.live-benchmark-head .caps {
+  color: var(--ink-2);
+}
+
+.live-benchmark-head p,
+.live-benchmark-note {
+  margin: 3px 0 0;
+  color: var(--ink-3);
+  font-size: 11px;
+  line-height: 15px;
+}
+
+.live-benchmark-live {
+  flex: 0 0 auto;
+  padding: 2px 5px;
+  border-radius: var(--r-sm);
+  background: var(--emerald-tint);
+  color: var(--emerald-ink);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+}
+
+.live-benchmark-rows {
+  overflow: hidden;
+  border: 1px solid var(--hairline);
+  border-radius: var(--r-sm);
+}
+
+.live-benchmark-row {
+  display: grid;
+  grid-template-columns: minmax(82px, 1fr) auto auto;
+  align-items: center;
+  gap: 8px;
+  min-height: 29px;
+  padding: 0 8px;
+  color: var(--ink-2);
+  font-size: 12px;
+}
+
+.live-benchmark-row + .live-benchmark-row {
+  border-top: 1px solid var(--surface-high);
+}
+
+.live-benchmark-row.is-nuez {
+  background: var(--plum-tint);
+  color: var(--plum);
+  font-weight: 700;
+}
+
+.live-benchmark-row.is-greedy {
+  color: var(--amber-ink);
+}
+
+.live-benchmark-row.is-oracle {
+  border-top-style: dashed;
+  color: var(--emerald-ink);
+}
+
+.live-benchmark-detail {
+  color: var(--ink-3);
+  font-size: 10px;
+  white-space: nowrap;
+}
+
+.live-benchmark-row.is-nuez .live-benchmark-detail {
+  color: var(--plum);
+  opacity: 0.7;
+}
+
+.live-benchmark-value {
+  min-width: 36px;
+  text-align: right;
+}
+
 /* ─── Banner del shock ─── */
 .shock-banner {
   display: flex;

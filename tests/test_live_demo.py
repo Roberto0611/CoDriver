@@ -15,6 +15,7 @@ import valor
 from backendruta import zonas
 from backendruta.live_demo import AGENTES, SEED_ENSAYADO, LiveDemoSession, SesionTerminada
 from backendruta.live_geometry import linea_recta, por_calles
+from baselines import politica_accept_all, politica_highest_pay, politica_nearest_first
 from contrato import ConfigTurno, Punto
 from nuez import politica_nuez
 from sim import indice_de, politica_greedy, simular
@@ -91,6 +92,21 @@ def test_sin_shocks_el_final_es_el_de_simular(tmp_path):
     assert fin["greedy"]["earnings_mxn"] == simular(cfg(), politica_greedy).ganado
     nuez = partial(politica_nuez, tabla=valor.para_turno(120))
     assert fin["nuez"]["earnings_mxn"] == simular(cfg(), nuez).ganado
+
+
+def test_los_tres_benchmarks_corren_el_mismo_turno_sin_meter_tres_rutas_al_mapa(tmp_path):
+    s = sesion(tmp_path)
+    fin = s.end()
+    esperados = {
+        "accept_all": politica_accept_all,
+        "highest_pay": politica_highest_pay,
+        "nearest_first": politica_nearest_first,
+    }
+    for nombre, politica in esperados.items():
+        assert fin["benchmarks"][nombre]["earnings_mxn"] == simular(cfg(), politica).ganado
+    # La evidencia oficial sigue siendo el duelo detallado: solo esas dos rutas viajan al front.
+    assert set(fin["benchmarks"]) == set(esperados)
+    assert {e["agent"] for e in eventos_de(s) if e["event"] == "decision"} == {"greedy", "nuez"}
 
 
 def test_mismo_seed_mismo_shock_mismas_decisiones(tmp_path):

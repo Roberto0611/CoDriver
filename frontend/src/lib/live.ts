@@ -9,6 +9,7 @@ import { esContrafactual, type Contrafactual } from './contrafactual'
 import type { Frame, Tramo, TurnoMeta } from './turno'
 
 export type AgentKey = 'greedy' | 'nuez'
+export type BenchmarkKey = 'accept_all' | 'highest_pay' | 'nearest_first'
 
 export interface LiveShock {
   type: 'closure' | 'surge' | 'rain' | 'delay'
@@ -53,6 +54,14 @@ export interface LiveAgent {
   result: TurnoMeta | null
 }
 
+/** Un rival online que corre el mismo turno, sin mandar su ruta al mapa. */
+export interface LiveBenchmark {
+  earnings_mxn: number
+  deliveries: number
+  skipped: number
+  cancelled: number
+}
+
 export interface LiveOffer {
   order_id: string
   minute: number
@@ -84,6 +93,8 @@ export interface LiveSnapshot {
   offers_this_tick: LiveOffer[]
   greedy: LiveAgent
   nuez: LiveAgent
+  /** Los tres rivales simples: mismo stream y shocks, marcador sin rutas extra. */
+  benchmarks: Record<BenchmarkKey, LiveBenchmark>
   /** Ruta del JSONL; solo la trae /live/end. */
   event_log?: string
 }

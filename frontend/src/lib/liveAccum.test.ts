@@ -58,6 +58,14 @@ function agent(overrides: Partial<LiveAgent> = {}): LiveAgent {
   }
 }
 
+function benchmarks() {
+  return {
+    accept_all: { earnings_mxn: 0, deliveries: 0, skipped: 0, cancelled: 0 },
+    highest_pay: { earnings_mxn: 0, deliveries: 0, skipped: 0, cancelled: 0 },
+    nearest_first: { earnings_mxn: 0, deliveries: 0, skipped: 0, cancelled: 0 },
+  }
+}
+
 const CIERRE: LiveShock = {
   type: 'closure',
   zone: 0,
@@ -77,7 +85,7 @@ function snap(
     nuez?: Partial<LiveAgent>
   } = {}
 ): LiveSnapshot {
-  const { greedy, nuez, ...rest } = overrides
+  const { greedy, nuez, benchmarks: marcador = benchmarks(), ...rest } = overrides
   return {
     session_id: 'live-2005-ab12',
     minute,
@@ -95,6 +103,7 @@ function snap(
     offers_this_tick: [],
     greedy: agent(greedy),
     nuez: agent(nuez),
+    benchmarks: marcador,
     ...rest,
   }
 }

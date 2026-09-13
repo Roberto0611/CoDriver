@@ -34,6 +34,7 @@ import { DecisionToasts } from './sim/DecisionToasts'
 import { LiveControls, LiveStartForm, type LivePending, type LivePhase } from './sim/LiveControls'
 import { GeminiNoteView } from './sim/GeminiStatus'
 import { LiveCounterfactual } from './sim/LiveCounterfactual'
+import { LiveBenchmarkRace } from './sim/LiveBenchmarkRace'
 import { ShockBanner } from './sim/ShockBanner'
 import { useLiveCatalog } from './sim/useLiveCatalog'
 import { useLiveEndScroll } from './sim/useLiveEndScroll'
@@ -400,6 +401,7 @@ export default function LiveSimView() {
               terminado={terminado}
               config={live.nuez.config}
             />
+            <LiveBenchmarkRace snapshot={snap} />
             {terminado && (
               <LiveCounterfactual
                 state={live.counterfactual}
