@@ -12,7 +12,9 @@
   gap: 12px;
   width: 320px;
   max-width: calc(100vw - 40px);
-  max-height: calc(100vh - 80px);
+  /* 192px = 2x (20 top/bottom + 56 alto de la píldora de tiempo + 20 de aire),
+     así el panel centrado nunca crece hasta meterse debajo de la navbar. */
+  max-height: calc(100vh - 192px);
   overflow-y: auto;
   pointer-events: none;
 }

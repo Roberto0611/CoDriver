@@ -8,16 +8,12 @@
   --closure-red: #ef4444;
 }
 
-/* El panel se queda centrado a la izquierda como en /sim, pero nunca más alto que
-   el espacio libre bajo la píldora (top 20 + 56 de alto + 20 de aire = 96px arriba,
-   y lo mismo abajo para que siga centrado). /sim no lo necesita porque su panel es
-   corto; aquí el banner + contadores + decisiones pasan de la pantalla y se meterían
-   debajo de la píldora. Lo que sobra hace scroll dentro del panel.
-   El panel base deja pasar el mouse al mapa (pointer-events: none), y así su barra de
-   scroll no se puede arrastrar y la rueda sobre los huecos entre tarjetas hace zoom al
-   mapa. Aquí el panel sí recibe el mouse; fuera de sus 320px el mapa se arrastra igual. */
+/* El max-height que reserva espacio para la píldora ya es la base en panel.css.
+   Aquí solo hace falta que el panel reciba el mouse (en /sim lo bloquea a propósito
+   para que la rueda sobre los huecos entre tarjetas haga zoom al mapa; en /live el
+   banner + contadores + decisiones sí necesitan scroll dentro del panel). Fuera de
+   sus 320px el mapa se sigue arrastrando igual. */
 .live-page .overlay-panel {
-  max-height: calc(100vh - 192px);
   pointer-events: auto;
 }
 
