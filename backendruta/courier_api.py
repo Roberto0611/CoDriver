@@ -15,10 +15,9 @@ from typing import Any
 
 from fastapi import APIRouter, HTTPException
 
-import rutas
 import shocks
 import valor
-from backendruta import courier_format, en_vuelo, explain, strategy, zonas
+from backendruta import courier_clock, courier_format, en_vuelo, explain, strategy, zonas
 from backendruta import database as db
 from backendruta.courier_models import (
     MAX_TURNO_MIN,
@@ -31,7 +30,6 @@ from backendruta.courier_models import (
 )
 from backendruta.event_log import EventLog
 from backendruta.strategy import CapaEstrategia
-from backendruta.zonas import ID_POR_NOMBRE
 from backendruta.zonas import NOMBRES as ZONE_NAMES
 from contrato import ConfigTurno, EstadoRepartidor, Oferta
 from estrategia import Estrategia
@@ -165,7 +163,7 @@ class CourierService:
                 request=request,
                 response=response,
                 terms=decision.terminos,
-                position_zone=self._current_zone_id(),
+                position_zone=courier_clock.zone_id(self.state),
                 time_remaining_min=courier.t_restante,
                 continuous_riding_min=courier.minutos_manejando,
                 in_flight_orders=sorted(self.state.accepted),
@@ -185,7 +183,7 @@ class CourierService:
                 self.state.route = new_route
                 self.state.accepted[request.order_id] = request
                 if was_idle and new_route:
-                    self._schedule_arrival(self.state.current_minute)
+                    courier_clock.schedule_arrival(self.state, self.state.current_minute)
             self.state.responses[request.order_id] = (fingerprint, response)
             return response
 
@@ -199,7 +197,7 @@ class CourierService:
                 raise HTTPException(
                     status_code=422, detail="el cierre no puede retroceder el reloj"
                 )
-            self._advance(elapsed)
+            courier_clock.advance(self.state, self.log, elapsed)
             state = self.state
             event = courier_format.shift_end_event(
                 when, state.offered, state.completed, state.earnings_mxn
@@ -267,7 +265,7 @@ class CourierService:
             elapsed = math.floor((request.sim_time - self.state.start_time).total_seconds() / 60)
         if elapsed < self.state.current_minute:
             raise ValueError("sim_time retrocede dentro del turno; reinicia para hacer replay")
-        self._advance(elapsed)
+        courier_clock.advance(self.state, self.log, elapsed)
         self.state.in_flight_remaining_min = None
 
         if overrides is None:
@@ -294,45 +292,12 @@ class CourierService:
             self._replace_in_flight(overrides.in_flight_orders)
         self.estrategia.notificar_minuto_simulado(self.state.current_minute)
 
-    def _advance(self, target_minute: int) -> None:
-        assert self.state is not None
-        state = self.state
-        while state.current_minute < target_minute:
-            if not state.route:
-                idle = target_minute - state.current_minute
-                state.idle_min += idle
-                if state.idle_min >= 20:
-                    state.continuous_riding_min = 0
-                state.current_minute = target_minute
-                break
-            arrival = math.ceil(state.arrival_minute or state.current_minute)
-            stop = min(target_minute, arrival)
-            busy = max(0, stop - state.current_minute)
-            state.continuous_riding_min += busy
-            state.idle_min = 0
-            state.current_minute = stop
-            if stop < arrival:
-                break
-            destination = state.route.pop(0)
-            state.position = destination.punto
-            if destination.tipo == "dropoff" and destination.oferta_id:
-                order = state.accepted.pop(destination.oferta_id, None)
-                if order:
-                    state.completed += 1
-                    state.earnings_mxn += courier_format.net_pay(order)
-                    self._log_earnings(state.current_minute)
-            self._log_position(state.current_minute)
-            if state.route:
-                self._schedule_arrival(state.current_minute)
-            else:
-                state.arrival_minute = None
-
     def _replace_in_flight(self, orders: list[dict[str, Any]]) -> None:
         assert self.state is not None
         route, ids, declarado = en_vuelo.traducir(
             orders,
             resolver=self._resolve_zone,
-            zona_actual=self._current_zone_id(),
+            zona_actual=courier_clock.zone_id(self.state),
             minuto=self.state.current_minute,
         )
         accepted: dict[str, DecideRequest | None] = {order_id: None for order_id in ids}
@@ -342,7 +307,7 @@ class CourierService:
         if declarado is not None:
             self.state.in_flight_remaining_min = declarado
         if route:
-            self._schedule_arrival(self.state.current_minute)
+            courier_clock.schedule_arrival(self.state, self.state.current_minute)
 
     def _to_internal(self, request: DecideRequest) -> tuple[Oferta, EstadoRepartidor]:
         assert self.state is not None
@@ -377,34 +342,6 @@ class CourierService:
             minutos_manejando=self.state.continuous_riding_min,
         )
         return offer, courier
-
-    def _log_position(self, minute: int) -> None:
-        assert self.state is not None
-        self.log.append(
-            courier_format.position_event(
-                self.state.start_time, minute, self._current_zone_id(), self.state.route
-            )
-        )
-
-    def _log_earnings(self, minute: int) -> None:
-        assert self.state is not None
-        state = self.state
-        self.log.append(
-            courier_format.earnings_event(
-                state.start_time, minute, state.earnings_mxn, state.completed
-            )
-        )
-
-    def _schedule_arrival(self, minute: int) -> None:
-        assert self.state is not None and self.state.route
-        destination = self.state.route[0]
-        hour = self.state.config.hora_inicio + minute // 60
-        arrival = minute + rutas.minutos(
-            self.state.position, destination.punto, hour, self.state.config.vehiculo
-        )
-        if destination.tipo == "pickup":
-            arrival = max(arrival, destination.listo_en)
-        self.state.arrival_minute = arrival
 
     def _activos(self) -> shocks.Activos:
         """La foto de las disrupciones vigentes en el minuto actual del turno."""
@@ -444,10 +381,6 @@ class CourierService:
         evento = strategy.evento_actualizacion(self.state, propuesta, degraded)
         if evento is not None:
             self.log.append(evento)
-
-    def _current_zone_id(self) -> int:
-        assert self.state is not None
-        return ID_POR_NOMBRE[rutas.ZONA_DE[self.state.position]]
 
     def _resolve_zone(self, zone_id: int, zone_name: str | None = None) -> int:
         """Resuelve IDs propios y catálogos externos etiquetados por nombre."""
