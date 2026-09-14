@@ -137,6 +137,35 @@ The voice button (Navie) includes a modern dropdown menu for languages. By choos
 |-----|--------|--------------|----------|
 | **Full Stack Developer** | Roberto Ochoa Cuevas | Engine Architecture, Simulation Logic, Dispatch Rules (Python), UI/UX Design | [LinkedIn](https://www.linkedin.com/in/roberto-ochoa-cuevas-9082a129b) |
 | **Full Stack Developer** | Aldo Karim Garcia Zapata | ElevenLabs Integration, React/Vite Frontend, MapLibre Geospatial Rendering, AI Agent, UI/UX Design | [LinkedIn](https://www.linkedin.com/in/aldo-karim-2178072b7) |
+| **Full Stack Developer** | Juan Pablo Fernandez | Live Dispatch (`/live`), Minute-by-Minute Engine Clock, Shocks & Counterfactual, Voice & Decision Explanations, Gemini Status, CI & Quality Gates, Results Integrity | [GitHub](https://github.com/Johnphr) |
+
+**Juan Pablo Fernandez: what he built**
+
+- **Live Dispatch (`/live`):**
+  - Greedy and Navie run side by side on the same fresh offer stream.
+  - Backend: live session, `/live` API and router hardening.
+  - Frontend: the page, snapshot accumulator and shock banner.
+  - Shift lengths: 2 h, 8 h and 8.5 h.
+- **Engine clock:** `reloj.Turno` steps a shift one minute at a time. Recorded and live runs share it with identical results.
+- **Mid-shift disruptions:** road closure, surge and restaurant delay, applied to both agents at the same minute. Map highlights clean up in any order.
+- **Live counterfactual:** at the end of a live shift, it re-simulates that exact shift (seed, shocks, strategy) once for each order Navie skipped for money.
+- **Official event log for live runs:** the live JSONL uses the Courier schema and passes `validate_format`.
+- **Voice and explanations:**
+  - ElevenLabs TTS/STT routes (`/api/voice`).
+  - Live narration of safety blocks and shock reactions, with repeats suppressed.
+  - Decision explanations and decision toasts.
+- **Gemini status and end-of-shift counterfactual on `/sim`:** strategy-thread lifecycle fixes and TigerData schema init fixes.
+- **CI and quality gates:**
+  - GitHub Actions with one job per check (ruff, mypy, pytest, Vitest, prettier, 500-line limit, contract codegen).
+  - Engine golden and ratchet tests.
+  - Pinned dependencies.
+  - The frontend split and UI restyle.
+- **Results integrity:**
+  - Named tuning and reporting seed sets.
+  - Honest Oracle wording.
+  - Back-by time computed from the shift config.
+  - README "Results" and "What we cut" sections.
+- **Integration:** rebased the 8.5 h shift / probe-pack requirements onto the live demo engine.
 
 ---
 
