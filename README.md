@@ -137,9 +137,10 @@ The voice button (Navie) includes a modern dropdown menu for languages. By choos
 |-----|--------|--------------|----------|
 | **Full Stack Developer** | Roberto Ochoa Cuevas | Engine Architecture, Simulation Logic, Dispatch Rules (Python), UI/UX Design | [LinkedIn](https://www.linkedin.com/in/roberto-ochoa-cuevas-9082a129b) |
 | **Full Stack Developer** | Aldo Karim Garcia Zapata | ElevenLabs Integration, React/Vite Frontend, MapLibre Geospatial Rendering, AI Agent, UI/UX Design | [LinkedIn](https://www.linkedin.com/in/aldo-karim-2178072b7) |
-| **Full Stack Developer** | Juan Pablo Fernandez | Live Dispatch (`/live`), Minute-by-Minute Engine Clock, Shocks & Counterfactual, Voice & Decision Explanations, Gemini Status, CI & Quality Gates, Results Integrity | [GitHub](https://github.com/Johnphr) |
+| **Full Stack Developer** | Juan Pablo Fernandez | Live Dispatch (`/live`), Minute-by-Minute Engine Clock, Shocks & Counterfactual, Voice & Decision Explanations, Gemini Status, CI & Quality Gates, Results Integrity | [LinkedIn](https://www.linkedin.com/in/jpfdzc/) |
+| **Frontend Developer** | Eli Celaya Montalvo | Navie Character & Playground, Landing Page, Live Events Menu, Decision Notifications, UI Updates | [GitHub](https://github.com/eli-cm) |
 
-**Juan Pablo Fernandez: what he built**
+**Contributions: Juan Pablo Fernandez**
 
 - **Live Dispatch (`/live`):**
   - Greedy and Navie run side by side on the same fresh offer stream.
@@ -166,6 +167,14 @@ The voice button (Navie) includes a modern dropdown menu for languages. By choos
   - Back-by time computed from the shift config.
   - README "Results" and "What we cut" sections.
 - **Integration:** rebased the 8.5 h shift / probe-pack requirements onto the live demo engine.
+
+**Contributions: Eli Celaya Montalvo**
+
+- **Navie character:** the animated compass mascot (body, eyes and needle assets, happy and error states) and the Navie playground.
+- **Landing page:** the landing page and its pixel-canvas background.
+- **Live Events menu:** the Events dropdown on `/live` for triggering road closure, surge and restaurant delay.
+- **Decision notifications:** restyled the accepted/blocked decision toasts.
+- **UI updates:** panel, live and toast styling, and design tokens.
 
 ---
 
