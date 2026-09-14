@@ -137,10 +137,10 @@ The voice button (Navie) includes a modern dropdown menu for languages. By choos
 |-----|--------|--------------|----------|
 | **Full Stack Developer** | Roberto Ochoa Cuevas | Engine Architecture, Simulation Logic, Dispatch Rules (Python), UI/UX Design | [LinkedIn](https://www.linkedin.com/in/roberto-ochoa-cuevas-9082a129b) |
 | **Full Stack Developer** | Aldo Karim Garcia Zapata | ElevenLabs Integration, React/Vite Frontend, MapLibre Geospatial Rendering, AI Agent, UI/UX Design | [LinkedIn](https://www.linkedin.com/in/aldo-karim-2178072b7) |
-| **Full Stack Developer** | Juan Pablo Fernandez | Live Dispatch (`/live`), Minute-by-Minute Engine Clock, Shocks & Counterfactual, Voice & Decision Explanations, Gemini Status, CI & Quality Gates, Results Integrity | [LinkedIn](https://www.linkedin.com/in/jpfdzc/) |
+| **Full Stack Developer** | Juan Pablo Fernández Chau | Live Dispatch (`/live`), Minute-by-Minute Engine Clock, Shocks & Counterfactual, Voice & Decision Explanations, Gemini Status, CI & Quality Gates, Results Integrity | [LinkedIn](https://www.linkedin.com/in/jpfdzc/) |
 | **Frontend Developer** | Eli Celaya Montalvo | Navie Character & Playground, Landing Page, Live Events Menu, Decision Notifications, UI Updates | [GitHub](https://github.com/eli-cm) |
 
-**Contributions: Juan Pablo Fernandez**
+**Contributions: Juan Pablo Fernández Chau**
 
 - **Live Dispatch (`/live`):**
   - Greedy and Navie run side by side on the same fresh offer stream.
